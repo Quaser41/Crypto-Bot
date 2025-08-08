@@ -1,0 +1,101 @@
+# feature_engineer.py
+import talib
+import numpy as np
+import pandas as pd
+from ta.momentum import RSIIndicator
+from ta.trend import MACD, SMAIndicator
+
+def add_indicators(df):
+    if df.empty or "Close" not in df.columns:
+        print("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
+        return pd.DataFrame()
+
+    df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
+
+    if len(df) < 50:
+        print(f"⚠️ Not enough candles to compute full indicators: {len(df)} rows")
+        return pd.DataFrame()
+
+    # RSI
+    rsi = RSIIndicator(df["Close"], window=14)
+    df["RSI"] = rsi.rsi()
+
+    # MACD and signal line
+    macd_ind = MACD(df["Close"])
+    df["MACD"] = macd_ind.macd()
+    df["Signal"] = macd_ind.macd_signal()
+    df["Hist"] = macd_ind.macd_diff()
+
+    # SMA 20 and 50
+    sma_20 = SMAIndicator(df["Close"], window=20)
+    sma_50 = SMAIndicator(df["Close"], window=50)
+    df["SMA_20"] = sma_20.sma_indicator()
+    df["SMA_50"] = sma_50.sma_indicator()
+
+    # Daily and short-term returns
+    df["Return_1d"] = df["Close"].pct_change()
+    df["Return_2d"] = df["Close"].pct_change(periods=2)
+    df["Return_3d"] = df["Close"].pct_change(periods=3)
+    df["Return_5d"] = df["Close"].pct_change(periods=5)
+    df["Return_7d"] = df["Close"].pct_change(periods=7)
+
+    # Short- and mid-term volatility
+    df["Volatility_3d"] = df["Close"].rolling(window=3, min_periods=3).std()
+    df["Volatility_7d"] = df["Close"].rolling(window=7, min_periods=7).std()
+
+    # Price deltas
+    df["Price_Change_3d"] = df["Close"] - df["Close"].shift(3)
+
+    # Relative position vs SMAs
+    df["Price_vs_SMA20"] = (df["Close"] - df["SMA_20"]) / df["SMA_20"]
+    df["Price_vs_SMA50"] = (df["Close"] - df["SMA_50"]) / df["SMA_50"]
+
+    # Normalized MACD histogram
+    df["MACD_Hist_norm"] = df["Hist"] / df["Close"]
+
+    # Add momentum score
+    df["Momentum_Score"] = df.apply(compute_momentum_score, axis=1)
+    df["Momentum_Tier"] = df["Momentum_Score"].apply(classify_momentum_tier)
+
+    df = df.dropna()
+    print(f"✅ Indicators added: {df.shape[0]} rows remaining after dropna")
+    return df
+
+def momentum_signal(df):
+    closes = df["Close"].tail(7).values
+    if len(closes) < 7:
+        return "HOLD"
+
+    short_term_pct = (closes[-1] - closes[-3]) / closes[-3] * 100
+    weekly_pct = (closes[-1] - closes[0]) / closes[0] * 100
+
+    if short_term_pct > 2.5 and weekly_pct > 5:
+        return "BUY"
+    elif short_term_pct < -2.5 and weekly_pct < -5:
+        return "SELL"
+    else:
+        return "HOLD"
+
+def compute_momentum_score(row):
+    score = 0
+    if row.get("Return_3d", 0) > 0.03:
+        score += 1
+    if row.get("RSI", 0) > 55:
+        score += 1
+    if row.get("MACD", 0) > row.get("Signal", 0):
+        score += 1
+    if row.get("Price_vs_SMA20", 0) > 0.01:
+        score += 1
+    if row.get("MACD_Hist_norm", 0) > 0:
+        score += 1
+    return score
+
+def classify_momentum_tier(score):
+    if score >= 4:
+        return "Tier 1"
+    elif score == 3:
+        return "Tier 2"
+    elif score == 2:
+        return "Tier 3"
+    else:
+        return "Tier 4"
