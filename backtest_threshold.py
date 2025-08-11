@@ -2,14 +2,14 @@ import pandas as pd
 import numpy as np
 from feature_engineer import add_indicators
 from model_predictor import predict_signal
-from data_fetcher import fetch_ohlcv
+from data_fetcher import fetch_ohlcv_smart
 
 def backtest_thresholds(coin_id, thresholds=None):
     if thresholds is None:
         thresholds = np.arange(0.5, 0.75, 0.05)  # test 0.50 to 0.70
 
     # Fetch OHLCV and add indicators
-    df = fetch_ohlcv(coin_id)
+    df = fetch_ohlcv_smart(coin_id)
     df = add_indicators(df)
     df = df.reset_index(drop=True)
     print(f"Backtesting on {len(df)} rows")
@@ -27,7 +27,7 @@ def backtest_thresholds(coin_id, thresholds=None):
             window_df = df.iloc[:i+1].copy()
 
             # Get ML signal and confidence for the current row
-            signal, conf = predict_signal(window_df)
+            signal, conf, _ = predict_signal(window_df)
 
             if signal is None or conf is None:
                 continue
