@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBClassifier
-import joblib
+import json
 import numpy as np
 
 # === Label encoding function (tight, short-term focused) ===
@@ -145,8 +145,10 @@ def main():
     y_all = pd.concat(y_list)
 
     model = train_model(X_all, y_all)
-    joblib.dump((model, X_all.columns.tolist()), "ml_model.pkl")
-    print("💾 Saved multi-class model as 'ml_model.pkl'")
+    model.save_model("ml_model.json")
+    with open("features.json", "w") as f:
+        json.dump(X_all.columns.tolist(), f)
+    print("💾 Saved multi-class model and feature list")
 
 if __name__ == "__main__":
     main()
