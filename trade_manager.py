@@ -4,7 +4,11 @@ import time
 import numpy as np
 
 from data_fetcher import fetch_live_price
+
 from config import ATR_MULT_SL, ATR_MULT_TP
+
+from config import RISK_PER_TRADE, MIN_TRADE_USD
+
 
 def convert_numpy_types(obj):
     if isinstance(obj, dict):
@@ -34,7 +38,6 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
-
         self.positions = {}
         self.trade_history = []
         self.total_fees = 0.0
@@ -45,14 +48,28 @@ class TradeManager:
     def fmt_price(self, p):
         return f"{p:.6f}" if p < 1 else f"{p:.2f}"
 
+    def calculate_allocation(self, confidence=1.0):
+        """Determine trade size based on current balance and risk settings.
+
+        Allocation is derived from a fixed fraction of equity (``risk_per_trade``)
+        and optionally scaled by the model's confidence score to favor
+        higher-conviction entries.
+        """
+        base = self.balance * self.risk_per_trade
+        if confidence is not None:
+            base *= confidence
+        return base
+
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
         if self.has_position(symbol):
             print(f"⚠️ Already have position in {symbol}")
             return
 
-        allocation = self.balance * self.max_allocation
-        if allocation < 10:
-            print(f"💸 Not enough balance to open new trade for {symbol}")
+        allocation = self.calculate_allocation(confidence)
+        if allocation < self.min_trade_usd:
+            print(
+                f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping"
+            )
             return
 
         entry_fee = allocation * self.trade_fee_pct
@@ -356,6 +373,61 @@ class TradeManager:
         for label, pnl_list in label_stats.items():
             avg = sum(pnl_list) / len(pnl_list)
             print(f"🔢 Label {label}: {len(pnl_list)} trades")
+
+        # 📈 Group performance by symbol & duration bucket
+        group_stats = defaultdict(lambda: {"pnl": 0, "wins": 0, "count": 0, "fees": 0})
+
+        def bucket(seconds):
+            if seconds < 60:
+                return "<1m"
+            elif seconds < 5 * 60:
+                return "1-5m"
+            elif seconds < 30 * 60:
+                return "5-30m"
+            elif seconds < 2 * 3600:
+                return "30m-2h"
+            else:
+                return ">2h"
+
+        for t in self.trade_history:
+            symbol = t.get("symbol", "?")
+            dur = t.get("duration", 0)
+            b = bucket(dur)
+            pnl = t.get("pnl", 0)
+            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+            g = group_stats[(symbol, b)]
+            g["pnl"] += pnl
+            g["fees"] += fees
+            g["count"] += 1
+            if pnl > 0:
+                g["wins"] += 1
+
+        rows = []
+        if group_stats:
+            print("\n📊 Performance by Symbol & Duration:")
+            for (sym, b), s in group_stats.items():
+                win_rate = s["wins"] / s["count"] * 100 if s["count"] else 0
+                avg_pnl = s["pnl"] / s["count"] if s["count"] else 0
+                fee_ratio = s["fees"] / abs(s["pnl"]) if s["pnl"] else 0
+                print(f" - {sym} [{b}]: {s['count']} trades | Win {win_rate:.1f}% | Avg PnL ${avg_pnl:.2f} | Fee/PnL {fee_ratio:.2f}")
+                rows.append({
+                    "symbol": sym,
+                    "duration_bucket": b,
+                    "trade_count": s["count"],
+                    "win_rate": round(win_rate, 2),
+                    "avg_pnl": round(avg_pnl, 2),
+                    "fee_ratio": round(fee_ratio, 4)
+                })
+
+            # Save analytics to CSV
+            import csv, os
+            os.makedirs("analytics", exist_ok=True)
+            csv_path = os.path.join("analytics", "trade_stats.csv")
+            with open(csv_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=["symbol", "duration_bucket", "trade_count", "win_rate", "avg_pnl", "fee_ratio"])
+                writer.writeheader()
+                writer.writerows(rows)
+            print(f"📁 Trade analytics saved to {csv_path}")
 
         # 🔁 Recent trades overview
         if self.trade_history:

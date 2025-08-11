@@ -14,6 +14,58 @@ from symbol_resolver import (
 )
 from extract_gainers import extract_gainers
 
+# =========================================================
+# ✅ SENTIMENT & ON-CHAIN METRICS
+# =========================================================
+def fetch_fear_greed_index(limit=30):
+    """Fetch the crypto Fear & Greed index."""
+    url = "https://api.alternative.me/fng/"
+    params = {"limit": limit, "format": "json"}
+    data = safe_request(url, params=params, backoff_on_429=False)
+    if not data or "data" not in data:
+        return pd.DataFrame()
+
+    try:
+        df = pd.DataFrame(data["data"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+        df.rename(columns={"timestamp": "Timestamp", "value": "FearGreed"}, inplace=True)
+        df["FearGreed"] = pd.to_numeric(df["FearGreed"], errors="coerce")
+        return df[["Timestamp", "FearGreed"]].sort_values("Timestamp")
+    except Exception as e:
+        print(f"❌ Failed to parse Fear & Greed index: {e}")
+        return pd.DataFrame()
+
+
+def fetch_onchain_metrics(days=30):
+    """Fetch basic on-chain metrics like transaction volume and active addresses."""
+    tx_url = f"https://api.blockchain.info/charts/transaction-volume?timespan={days}days&format=json"
+    active_url = f"https://api.blockchain.info/charts/activeaddresses?timespan={days}days&format=json"
+
+    tx_data = safe_request(tx_url, backoff_on_429=False)
+    active_data = safe_request(active_url, backoff_on_429=False)
+
+    frames = []
+    if tx_data and "values" in tx_data:
+        df_tx = pd.DataFrame(tx_data["values"])
+        df_tx["x"] = pd.to_datetime(df_tx["x"], unit="s")
+        df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
+        frames.append(df_tx)
+
+    if active_data and "values" in active_data:
+        df_active = pd.DataFrame(active_data["values"])
+        df_active["x"] = pd.to_datetime(df_active["x"], unit="s")
+        df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
+        frames.append(df_active)
+
+    if not frames:
+        return pd.DataFrame()
+
+    df = frames[0]
+    for f in frames[1:]:
+        df = pd.merge(df, f, on="Timestamp", how="outer")
+
+    return df.sort_values("Timestamp")
+
 
 # =========================================================
 # ✅ GLOBAL CACHING SYSTEM

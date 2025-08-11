@@ -11,6 +11,7 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
 from ta.volatility import AverageTrueRange
 from config import LOG_MOMENTUM_DISTRIBUTION, MOMENTUM_SCORE_CONFIG
+from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics
 
 # Minimum rows required after indicator calculations
 MIN_ROWS_AFTER_INDICATORS = 60
@@ -75,6 +76,50 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     # Normalized MACD histogram
     df["MACD_Hist_norm"] = df["Hist"] / df["Close"]
+
+    # ==== Merge sentiment and on-chain metrics ====
+    df = df.sort_values("Timestamp")
+
+    sentiment = fetch_fear_greed_index(limit=365)
+    if not sentiment.empty:
+        sentiment = sentiment.sort_values("Timestamp")
+        df = pd.merge_asof(df, sentiment, on="Timestamp", direction="backward")
+        df["FearGreed"] = df["FearGreed"].ffill()
+        std = df["FearGreed"].std()
+        if std and std != 0:
+            df["FearGreed_norm"] = (df["FearGreed"] - df["FearGreed"].mean()) / std
+        else:
+            df["FearGreed_norm"] = 0.0
+        df.drop(columns=["FearGreed"], inplace=True)
+    else:
+        df["FearGreed_norm"] = 0.0
+
+    onchain = fetch_onchain_metrics(days=365)
+    if not onchain.empty:
+        onchain = onchain.sort_values("Timestamp")
+        df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
+        for col in ["TxVolume", "ActiveAddresses"]:
+            df[col] = df[col].ffill()
+        if "TxVolume" in df.columns:
+            std = df["TxVolume"].std()
+            df["TxVolume_norm"] = (
+                (df["TxVolume"] - df["TxVolume"].mean()) / std if std and std != 0 else 0.0
+            )
+        else:
+            df["TxVolume_norm"] = 0.0
+        if "ActiveAddresses" in df.columns:
+            std = df["ActiveAddresses"].std()
+            df["ActiveAddresses_norm"] = (
+                (df["ActiveAddresses"] - df["ActiveAddresses"].mean()) / std
+                if std and std != 0
+                else 0.0
+            )
+        else:
+            df["ActiveAddresses_norm"] = 0.0
+        df.drop(columns=[c for c in ["TxVolume", "ActiveAddresses"] if c in df.columns], inplace=True)
+    else:
+        df["TxVolume_norm"] = 0.0
+        df["ActiveAddresses_norm"] = 0.0
 
     # Add momentum score
     df["Momentum_Score"] = df.apply(compute_momentum_score, axis=1)
