@@ -4,6 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 
 def extract_gainers():
@@ -24,7 +25,15 @@ def extract_gainers():
         "Chrome/114.0.0.0 Safari/537.36"
     )
 
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    try:
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+    except WebDriverException as e:
+        print(
+            f"❌ Unable to start Chrome WebDriver: {e}. "
+            "Ensure Google Chrome or Chromium is installed."
+        )
+        return []
+
     driver.get(url)
 
     try:
