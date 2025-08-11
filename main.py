@@ -105,6 +105,8 @@ def scan_for_breakouts():
             print(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
             continue
 
+        threshold = get_dynamic_threshold(vol_7d, base=CONFIDENCE_THRESHOLD)
+
         # ✅ NEW: Momentum filter
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
@@ -113,9 +115,7 @@ def scan_for_breakouts():
             continue
 
         try:
-            vol_7d = df["Volatility_7d"].iloc[-1]
-            threshold = get_dynamic_threshold(vol_7d, base=CONFIDENCE_THRESHOLD)
-            signal, confidence, label = predict_signal(df, threshold=threshold)
+            signal, confidence, label = predict_signal(df, threshold)
             print(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
             print(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
