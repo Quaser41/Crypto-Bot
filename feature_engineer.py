@@ -7,6 +7,7 @@ except ImportError:
 
 import numpy as np
 import pandas as pd
+import asyncio
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
 from ta.volatility import AverageTrueRange
@@ -140,6 +141,11 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     print(f"✅ Indicators added: {remaining} rows remaining after dropna")
     return df
+
+
+async def add_indicators_async(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
+    """Run :func:`add_indicators` in a background thread."""
+    return await asyncio.to_thread(add_indicators, df, min_rows=min_rows)
 
 def momentum_signal(df):
     closes = df["Close"].tail(7).values

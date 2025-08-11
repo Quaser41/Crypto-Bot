@@ -45,6 +45,7 @@ class TradeManager:
         self.trade_history = []
         self.total_fees = 0.0
 
+
     def has_position(self, symbol):
         return symbol in self.positions
 
@@ -77,7 +78,8 @@ class TradeManager:
 
         entry_fee = allocation * self.trade_fee_pct
         net_allocation = allocation - entry_fee
-        qty = net_allocation / price
+        exec_price = price * (1 + self.slippage_pct) if side == "BUY" else price * (1 - self.slippage_pct)
+        qty = net_allocation / exec_price
 
         if qty < 0.0001:
             print(f"⚠️ Trade qty too small for {symbol}, skipping")
@@ -87,8 +89,10 @@ class TradeManager:
             print(f"⚠️ Model predicts loss for {symbol} (label 0), skipping long trade.")
             return
 
+        slippage_cost = abs(exec_price - price) * qty
         self.balance -= allocation
         self.total_fees += entry_fee
+        self.total_slippage += slippage_cost
 
         atr = None
         try:
@@ -105,30 +109,31 @@ class TradeManager:
             sl_offset = self.atr_mult_sl * atr
             tp_offset = self.atr_mult_tp * atr
             if side == "SELL":
-                stop_loss = (price + sl_offset) * (1 + self.trade_fee_pct)
-                take_profit = (price - tp_offset) * (1 - self.trade_fee_pct)
+                stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
+                take_profit = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
-                take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
+                stop_loss = (exec_price - sl_offset) * (1 - self.trade_fee_pct)
+                take_profit = (exec_price + tp_offset) * (1 + self.trade_fee_pct)
         else:
             print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
             tp_pct = self.take_profit_pct
             sl_pct = self.stop_loss_pct
             if side == "SELL":
-                stop_loss = price * (1 + sl_pct) * (1 + self.trade_fee_pct)
-                take_profit = price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+                stop_loss = exec_price * (1 + sl_pct) * (1 + self.trade_fee_pct)
+                take_profit = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = price * (1 - sl_pct) * (1 - self.trade_fee_pct)
-                take_profit = price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+                stop_loss = exec_price * (1 - sl_pct) * (1 - self.trade_fee_pct)
+                take_profit = exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
 
         self.positions[symbol] = {
             "coin_id": coin_id or symbol.lower(),
-            "entry_price": price,
+            "entry_price": exec_price,
             "qty": qty,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
             "entry_fee": entry_fee,
-            "highest_price": price,
+            "entry_slippage": slippage_cost,
+            "highest_price": exec_price,
             "confidence": confidence,
             "label": label,
             "side": side,
@@ -138,7 +143,7 @@ class TradeManager:
         }
 
         msg = (
-            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(price)} | "
+            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(exec_price)} | "
             f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
             f"Label={label}"
         )
@@ -158,11 +163,15 @@ class TradeManager:
             return
 
         entry_val = pos["entry_price"] * pos["qty"]
-        exit_val = current_price * pos["qty"]
+        exit_price = current_price * (1 - self.slippage_pct) if pos.get("side", "BUY") == "BUY" else current_price * (1 + self.slippage_pct)
+        exit_val = exit_price * pos["qty"]
 
         exit_fee = exit_val * self.trade_fee_pct
         net_exit = exit_val - exit_fee
         self.total_fees += exit_fee
+
+        slippage_cost = abs(exit_price - current_price) * pos["qty"]
+        self.total_slippage += slippage_cost
 
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
@@ -192,12 +201,13 @@ class TradeManager:
         trade_record = {
             "symbol": symbol,
             "entry_price": pos["entry_price"],
-            "exit_price": current_price,
+            "exit_price": exit_price,
             "qty": pos["qty"],
             "pnl": pnl,
             "reason": reason,
             "entry_fee": pos.get("entry_fee", 0),
             "exit_fee": exit_fee,
+            "slippage": pos.get("entry_slippage", 0) + slippage_cost,
             "confidence": pos.get("confidence"),
             "label": pos.get("label"),
             "trail_triggered": reason == "Trailing Stop",
@@ -206,11 +216,11 @@ class TradeManager:
         }
 
         if reason == "Rotated to better candidate":
-            trade_record["rotation_exit_price"] = current_price
+            trade_record["rotation_exit_price"] = exit_price
 
         self.trade_history.append(trade_record)
 
-        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
+        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exit_price)} | "
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
         self.save_state()
 
@@ -353,7 +363,8 @@ class TradeManager:
         print(f"💰 Current Balance: ${self.balance:.2f}")
         print(f"📈 Open Trades: {open_trades}")
         print(f"✅ Closed Trades: {len(self.trade_history)} | "
-            f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f}")
+            f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f} | "
+            f"Slippage: ${self.total_slippage:.2f}")
 
         # ➕ Average duration and PnL
         durations = [t["duration"] for t in self.trade_history if "duration" in t]
@@ -397,7 +408,7 @@ class TradeManager:
             dur = t.get("duration", 0)
             b = bucket(dur)
             pnl = t.get("pnl", 0)
-            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0) + t.get("slippage", 0)
             g = group_stats[(symbol, b)]
             g["pnl"] += pnl
             g["fees"] += fees
@@ -436,7 +447,7 @@ class TradeManager:
         if self.trade_history:
             print("\n📌 Recent Trades:")
             for t in self.trade_history[-5:]:
-                fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+                fees = t.get("entry_fee", 0) + t.get("exit_fee", 0) + t.get("slippage", 0)
                 dur = t.get("duration", 0)
                 rotation_note = f" | Rotated at ${t['rotation_exit_price']:.2f}" if "rotation_exit_price" in t else ""
                 print(f" - {t['symbol']} | Entry ${t['entry_price']:.6f} → Exit ${t['exit_price']:.6f} | "
@@ -456,7 +467,8 @@ class TradeManager:
             "balance": self.balance,
             "positions": self.positions,
             "trade_history": self.trade_history,
-            "total_fees": self.total_fees
+            "total_fees": self.total_fees,
+            "total_slippage": self.total_slippage
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -471,6 +483,7 @@ class TradeManager:
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
             self.total_fees = state.get("total_fees", 0.0)
+            self.total_slippage = state.get("total_slippage", 0.0)
             print("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
