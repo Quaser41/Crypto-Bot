@@ -1,4 +1,4 @@
 @echo off
-cd /d "C:\Users\Brian\Downloads\Alpaca\crypto_bot"
+cd /d "%~dp0"
 python main.py
 pause
