@@ -1,9 +1,15 @@
-import time 
+import time
 import pandas as pd
 import threading
+import asyncio
 
 # ✅ Now use refactored fetchers
-from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
+from data_fetcher import (
+    get_top_gainers,
+    fetch_ohlcv_smart,
+    fetch_ohlcv_smart_async,
+    clear_old_cache,
+)
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
@@ -84,14 +90,25 @@ def scan_for_breakouts():
     open_symbols = list(tm.positions.keys())
     suppressed, fallbacks = 0, 0
 
+    fetch_meta = []
     for coin_id, symbol, name, _ in movers:
         if symbol in open_symbols:
             logger.info(f"⏭️ Skipping {symbol} (already open trade)")
             continue
+        fetch_meta.append((coin_id, symbol, name))
 
+    async def _gather():
+        tasks = [
+            fetch_ohlcv_smart_async(symbol, coin_id=coin_id, days=10, limit=200)
+            for coin_id, symbol, _ in fetch_meta
+        ]
+        return await asyncio.gather(*tasks)
+
+    logger.info("📡 Fetching OHLCV data for candidates...")
+    ohlcvs = asyncio.run(_gather()) if fetch_meta else []
+
+    for (coin_id, symbol, name), df in zip(fetch_meta, ohlcvs):
         logger.info(f"\n🔎 Analyzing {name} ({symbol})...")
-        # Fetch a wider OHLCV window to ensure enough data remains after indicator dropna
-        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
 
         if df.empty or len(df) < 60:
             logger.warning(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
@@ -120,7 +137,9 @@ def scan_for_breakouts():
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
         if TIER_RANKS.get(momentum_tier, 4) > MOMENTUM_TIER_THRESHOLD:
-            logger.error(f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})")
+            logger.error(
+                f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})"
+            )
             continue
 
         try:
@@ -129,7 +148,9 @@ def scan_for_breakouts():
             logger.info(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
             if label == 1 and confidence < 0.85:
-                logger.info(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
+                logger.info(
+                    f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
+                )
                 signal = "HOLD"
                 suppressed += 1
 
@@ -149,18 +170,24 @@ def scan_for_breakouts():
 
             # === High-confidence override for Class 3 or 4 ===
             if label in [3, 4] and confidence >= 0.90:
-                logger.info(f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}")
+                logger.info(
+                    f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}"
+                )
                 signal = "BUY"
 
             # === Suppress weak Class 1 signals ===
             elif label == 1 and confidence < 0.85:
-                logger.info(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
+                logger.info(
+                    f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
+                )
                 signal = "HOLD"
                 suppressed += 1
 
             # === ML HOLD → fallback strategy ===
             if signal == "HOLD" or confidence < threshold:
-                logger.warning(f"⚠️ No ML trigger → Using fallback momentum strategy for {symbol}")
+                logger.warning(
+                    f"⚠️ No ML trigger → Using fallback momentum strategy for {symbol}"
+                )
                 signal = momentum_signal(df)
                 logger.info(f"📉 Fallback momentum signal: {signal}")
                 label = 2
@@ -195,11 +222,9 @@ def scan_for_breakouts():
                 continue
             candidates.append((symbol, last_price, confidence, coin_id, signal, label))
         else:
-            logger.error(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
-
-        # API calls are rate-limited within fetch_ohlcv_smart and other
-        # data_fetcher utilities, so no additional per-symbol delay is
-        # required here.
+            logger.error(
+                f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}"
+            )
 
     logger.info(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
 
