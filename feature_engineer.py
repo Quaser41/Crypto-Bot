@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
-from config import MOMENTUM_SCORE_CONFIG
+from config import LOG_MOMENTUM_DISTRIBUTION, MOMENTUM_SCORE_CONFIG
 
 # Minimum rows required after indicator calculations
 MIN_ROWS_AFTER_INDICATORS = 60
@@ -67,6 +67,10 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     # Add momentum score
     df["Momentum_Score"] = df.apply(compute_momentum_score, axis=1)
     df["Momentum_Tier"] = df["Momentum_Score"].apply(classify_momentum_tier)
+
+    if LOG_MOMENTUM_DISTRIBUTION:
+        tier_counts = df["Momentum_Tier"].value_counts(dropna=False)
+        print("Momentum tier distribution:\n" + tier_counts.to_string())
 
     df = df.dropna()
     remaining = df.shape[0]
