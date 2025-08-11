@@ -297,6 +297,52 @@ def fetch_ohlcv_smart(symbol, **kwargs):
     return pd.DataFrame()
 
 
+async def fetch_ohlcv_smart_async(symbol, **kwargs):
+    """Asynchronous wrapper around fetch_ohlcv_smart using threads."""
+    for source in DATA_SOURCES:
+        try:
+            if source == "coinbase":
+                logger.info(f"⚡ Trying Coinbase for {symbol}")
+                df = await asyncio.to_thread(fetch_coinbase_ohlcv, symbol, **kwargs)
+                if not df.empty:
+                    return df
+
+            elif source == "yfinance":
+                logger.info(f"⚡ Trying YFinance for {symbol}")
+                df = await asyncio.to_thread(
+                    fetch_from_yfinance, symbol, days=kwargs.get("days", 1)
+                )
+                if not df.empty:
+                    return df
+
+            elif source == "dexscreener":
+                logger.info(f"⚡ Trying DexScreener for {symbol}")
+                df = await asyncio.to_thread(fetch_dexscreener_ohlcv, symbol)
+                if not df.empty:
+                    return df
+
+            elif source == "coingecko":
+                logger.info(
+                    f"⚡ Trying Coingecko for {symbol} (days={kwargs.get('days', 1)})"
+                )
+                df = await asyncio.to_thread(
+                    fetch_coingecko_ohlcv,
+                    kwargs.get("coin_id", symbol),
+                    days=kwargs.get("days", 1),
+                )
+                if not df.empty:
+                    return df
+
+        except Exception as e:
+            logger.warning(
+                f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}"
+            )
+            continue
+
+    logger.error(f"❌ All sources failed for {symbol}")
+    return pd.DataFrame()
+
+
 
 def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     binance_symbol = resolve_symbol_binance_global(symbol)
