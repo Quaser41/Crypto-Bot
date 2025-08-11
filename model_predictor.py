@@ -7,8 +7,15 @@ MODEL_PATH = "ml_model.pkl"
 
 # === Load model and expected features ===
 def load_model():
-    bundle = joblib.load(MODEL_PATH)
-    print(f"DEBUG: Loaded model content type: {type(bundle)}")
+    try:
+        bundle = joblib.load(MODEL_PATH)
+        print(f"DEBUG: Loaded model content type: {type(bundle)}")
+    except FileNotFoundError:
+        print(f"❌ Model file not found at {MODEL_PATH}")
+        return None, []
+    except ValueError as e:
+        print(f"❌ Failed to load model from {MODEL_PATH}: {e}")
+        return None, []
 
     if isinstance(bundle, tuple) and len(bundle) == 2:
         model, expected_features = bundle
@@ -16,14 +23,22 @@ def load_model():
         model = bundle["model"]
         expected_features = bundle["features"]
     else:
-        raise ValueError("❌ Unsupported model format in ml_model.pkl")
+        print("❌ Unsupported model format in ml_model.pkl")
+        return None, []
+
+    if not isinstance(expected_features, (list, tuple)) or not all(isinstance(f, str) for f in expected_features):
+        print("❌ Expected features missing or malformed in model bundle")
+        return None, []
 
     print(f"🔄 Loaded ML model expecting {len(expected_features)} features: {expected_features}")
-    return model, expected_features
+    return model, list(expected_features)
 
 # === Predict signal from latest row ===
 def predict_signal(df):
     model, expected_features = load_model()
+    if model is None or not expected_features:
+        print("⚠️ No valid model available, skipping prediction.")
+        return None, 0.0, None
 
     missing = [f for f in expected_features if f not in df.columns]
     if missing:
