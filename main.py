@@ -1,11 +1,12 @@
 import time 
 import pandas as pd
 import threading
+import asyncio
 
 # ✅ Now use refactored fetchers
-from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
-from feature_engineer import add_indicators, momentum_signal
-from model_predictor import predict_signal
+from data_fetcher import get_top_gainers, fetch_ohlcv_smart_async, clear_old_cache
+from feature_engineer import add_indicators_async, momentum_signal
+from model_predictor import predict_signal_async
 from trade_manager import TradeManager
 from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD
 from threshold_utils import get_dynamic_threshold
@@ -59,7 +60,7 @@ def monitor_thread():
 t = threading.Thread(target=monitor_thread, daemon=True)
 t.start()
 
-def scan_for_breakouts():
+async def scan_for_breakouts():
     print(f"⚠️ Currently open trades before scanning: {list(tm.positions.keys())}")
 
     movers = get_top_gainers(limit=15)
@@ -71,51 +72,47 @@ def scan_for_breakouts():
     for cid, sym, name, chg in movers:
         print(f" - {name} ({sym}) {chg:.2f}%")
 
-    candidates = []
     open_symbols = list(tm.positions.keys())
-    suppressed, fallbacks = 0, 0
 
-    for coin_id, symbol, name, _ in movers:
-        if symbol in open_symbols:
-            print(f"⏭️ Skipping {symbol} (already open trade)")
-            continue
+    async def analyze_symbol(coin_id, symbol, name):
+        suppressed = 0
+        fallbacks = 0
 
         print(f"\n🔎 Analyzing {name} ({symbol})...")
-        # Fetch a wider OHLCV window to ensure enough data remains after indicator dropna
-        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
+
+        df = await fetch_ohlcv_smart_async(symbol, coin_id=coin_id, days=10, limit=200)
 
         if df.empty or len(df) < 60:
             print(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
             if ERROR_DELAY:
-                time.sleep(ERROR_DELAY)
-            continue
+                await asyncio.sleep(ERROR_DELAY)
+            return None, suppressed, fallbacks
 
-        df = add_indicators(df).dropna(subset=[
+        df = (await add_indicators_async(df)).dropna(subset=[
             "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
             "Return_1d", "Volatility_7d"
         ])
         if df.empty:
             print("⚠️ Indicator calc dropped all rows, skipping...")
             if ERROR_DELAY:
-                time.sleep(ERROR_DELAY)
-            continue
+                await asyncio.sleep(ERROR_DELAY)
+            return None, suppressed, fallbacks
 
         vol_7d = df["Volatility_7d"].iloc[-1]
         if vol_7d < 1e-4:
             print(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
-            continue
+            return None, suppressed, fallbacks
 
         threshold = get_dynamic_threshold(vol_7d, base=CONFIDENCE_THRESHOLD)
 
-        # ✅ NEW: Momentum filter
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
         if TIER_RANKS.get(momentum_tier, 4) > MOMENTUM_TIER_THRESHOLD:
             print(f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})")
-            continue
+            return None, suppressed, fallbacks
 
         try:
-            signal, confidence, label = predict_signal(df, threshold)
+            signal, confidence, label = await predict_signal_async(df, threshold)
             print(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
             print(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
@@ -128,7 +125,6 @@ def scan_for_breakouts():
                 print("🔥 High Conviction BUY override active")
                 signal = "BUY"
 
-            # === Skip flat coins early (no momentum) ===
             if (
                 abs(df["Return_1d"].iloc[-1]) < FLAT_1D_THRESHOLD
                 and abs(df["Return_3d"].iloc[-1]) < FLAT_3D_THRESHOLD
@@ -136,20 +132,16 @@ def scan_for_breakouts():
                 print(
                     f"⛔ Skipping {symbol}: too flat for fallback trigger (1d={df['Return_1d'].iloc[-1]:.2%}, 3d={df['Return_3d'].iloc[-1]:.2%})"
                 )
-                continue
+                return None, suppressed, fallbacks
 
-            # === High-confidence override for Class 3 or 4 ===
             if label in [3, 4] and confidence >= 0.90:
                 print(f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}")
                 signal = "BUY"
-
-            # === Suppress weak Class 1 signals ===
             elif label == 1 and confidence < 0.85:
                 print(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
                 signal = "HOLD"
                 suppressed += 1
 
-            # === ML HOLD → fallback strategy ===
             if signal == "HOLD" or confidence < threshold:
                 print(f"⚠️ No ML trigger → Using fallback momentum strategy for {symbol}")
                 signal = momentum_signal(df)
@@ -157,7 +149,6 @@ def scan_for_breakouts():
                 label = 2
                 fallbacks += 1
 
-                # === Fallback breakout trigger ===
                 if (
                     signal == "BUY"
                     and df["Return_3d"].iloc[-1] > FALLBACK_RETURN_3D_THRESHOLD
@@ -183,14 +174,32 @@ def scan_for_breakouts():
                 print(
                     f"❌ Skipping {symbol}: confidence {confidence:.2f} below threshold {CONFIDENCE_THRESHOLD}"
                 )
-                continue
-            candidates.append((symbol, last_price, confidence, coin_id, signal, label))
+                return None, suppressed, fallbacks
+            return (symbol, last_price, confidence, coin_id, signal, label), suppressed, fallbacks
         else:
             print(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
+            return None, suppressed, fallbacks
 
-        # API calls are rate-limited within fetch_ohlcv_smart and other
-        # data_fetcher utilities, so no additional per-symbol delay is
-        # required here.
+    tasks = []
+    for cid, sym, name, _ in movers:
+        if sym in open_symbols:
+            print(f"⏭️ Skipping {sym} (already open trade)")
+            continue
+        tasks.append(analyze_symbol(cid, sym, name))
+
+    results = await asyncio.gather(*tasks)
+
+    candidates = []
+    suppressed = 0
+    fallbacks = 0
+    for res in results:
+        if not res:
+            continue
+        candidate, s, f = res
+        suppressed += s
+        fallbacks += f
+        if candidate:
+            candidates.append(candidate)
 
     print(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
 
@@ -199,7 +208,6 @@ def scan_for_breakouts():
         print("✅ Scan cycle complete\n" + "="*40)
         return
 
-    # ✅ Select best BUY candidate
     best = max(candidates, key=lambda x: x[2])
     best_symbol, best_price, best_conf, best_coin_id, _, best_label = best
     print(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
@@ -216,8 +224,8 @@ def scan_for_breakouts():
     open_conf = open_pos.get("confidence", 0.5)
     entry_price = open_pos["entry_price"]
 
-    df_open = fetch_ohlcv_smart(open_symbol, coin_id=open_pos["coin_id"], days=10)
-    df_open = add_indicators(df_open).dropna(subset=[
+    df_open = await fetch_ohlcv_smart_async(open_symbol, coin_id=open_pos["coin_id"], days=10)
+    df_open = (await add_indicators_async(df_open)).dropna(subset=[
         "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
         "Return_1d", "Volatility_7d"
     ])
@@ -241,6 +249,7 @@ def scan_for_breakouts():
     else:
         current_price = entry_price
         is_stagnant = True
+        movement = 0.0
 
     print(f"ℹ️ Open trade: {open_symbol} conf={open_conf:.2f}, stagnant={is_stagnant}")
 
@@ -266,7 +275,6 @@ def scan_for_breakouts():
                 }
             )
 
-            # ✅ ADD THIS HERE
             record_rotation_audit(
                 current={
                     "symbol": open_symbol,
@@ -298,7 +306,7 @@ def scan_for_breakouts():
 def main_loop():
     while True:
         clear_old_cache(cache_dir="cache", max_age=600)  # Purge cache >10 min old
-        scan_for_breakouts()
+        asyncio.run(scan_for_breakouts())
         time.sleep(210)
 
 if __name__ == "__main__":
