@@ -1,15 +1,17 @@
 import time 
 import pandas as pd
 import threading
-import asyncio
 
 # ✅ Now use refactored fetchers
-from data_fetcher import get_top_gainers, fetch_ohlcv_smart_async, clear_old_cache
-from feature_engineer import add_indicators_async, momentum_signal
-from model_predictor import predict_signal_async
+from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
+from feature_engineer import add_indicators, momentum_signal
+from model_predictor import predict_signal
 from trade_manager import TradeManager
 from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD
 from threshold_utils import get_dynamic_threshold
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 # ✅ Global thresholds
 # CONFIDENCE_THRESHOLD imported from config
@@ -31,9 +33,9 @@ FLAT_3D_THRESHOLD = 0.003
 ENABLE_ROTATION_AUDIT = True
 
 def log_rotation_decision(current, candidate):
-    print("\n🔁 ROTATION DECISION:")
-    print(f" - Current: {current['symbol']} | Conf {current['confidence']:.2f} | Label {current['label']} | Entry ${current['entry_price']:.4f} | Movement {current['movement']:.2%}")
-    print(f" - Candidate: {candidate['symbol']} | Conf {candidate['confidence']:.2f} | Label {candidate['label']} | Price ${candidate['price']:.4f}")
+    logger.info("\n🔁 ROTATION DECISION:")
+    logger.info(f" - Current: {current['symbol']} | Conf {current['confidence']:.2f} | Label {current['label']} | Entry ${current['entry_price']:.4f} | Movement {current['movement']:.2%}")
+    logger.info(f" - Candidate: {candidate['symbol']} | Conf {candidate['confidence']:.2f} | Label {candidate['label']} | Price ${candidate['price']:.4f}")
 
 def record_rotation_audit(current, candidate):
     ROTATION_AUDIT_LOG.append({
@@ -60,114 +62,118 @@ def monitor_thread():
 t = threading.Thread(target=monitor_thread, daemon=True)
 t.start()
 
-
 def scan_for_breakouts():
-    if not tm.can_trade():
-        print("🚫 Risk thresholds hit — skipping scan for new trades.")
-        return
-
-    print(f"⚠️ Currently open trades before scanning: {list(tm.positions.keys())}")
+    logger.warning(f"⚠️ Currently open trades before scanning: {list(tm.positions.keys())}")
 
     movers = get_top_gainers(limit=15)
-
     if not movers:
-        print("❌ No valid gainers found on Coinbase — skipping scan.")
+        logger.error("❌ No valid gainers found on Coinbase — skipping scan.")
         return
 
-    print("\n🔥 TOP GAINERS:")
+    logger.info("\n🔥 TOP GAINERS:")
     for cid, sym, name, chg in movers:
-        print(f" - {name} ({sym}) {chg:.2f}%")
+        logger.info(f" - {name} ({sym}) {chg:.2f}%")
 
+    candidates = []
     open_symbols = list(tm.positions.keys())
+    suppressed, fallbacks = 0, 0
 
-    async def analyze_symbol(coin_id, symbol, name):
-        suppressed = 0
-        fallbacks = 0
+    for coin_id, symbol, name, _ in movers:
+        if symbol in open_symbols:
+            logger.info(f"⏭️ Skipping {symbol} (already open trade)")
+            continue
 
-        print(f"\n🔎 Analyzing {name} ({symbol})...")
-
-        df = await fetch_ohlcv_smart_async(symbol, coin_id=coin_id, days=10, limit=200)
+        logger.info(f"\n🔎 Analyzing {name} ({symbol})...")
+        # Fetch a wider OHLCV window to ensure enough data remains after indicator dropna
+        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
 
         if df.empty or len(df) < 60:
-            print(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
+            logger.warning(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
             if ERROR_DELAY:
-                await asyncio.sleep(ERROR_DELAY)
-            return None, suppressed, fallbacks
+                time.sleep(ERROR_DELAY)
+            continue
 
-        df = (await add_indicators_async(df)).dropna(subset=[
+        df = add_indicators(df).dropna(subset=[
             "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
             "Return_1d", "Volatility_7d"
         ])
         if df.empty:
-            print("⚠️ Indicator calc dropped all rows, skipping...")
+            logger.warning("⚠️ Indicator calc dropped all rows, skipping...")
             if ERROR_DELAY:
-                await asyncio.sleep(ERROR_DELAY)
-            return None, suppressed, fallbacks
+                time.sleep(ERROR_DELAY)
+            continue
 
         vol_7d = df["Volatility_7d"].iloc[-1]
         if vol_7d < 1e-4:
-            print(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
-            return None, suppressed, fallbacks
+            logger.warning(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
+            continue
 
         threshold = get_dynamic_threshold(vol_7d, base=CONFIDENCE_THRESHOLD)
 
+        # ✅ NEW: Momentum filter
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
         if TIER_RANKS.get(momentum_tier, 4) > MOMENTUM_TIER_THRESHOLD:
-            print(f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})")
-            return None, suppressed, fallbacks
+            logger.error(f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})")
+            continue
 
         try:
-            signal, confidence, label = await predict_signal_async(df, threshold)
-            print(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
-            print(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
+            signal, confidence, label = predict_signal(df, threshold)
+            logger.info(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
+            logger.info(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
             if label == 1 and confidence < 0.85:
-                print(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
+                logger.info(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
                 signal = "HOLD"
                 suppressed += 1
 
             if label in [3, 4] and confidence >= 0.75:
-                print("🔥 High Conviction BUY override active")
+                logger.info("🔥 High Conviction BUY override active")
                 signal = "BUY"
 
+            # === Skip flat coins early (no momentum) ===
             if (
                 abs(df["Return_1d"].iloc[-1]) < FLAT_1D_THRESHOLD
                 and abs(df["Return_3d"].iloc[-1]) < FLAT_3D_THRESHOLD
             ):
-                print(
+                logger.info(
                     f"⛔ Skipping {symbol}: too flat for fallback trigger (1d={df['Return_1d'].iloc[-1]:.2%}, 3d={df['Return_3d'].iloc[-1]:.2%})"
                 )
-                return None, suppressed, fallbacks
+                continue
 
+            # === High-confidence override for Class 3 or 4 ===
             if label in [3, 4] and confidence >= 0.90:
-                print(f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}")
+                logger.info(f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}")
                 signal = "BUY"
+
+            # === Suppress weak Class 1 signals ===
             elif label == 1 and confidence < 0.85:
-                print(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
+                logger.info(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
                 signal = "HOLD"
                 suppressed += 1
 
+            # === ML HOLD → fallback strategy ===
             if signal == "HOLD" or confidence < threshold:
-                print(f"⚠️ No ML trigger → Using fallback momentum strategy for {symbol}")
+                logger.warning(f"⚠️ No ML trigger → Using fallback momentum strategy for {symbol}")
                 signal = momentum_signal(df)
-                print(f"📉 Fallback momentum signal: {signal}")
+                logger.info(f"📉 Fallback momentum signal: {signal}")
                 label = 2
                 fallbacks += 1
 
+                # === Fallback breakout trigger ===
                 if (
                     signal == "BUY"
                     and df["Return_3d"].iloc[-1] > FALLBACK_RETURN_3D_THRESHOLD
                     and df["RSI"].iloc[-1] > FALLBACK_RSI_THRESHOLD
                 ):
-                    print(
+                    logger.info(
                         f"🔥 Fallback BUY trigger: {symbol} shows 3d return {df['Return_3d'].iloc[-1]:.2%} with RSI {df['RSI'].iloc[-1]:.1f}"
                     )
                 else:
                     signal = "HOLD"
 
         except Exception as e:
-            print(f"❌ Prediction failed: {e}")
+            logger.error(f"❌ Prediction failed: {e}")
             signal = momentum_signal(df)
             confidence = 0.0
             label = 2
@@ -177,52 +183,35 @@ def scan_for_breakouts():
 
         if signal == "BUY" and label in [3, 4] and last_price > 0:
             if confidence < CONFIDENCE_THRESHOLD:
-                print(
+                logger.error(
                     f"❌ Skipping {symbol}: confidence {confidence:.2f} below threshold {CONFIDENCE_THRESHOLD}"
                 )
-                return None, suppressed, fallbacks
-            return (symbol, last_price, confidence, coin_id, signal, label), suppressed, fallbacks
+                continue
+            candidates.append((symbol, last_price, confidence, coin_id, signal, label))
         else:
-            print(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
-            return None, suppressed, fallbacks
+            logger.error(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
 
-    tasks = []
-    for cid, sym, name, _ in movers:
-        if sym in open_symbols:
-            print(f"⏭️ Skipping {sym} (already open trade)")
-            continue
-        tasks.append(analyze_symbol(cid, sym, name))
+        # API calls are rate-limited within fetch_ohlcv_smart and other
+        # data_fetcher utilities, so no additional per-symbol delay is
+        # required here.
 
-    results = await asyncio.gather(*tasks)
-
-    candidates = []
-    suppressed = 0
-    fallbacks = 0
-    for res in results:
-        if not res:
-            continue
-        candidate, s, f = res
-        suppressed += s
-        fallbacks += f
-        if candidate:
-            candidates.append(candidate)
-
-    print(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
+    logger.info(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
 
     if not candidates:
-        print("\n❌ No trade candidates found.")
-        print("✅ Scan cycle complete\n" + "="*40)
+        logger.error("\n❌ No trade candidates found.")
+        logger.info("✅ Scan cycle complete\n" + "="*40)
         return
 
+    # ✅ Select best BUY candidate
     best = max(candidates, key=lambda x: x[2])
     best_symbol, best_price, best_conf, best_coin_id, _, best_label = best
-    print(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
+    logger.info(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
 
     if not tm.positions:
         tm.open_trade(best_symbol, best_price, coin_id=best_coin_id, confidence=best_conf, label=best_label, side="BUY")
         tm.save_state()
         tm.summary()
-        print("✅ Scan cycle complete\n" + "="*40)
+        logger.info("✅ Scan cycle complete\n" + "="*40)
         return
 
     open_symbol = list(tm.positions.keys())[0]
@@ -230,8 +219,8 @@ def scan_for_breakouts():
     open_conf = open_pos.get("confidence", 0.5)
     entry_price = open_pos["entry_price"]
 
-    df_open = await fetch_ohlcv_smart_async(open_symbol, coin_id=open_pos["coin_id"], days=10)
-    df_open = (await add_indicators_async(df_open)).dropna(subset=[
+    df_open = fetch_ohlcv_smart(open_symbol, coin_id=open_pos["coin_id"], days=10)
+    df_open = add_indicators(df_open).dropna(subset=[
         "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
         "Return_1d", "Volatility_7d"
     ])
@@ -248,16 +237,15 @@ def scan_for_breakouts():
             signal_line = df_open["Signal"].iloc[-1]
             bullish_momentum = recent_return > 0.03 and rsi > 55 and macd > signal_line
 
-            print(f"📉 Stagnation check: return_3d={recent_return:.2%}, RSI={rsi:.1f}, MACD crossover={macd > signal_line}")
+            logger.info(f"📉 Stagnation check: return_3d={recent_return:.2%}, RSI={rsi:.1f}, MACD crossover={macd > signal_line}")
             if bullish_momentum:
-                print("🚫 Blocking rotation: current trade has bullish momentum despite price stagnation.")
+                logger.info("🚫 Blocking rotation: current trade has bullish momentum despite price stagnation.")
                 is_stagnant = False
     else:
         current_price = entry_price
         is_stagnant = True
-        movement = 0.0
 
-    print(f"ℹ️ Open trade: {open_symbol} conf={open_conf:.2f}, stagnant={is_stagnant}")
+    logger.info(f"ℹ️ Open trade: {open_symbol} conf={open_conf:.2f}, stagnant={is_stagnant}")
 
     if (
         best_symbol != open_symbol and
@@ -281,6 +269,7 @@ def scan_for_breakouts():
                 }
             )
 
+            # ✅ ADD THIS HERE
             record_rotation_audit(
                 current={
                     "symbol": open_symbol,
@@ -297,30 +286,29 @@ def scan_for_breakouts():
                 }
             )
 
-        print(f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}")
-        print(f"🔄 Rotating {open_symbol} → {best_symbol}")
+        logger.info(f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}")
+        logger.info(f"🔄 Rotating {open_symbol} → {best_symbol}")
         tm.close_trade(open_symbol, current_price, reason="Rotated to better candidate")
         tm.open_trade(best_symbol, best_price, coin_id=best_coin_id, confidence=best_conf, label=best_label, side="BUY")
         tm.save_state()
         tm.summary()
     else:
-        print(f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - no better candidate yet.")
+        logger.info(f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - no better candidate yet.")
 
-    print("✅ Scan cycle complete\n" + "="*40)
+    logger.info("✅ Scan cycle complete\n" + "="*40)
 
 
 def main_loop():
     while True:
         clear_old_cache(cache_dir="cache", max_age=600)  # Purge cache >10 min old
-        asyncio.run(scan_for_breakouts())
+        scan_for_breakouts()
         time.sleep(210)
 
 if __name__ == "__main__":
     try:
         main_loop()
-    except Exception as e:
-        print(f"❌ FATAL ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:
+        logger.exception("❌ FATAL ERROR")
         input("Press Enter to exit...")
+
 
