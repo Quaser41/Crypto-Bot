@@ -5,6 +5,7 @@ import pickle
 import requests
 import pandas as pd
 import yfinance as yf
+import asyncio
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
 from symbol_resolver import (
@@ -527,4 +528,33 @@ def fetch_live_price(symbol, coin_id=None):
 
     print(f"❌ No live price found for {symbol}")
     return None
+
+
+# =========================================================
+# ✅ ASYNC WRAPPERS
+# =========================================================
+
+async def fetch_coinbase_ohlcv_async(symbol, interval="15m", limit=96, **kwargs):
+    """Asynchronous wrapper for :func:`fetch_coinbase_ohlcv`."""
+    return await asyncio.to_thread(fetch_coinbase_ohlcv, symbol, interval, limit, **kwargs)
+
+
+async def fetch_binance_ohlcv_async(symbol, interval="15m", limit=96, **kwargs):
+    """Asynchronous wrapper for :func:`fetch_binance_ohlcv`."""
+    return await asyncio.to_thread(fetch_binance_ohlcv, symbol, interval, limit, **kwargs)
+
+
+async def fetch_binance_us_ohlcv_async(symbol, interval="15m", limit=96, **kwargs):
+    """Asynchronous wrapper for :func:`fetch_binance_us_ohlcv`."""
+    return await asyncio.to_thread(fetch_binance_us_ohlcv, symbol, interval, limit, **kwargs)
+
+
+async def fetch_coingecko_ohlcv_async(coin_id, days=1):
+    """Asynchronous wrapper for :func:`fetch_coingecko_ohlcv`."""
+    return await asyncio.to_thread(fetch_coingecko_ohlcv, coin_id, days)
+
+
+async def fetch_ohlcv_smart_async(symbol, **kwargs):
+    """Asynchronous wrapper for :func:`fetch_ohlcv_smart` using a thread pool."""
+    return await asyncio.to_thread(fetch_ohlcv_smart, symbol, **kwargs)
 
