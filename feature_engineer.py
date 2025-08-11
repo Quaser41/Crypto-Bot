@@ -10,7 +10,10 @@ import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
 
-def add_indicators(df):
+# Minimum rows required after indicator calculations
+MIN_ROWS_AFTER_INDICATORS = 60
+
+def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if df.empty or "Close" not in df.columns:
         print("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
         return pd.DataFrame()
@@ -63,7 +66,15 @@ def add_indicators(df):
     df["Momentum_Tier"] = df["Momentum_Score"].apply(classify_momentum_tier)
 
     df = df.dropna()
-    print(f"✅ Indicators added: {df.shape[0]} rows remaining after dropna")
+    remaining = df.shape[0]
+    if remaining < min_rows:
+        print(
+            f"⚠️ Indicators left only {remaining} rows (<{min_rows}); skipping symbol"
+        )
+        # Return an empty DataFrame with expected columns so downstream code can handle gracefully
+        return pd.DataFrame(columns=df.columns)
+
+    print(f"✅ Indicators added: {remaining} rows remaining after dropna")
     return df
 
 def momentum_signal(df):
