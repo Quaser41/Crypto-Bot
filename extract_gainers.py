@@ -15,7 +15,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 def suppress_stderr():
     """Redirect ``sys.stderr`` and ``sys.stdout`` to devnull within the context."""
     original_stderr, original_stdout = sys.stderr, sys.stdout
-    with open(os.devnull, "w") as devnull:
+    # Explicit UTF-8 encoding ensures writing arbitrary Unicode characters
+    # (including emojis) to the suppressed streams does not raise
+    # ``UnicodeEncodeError`` on platforms where the default encoding is not
+    # UTF-8 (e.g. Windows).  Errors are ignored so any problematic characters
+    # are simply dropped rather than crashing the program.
+    with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
         with redirect_stderr(devnull), redirect_stdout(devnull):
             yield
     sys.stderr = original_stderr
@@ -54,52 +59,49 @@ def extract_gainers():
             driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.get(url)
 
+        print("⏳ Waiting for page to fully load...")
+        time.sleep(5)
+
+        tables = driver.find_elements(By.TAG_NAME, "table")
+        if not tables:
+            print("❌ No tables found.")
+            return []
+
+        gainers = []
+        rows = tables[0].find_elements(By.XPATH, ".//tbody/tr")
+
+        for row in rows:
+            cols = row.find_elements(By.TAG_NAME, "td")
+            if len(cols) < 5:
+                continue
+
             try:
-                print("⏳ Waiting for page to fully load...")
-                time.sleep(5)
+                name_symbol_block = cols[1].find_elements(By.TAG_NAME, "p")
+                name = name_symbol_block[0].text.strip()
+                symbol = (
+                    name_symbol_block[1].text.strip()
+                    if len(name_symbol_block) > 1
+                    else ""
+                )
+                price = cols[2].text.strip()
+                change = cols[3].text.strip()
+                volume = cols[4].text.strip()
 
-                tables = driver.find_elements(By.TAG_NAME, "table")
-                if not tables:
-                    print("❌ No tables found.")
-                    return []
+                gainers.append(
+                    {
+                        "name": name,
+                        "symbol": symbol,
+                        "price": price,
+                        "change": change,
+                        "volume": volume,
+                    }
+                )
 
-                gainers = []
-                rows = tables[0].find_elements(By.XPATH, ".//tbody/tr")
+            except Exception:
+                continue
 
-                for row in rows:
-                    cols = row.find_elements(By.TAG_NAME, "td")
-                    if len(cols) < 5:
-                        continue
+        return gainers
 
-                    try:
-                        name_symbol_block = cols[1].find_elements(By.TAG_NAME, "p")
-                        name = name_symbol_block[0].text.strip()
-                        symbol = (
-                            name_symbol_block[1].text.strip()
-                            if len(name_symbol_block) > 1
-                            else ""
-                        )
-                        price = cols[2].text.strip()
-                        change = cols[3].text.strip()
-                        volume = cols[4].text.strip()
-
-                        gainers.append(
-                            {
-                                "name": name,
-                                "symbol": symbol,
-                                "price": price,
-                                "change": change,
-                                "volume": volume,
-                            }
-                        )
-
-                    except Exception:
-                        continue
-
-                return gainers
-
-            finally:
-                driver.quit()
     except WebDriverException as e:
         print(
             f"❌ Unable to start Chrome WebDriver: {e}. "
@@ -107,6 +109,7 @@ def extract_gainers():
         )
         return []
     finally:
+        driver.quit()
         if tf_log is None:
             os.environ.pop("TF_CPP_MIN_LOG_LEVEL", None)
         else:
