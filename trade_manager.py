@@ -57,6 +57,7 @@ class TradeManager:
         self.trade_history = []
         self.total_fees = 0.0
 
+
     def has_position(self, symbol):
         return symbol in self.positions
 
@@ -193,6 +194,7 @@ class TradeManager:
             msg += f" | ATR={atr:.6f}"
         print(msg)
 
+
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
             print(f"⚠️ No open position to close for {symbol}")
@@ -205,7 +207,8 @@ class TradeManager:
             return
 
         entry_val = pos["entry_price"] * pos["qty"]
-        exit_val = current_price * pos["qty"]
+        exit_price = current_price * (1 - self.slippage_pct) if pos.get("side", "BUY") == "BUY" else current_price * (1 + self.slippage_pct)
+        exit_val = exit_price * pos["qty"]
 
         exit_fee = exit_val * self.trade_fee_pct
         net_exit = exit_val - exit_fee
@@ -218,6 +221,7 @@ class TradeManager:
         self._update_equity_metrics()
 
         duration = time.time() - pos.get("entry_time", time.time())
+
 
         # ✅ Exit momentum capture BEFORE building trade_record
         exit_momentum = {}
@@ -242,12 +246,13 @@ class TradeManager:
         trade_record = {
             "symbol": symbol,
             "entry_price": pos["entry_price"],
-            "exit_price": current_price,
+            "exit_price": exit_price,
             "qty": pos["qty"],
             "pnl": pnl,
             "reason": reason,
             "entry_fee": pos.get("entry_fee", 0),
             "exit_fee": exit_fee,
+            "slippage": pos.get("entry_slippage", 0) + slippage_cost,
             "confidence": pos.get("confidence"),
             "label": pos.get("label"),
             "trail_triggered": reason == "Trailing Stop",
@@ -256,11 +261,11 @@ class TradeManager:
         }
 
         if reason == "Rotated to better candidate":
-            trade_record["rotation_exit_price"] = current_price
+            trade_record["rotation_exit_price"] = exit_price
 
         self.trade_history.append(trade_record)
 
-        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
+        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exit_price)} | "
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
         self.save_state()
 
@@ -450,7 +455,7 @@ class TradeManager:
             dur = t.get("duration", 0)
             b = bucket(dur)
             pnl = t.get("pnl", 0)
-            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0) + t.get("slippage", 0)
             g = group_stats[(symbol, b)]
             g["pnl"] += pnl
             g["fees"] += fees
@@ -489,7 +494,7 @@ class TradeManager:
         if self.trade_history:
             print("\n📌 Recent Trades:")
             for t in self.trade_history[-5:]:
-                fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+                fees = t.get("entry_fee", 0) + t.get("exit_fee", 0) + t.get("slippage", 0)
                 dur = t.get("duration", 0)
                 rotation_note = f" | Rotated at ${t['rotation_exit_price']:.2f}" if "rotation_exit_price" in t else ""
                 print(f" - {t['symbol']} | Entry ${t['entry_price']:.6f} → Exit ${t['exit_price']:.6f} | "
@@ -505,6 +510,7 @@ class TradeManager:
         if len(self.trade_history) > MAX_HISTORY:
             self.trade_history = self.trade_history[-MAX_HISTORY:]
 
+
         state = {
             "balance": self.balance,
             "positions": self.positions,
@@ -516,6 +522,7 @@ class TradeManager:
             "daily_start_balance": self.daily_start_balance,
             "daily_loss_pct": self.daily_loss_pct,
         }
+
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
             json.dump(state, f, indent=2)
@@ -525,6 +532,7 @@ class TradeManager:
         if os.path.exists(self.STATE_FILE):
             with open(self.STATE_FILE, "r") as f:
                 state = json.load(f)
+
             self.balance = state.get("balance", self.starting_balance)
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
@@ -535,6 +543,7 @@ class TradeManager:
             self.daily_start_balance = state.get("daily_start_balance", self.balance)
             self.daily_loss_pct = state.get("daily_loss_pct", 0.0)
             print("📂 TradeManager state loaded.")
+
 
             for sym, pos in self.positions.items():
                 cid = pos.get("coin_id")
