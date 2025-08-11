@@ -8,7 +8,9 @@ from data_fetcher import fetch_live_price
 from config import ATR_MULT_SL, ATR_MULT_TP
 
 from config import RISK_PER_TRADE, MIN_TRADE_USD
+from utils.logging import get_logger
 
+logger = get_logger(__name__)
 
 def convert_numpy_types(obj):
     if isinstance(obj, dict):
@@ -62,12 +64,12 @@ class TradeManager:
 
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
         if self.has_position(symbol):
-            print(f"⚠️ Already have position in {symbol}")
+            logger.warning(f"⚠️ Already have position in {symbol}")
             return
 
         allocation = self.calculate_allocation(confidence)
         if allocation < self.min_trade_usd:
-            print(
+            logger.info(
                 f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping"
             )
             return
@@ -77,11 +79,11 @@ class TradeManager:
         qty = net_allocation / price
 
         if qty < 0.0001:
-            print(f"⚠️ Trade qty too small for {symbol}, skipping")
+            logger.warning(f"⚠️ Trade qty too small for {symbol}, skipping")
             return
 
         if label == 0 and side == "BUY":
-            print(f"⚠️ Model predicts loss for {symbol} (label 0), skipping long trade.")
+            logger.warning(f"⚠️ Model predicts loss for {symbol} (label 0), skipping long trade.")
             return
 
         self.balance -= allocation
@@ -96,7 +98,7 @@ class TradeManager:
             if "ATR" in df.columns and not df["ATR"].dropna().empty:
                 atr = float(df["ATR"].iloc[-1])
         except Exception as e:
-            print(f"⚠️ Could not compute ATR for {symbol}: {e}")
+            logger.warning(f"⚠️ Could not compute ATR for {symbol}: {e}")
 
         if atr and atr > 0:
             sl_offset = self.atr_mult_sl * atr
@@ -108,7 +110,7 @@ class TradeManager:
                 stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
                 take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
         else:
-            print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
+            logger.warning(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
             tp_pct = self.take_profit_pct
             sl_pct = self.stop_loss_pct
             if side == "SELL":
@@ -141,17 +143,17 @@ class TradeManager:
         )
         if atr:
             msg += f" | ATR={atr:.6f}"
-        print(msg)
+        logger.info(msg)
 
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
-            print(f"⚠️ No open position to close for {symbol}")
+            logger.warning(f"⚠️ No open position to close for {symbol}")
             return
 
         pos = self.positions.pop(symbol)
 
         if pos["qty"] <= 0:
-            print(f"❌ Invalid quantity for {symbol}, skipping close.")
+            logger.error(f"❌ Invalid quantity for {symbol}, skipping close.")
             return
 
         entry_val = pos["entry_price"] * pos["qty"]
@@ -183,7 +185,7 @@ class TradeManager:
                     "macd_hist": row["Hist"]
                 }
         except Exception as e:
-            print(f"⚠️ Could not capture exit momentum for {symbol}: {e}")
+            logger.warning(f"⚠️ Could not capture exit momentum for {symbol}: {e}")
 
         # ✅ Build trade record AFTER collecting momentum
         trade_record = {
@@ -207,31 +209,31 @@ class TradeManager:
 
         self.trade_history.append(trade_record)
 
-        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
+        logger.info(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
         self.save_state()
 
     def monitor_open_trades(self, check_interval=60, single_run=False):
-        print(f"🚦 Monitoring {len(self.positions)} open trade(s)...")
+        logger.info(f"🚦 Monitoring {len(self.positions)} open trade(s)...")
 
         if not self.positions:
             self.load_state()
-            print(f"🔄 Reloaded state → {len(self.positions)} positions")
+            logger.info(f"🔄 Reloaded state → {len(self.positions)} positions")
 
         def check_once():
             for symbol, pos in list(self.positions.items()):
                 coin_id = pos.get("coin_id", symbol.lower())
                 last_price = fetch_live_price(symbol, coin_id)
                 if last_price is None or last_price <= 0:
-                    print(f"⚠️ Could not fetch live price for {symbol}, skipping this check.")
+                    logger.warning(f"⚠️ Could not fetch live price for {symbol}, skipping this check.")
                     continue
 
                 entry_price = pos["entry_price"]
-                print(f"🔄 Monitoring {symbol}: entry ${self.fmt_price(entry_price)} | "
+                logger.info(f"🔄 Monitoring {symbol}: entry ${self.fmt_price(entry_price)} | "
                       f"current ${self.fmt_price(last_price)}")
 
                 if last_price < entry_price * 0.01:
-                    print(f"⚠️ Suspicious price ({last_price}), skipping to prevent false SL trigger.")
+                    logger.warning(f"⚠️ Suspicious price ({last_price}), skipping to prevent false SL trigger.")
                     continue
 
                 price_change = abs(last_price - entry_price) / entry_price
@@ -243,7 +245,7 @@ class TradeManager:
 
                 # Hard take-profit at 10–12%
                 if pnl_pct >= 10:
-                    print(f"🎯 Take-profit hit: {symbol} is up {pnl_pct:.2f}% — closing trade.")
+                    logger.info(f"🎯 Take-profit hit: {symbol} is up {pnl_pct:.2f}% — closing trade.")
                     self.close_trade(symbol, last_price, reason="Take Profit Hit")
                     continue  # skip further checks on this trade
 
@@ -252,16 +254,16 @@ class TradeManager:
                     if not pos.get("trail_triggered"):
                         pos["trail_triggered"] = True
                         pos["trail_price"] = last_price * 0.98
-                        print(f"📉 Trailing stop activated at {last_price:.4f} for {symbol}")
+                        logger.info(f"📉 Trailing stop activated at {last_price:.4f} for {symbol}")
                     elif last_price < pos.get("trail_price", 0):
-                        print(f"🔻 Trailing stop hit for {symbol} — closing trade.")
+                        logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
                         self.close_trade(symbol, last_price, reason="Trailing Stop")
                         continue
                     else:
                         # Update trail upward if price climbs
                         new_trail = last_price * 0.98
                         if new_trail > pos["trail_price"]:
-                            print(f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}")
+                            logger.info(f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}")
                             pos["trail_price"] = new_trail
 
                 self.manage(symbol, last_price)
@@ -275,10 +277,10 @@ class TradeManager:
 
         while self.positions:
             check_once()
-            print(f"⏳ Sleeping {check_interval} seconds before next check...\n")
+            logger.info(f"⏳ Sleeping {check_interval} seconds before next check...\n")
             time.sleep(check_interval)
 
-        print("✅ No more open trades. Exiting monitoring.")
+        logger.info("✅ No more open trades. Exiting monitoring.")
 
     def manage(self, symbol, current_price):
         if not self.has_position(symbol):
@@ -312,32 +314,32 @@ class TradeManager:
         sl_buffer = 0.999
         if side == "BUY":
             if current_price < pos["stop_loss"] * sl_buffer:
-                print(f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})")
+                logger.warning(f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})")
                 self.close_trade(symbol, current_price, reason="Stop-Loss")
                 return
         else:
             if current_price > pos["stop_loss"] / sl_buffer:
-                print(f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})")
+                logger.warning(f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})")
                 self.close_trade(symbol, current_price, reason="Stop-Loss")
                 return
 
         if side == "BUY":
             if current_price >= pos["take_profit"]:
-                print(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
+                logger.info(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
                 self.close_trade(symbol, current_price, reason="Take-Profit")
                 return
         else:
             if current_price <= pos["take_profit"]:
-                print(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
+                logger.info(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
                 self.close_trade(symbol, current_price, reason="Take-Profit")
                 return
 
         if trail_stop:
             if side == "BUY" and current_price <= trail_stop:
-                print(f"🏃 TRAILING STOP hit for {symbol} at {self.fmt_price(current_price)} (highest was {self.fmt_price(pos['highest_price'])})")
+                logger.info(f"🏃 TRAILING STOP hit for {symbol} at {self.fmt_price(current_price)} (highest was {self.fmt_price(pos['highest_price'])})")
                 self.close_trade(symbol, current_price, reason="Trailing Stop")
             elif side == "SELL" and current_price >= trail_stop:
-                print(f"🏃 TRAILING STOP hit for {symbol} at {self.fmt_price(current_price)} (lowest was {self.fmt_price(pos['highest_price'])})")
+                logger.info(f"🏃 TRAILING STOP hit for {symbol} at {self.fmt_price(current_price)} (lowest was {self.fmt_price(pos['highest_price'])})")
                 self.close_trade(symbol, current_price, reason="Trailing Stop")
 
     def summary(self):
@@ -346,23 +348,23 @@ class TradeManager:
         open_trades = len(self.positions)
         total_pnl = sum(t["pnl"] for t in self.trade_history)
 
-        print("\n📊 ACCOUNT SUMMARY")
-        print(f"💰 Current Balance: ${self.balance:.2f}")
-        print(f"📈 Open Trades: {open_trades}")
-        print(f"✅ Closed Trades: {len(self.trade_history)} | "
+        logger.info("\n📊 ACCOUNT SUMMARY")
+        logger.info(f"💰 Current Balance: ${self.balance:.2f}")
+        logger.info(f"📈 Open Trades: {open_trades}")
+        logger.info(f"✅ Closed Trades: {len(self.trade_history)} | "
             f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f}")
 
         # ➕ Average duration and PnL
         durations = [t["duration"] for t in self.trade_history if "duration" in t]
         if durations:
             avg_dur = sum(durations) / len(durations)
-            print(f"⏱️ Avg Trade Duration: {avg_dur/60:.1f} min ({avg_dur/3600:.2f} hrs)")
+            logger.info(f"⏱️ Avg Trade Duration: {avg_dur/60:.1f} min ({avg_dur/3600:.2f} hrs)")
 
         if self.trade_history:
             avg_pnl = total_pnl / len(self.trade_history)
             wins = [t for t in self.trade_history if t["pnl"] > 0]
             win_rate = len(wins) / len(self.trade_history) * 100
-            print(f"📈 Win Rate: {win_rate:.1f}% | Avg PnL: ${avg_pnl:.2f}")
+            logger.info(f"📈 Win Rate: {win_rate:.1f}% | Avg PnL: ${avg_pnl:.2f}")
 
         # ➕ Label-level performance breakdown
         label_stats = defaultdict(list)
@@ -372,7 +374,7 @@ class TradeManager:
 
         for label, pnl_list in label_stats.items():
             avg = sum(pnl_list) / len(pnl_list)
-            print(f"🔢 Label {label}: {len(pnl_list)} trades")
+            logger.info(f"🔢 Label {label}: {len(pnl_list)} trades")
 
         # 📈 Group performance by symbol & duration bucket
         group_stats = defaultdict(lambda: {"pnl": 0, "wins": 0, "count": 0, "fees": 0})
@@ -404,12 +406,12 @@ class TradeManager:
 
         rows = []
         if group_stats:
-            print("\n📊 Performance by Symbol & Duration:")
+            logger.info("\n📊 Performance by Symbol & Duration:")
             for (sym, b), s in group_stats.items():
                 win_rate = s["wins"] / s["count"] * 100 if s["count"] else 0
                 avg_pnl = s["pnl"] / s["count"] if s["count"] else 0
                 fee_ratio = s["fees"] / abs(s["pnl"]) if s["pnl"] else 0
-                print(f" - {sym} [{b}]: {s['count']} trades | Win {win_rate:.1f}% | Avg PnL ${avg_pnl:.2f} | Fee/PnL {fee_ratio:.2f}")
+                logger.info(f" - {sym} [{b}]: {s['count']} trades | Win {win_rate:.1f}% | Avg PnL ${avg_pnl:.2f} | Fee/PnL {fee_ratio:.2f}")
                 rows.append({
                     "symbol": sym,
                     "duration_bucket": b,
@@ -427,21 +429,21 @@ class TradeManager:
                 writer = csv.DictWriter(f, fieldnames=["symbol", "duration_bucket", "trade_count", "win_rate", "avg_pnl", "fee_ratio"])
                 writer.writeheader()
                 writer.writerows(rows)
-            print(f"📁 Trade analytics saved to {csv_path}")
+            logger.info(f"📁 Trade analytics saved to {csv_path}")
 
         # 🔁 Recent trades overview
         if self.trade_history:
-            print("\n📌 Recent Trades:")
+            logger.info("\n📌 Recent Trades:")
             for t in self.trade_history[-5:]:
                 fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
                 dur = t.get("duration", 0)
                 rotation_note = f" | Rotated at ${t['rotation_exit_price']:.2f}" if "rotation_exit_price" in t else ""
-                print(f" - {t['symbol']} | Entry ${t['entry_price']:.6f} → Exit ${t['exit_price']:.6f} | "
+                logger.info(f" - {t['symbol']} | Entry ${t['entry_price']:.6f} → Exit ${t['exit_price']:.6f} | "
                     f"PnL ${t['pnl']:.2f} (Fees ${fees:.2f}, {t['reason']}) | Dur {dur/60:.1f} min{rotation_note}")
 
         # 📊 Label frequency summary
         label_counts = Counter(t.get("label") for t in self.trade_history if t.get("label") is not None)
-        print(f"📊 Prediction label breakdown (closed trades): {dict(label_counts)}")
+        logger.info(f"📊 Prediction label breakdown (closed trades): {dict(label_counts)}")
 
 
     def save_state(self):
@@ -458,7 +460,7 @@ class TradeManager:
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
             json.dump(state, f, indent=2)
-        print("💾 TradeManager state saved.")
+        logger.info("💾 TradeManager state saved.")
 
     def load_state(self):
         if os.path.exists(self.STATE_FILE):
@@ -468,7 +470,7 @@ class TradeManager:
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
             self.total_fees = state.get("total_fees", 0.0)
-            print("📂 TradeManager state loaded.")
+            logger.info("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
                 cid = pos.get("coin_id")
@@ -477,4 +479,4 @@ class TradeManager:
 
             # WebSocket subscription removed; no live feed setup needed
         else:
-            print("ℹ️ No saved state found, starting fresh.")
+            logger.info("ℹ️ No saved state found, starting fresh.")
