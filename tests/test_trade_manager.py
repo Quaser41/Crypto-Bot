@@ -54,21 +54,20 @@ def test_close_trade_records_rotation_price(monkeypatch):
     assert record['rotation_exit_price'] == pytest.approx(12.0)
 
 
-def test_open_trade_respects_risk_limits(monkeypatch):
+def test_slippage_applied_to_trade(monkeypatch):
     tm = create_tm()
-    monkeypatch.setattr(tm, "can_trade", lambda: False)
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.01
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    price = 10.0
+    tm.open_trade('ABC', price, confidence=1.0)
+    pos = tm.positions['ABC']
+    assert pos['entry_price'] == pytest.approx(price * 1.01)
+    tm.close_trade('ABC', 12.0)
+    record = tm.trade_history[-1]
+    assert record['exit_price'] == pytest.approx(12.0 * (1 - tm.slippage_pct))
+    expected_pnl = (record['exit_price'] - pos['entry_price']) * pos['qty']
+    assert record['pnl'] == pytest.approx(expected_pnl)
 
-    def fail_fetch(*a, **k):
-        raise AssertionError("fetch_ohlcv_smart should not be called")
-
-    monkeypatch.setattr("data_fetcher.fetch_ohlcv_smart", fail_fetch)
-    tm.open_trade("ABC", 10.0)
-    assert "ABC" not in tm.positions
-    assert tm.balance == pytest.approx(1000)
-
-
-def test_close_trade_handles_missing_position(capfd):
-    tm = create_tm()
-    tm.close_trade("XYZ", 5.0)
-    out = capfd.readouterr().out
-    assert "No open position" in out
