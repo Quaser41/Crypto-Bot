@@ -1,6 +1,8 @@
 
 # model_predictor.py
 import json
+from functools import lru_cache
+
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -8,10 +10,7 @@ import xgboost as xgb
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
 
-# Cached model, features and load flag
-_MODEL_CACHE = None
-_FEATURES_CACHE = None
-_MODEL_LOADED = False
+
 
 
 def _load_model_from_disk():
@@ -50,13 +49,15 @@ def _load_model_from_disk():
     return model, list(expected_features)
 
 
+@lru_cache(maxsize=1)
 def load_model():
-    """Return cached model and features, loading them if necessary."""
-    global _MODEL_CACHE, _FEATURES_CACHE, _MODEL_LOADED
-    if not _MODEL_LOADED:
-        _MODEL_CACHE, _FEATURES_CACHE = _load_model_from_disk()
-        _MODEL_LOADED = True
-    return _MODEL_CACHE, _FEATURES_CACHE
+    """Load and cache the model and expected feature list."""
+    return _load_model_from_disk()
+
+
+def reload_model():
+    """Clear the cached model so it can be reloaded from disk."""
+    load_model.cache_clear()
 
 
 # === Predict signal from latest row ===
