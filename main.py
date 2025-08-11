@@ -7,6 +7,7 @@ from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
+from config import MOMENTUM_TIER_THRESHOLD
 
 # ✅ Global thresholds
 CONFIDENCE_THRESHOLD = 0.65         # minimum ML confidence for BUY
@@ -14,6 +15,9 @@ ROTATE_CONF_THRESHOLD = 0.03        # new trade must have +3% higher confidence 
 STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
+
+# Momentum tier mapping for gating logic
+TIER_RANKS = {"Tier 1": 1, "Tier 2": 2, "Tier 3": 3, "Tier 4": 4}
 
 # ✅ Fallback momentum thresholds
 FALLBACK_RSI_THRESHOLD = 55
@@ -102,7 +106,7 @@ def scan_for_breakouts():
         # ✅ NEW: Momentum filter
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
-        if momentum_tier in ["Tier 3", "Tier 4"]:
+        if TIER_RANKS.get(momentum_tier, 4) > MOMENTUM_TIER_THRESHOLD:
             print(f"❌ Skipping {symbol}: weak momentum ({momentum_tier}, score={momentum_score})")
             continue
 

@@ -83,13 +83,13 @@ def momentum_signal(df):
 
 def compute_momentum_score(row):
     score = 0
-    if row.get("Return_3d", 0) > 0.03:
+    if row.get("Return_3d", 0) > 0.02:
         score += 1
-    if row.get("RSI", 0) > 55:
+    if row.get("RSI", 0) > 50:
         score += 1
     if row.get("MACD", 0) > row.get("Signal", 0):
         score += 1
-    if row.get("Price_vs_SMA20", 0) > 0.01:
+    if row.get("Price_vs_SMA20", 0) > 0:
         score += 1
     if row.get("MACD_Hist_norm", 0) > 0:
         score += 1
