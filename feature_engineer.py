@@ -50,6 +50,8 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     # Short- and mid-term volatility
     df["Volatility_3d"] = df["Close"].rolling(window=3, min_periods=3).std()
     df["Volatility_7d"] = df["Close"].rolling(window=7, min_periods=7).std()
+    if df["Volatility_7d"].dropna().eq(0).any():
+        print("⚠️ Volatility_7d contains zero values; check OHLCV data quality")
 
     # Price deltas
     df["Price_Change_3d"] = df["Close"] - df["Close"].shift(3)

@@ -98,6 +98,11 @@ def scan_for_breakouts():
             time.sleep(3)
             continue
 
+        vol_7d = df["Volatility_7d"].iloc[-1]
+        if vol_7d < 1e-4:
+            print(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
+            continue
+
         # ✅ NEW: Momentum filter
         momentum_tier = df["Momentum_Tier"].iloc[-1]
         momentum_score = df["Momentum_Score"].iloc[-1]
