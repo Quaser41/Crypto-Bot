@@ -1,3 +1,4 @@
+
 # model_predictor.py
 import json
 import numpy as np
@@ -43,7 +44,7 @@ def load_model():
     return model, list(expected_features)
 
 # === Predict signal from latest row ===
-def predict_signal(df):
+def predict_signal(df, threshold=None, volatility=None):
     model, expected_features = load_model()
     if model is None or not expected_features:
         print("⚠️ No valid model available, skipping prediction.")
@@ -53,6 +54,7 @@ def predict_signal(df):
     if missing:
         print(f"⚠️ Missing features in input: {missing}")
         return None, 0.0, None
+
 
     X = df[expected_features].tail(1)
     if X.isnull().any().any():
