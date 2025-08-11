@@ -3,6 +3,7 @@ import numpy as np
 from feature_engineer import add_indicators
 from model_predictor import predict_signal
 from data_fetcher import fetch_ohlcv_smart
+from threshold_utils import get_dynamic_threshold
 
 def backtest_thresholds(coin_id, thresholds=None):
     if thresholds is None:
@@ -27,7 +28,9 @@ def backtest_thresholds(coin_id, thresholds=None):
             window_df = df.iloc[:i+1].copy()
 
             # Get ML signal and confidence for the current row
-            signal, conf, _ = predict_signal(window_df)
+            vol_7d = window_df["Volatility_7d"].iloc[-1]
+            dyn_thresh = get_dynamic_threshold(vol_7d)
+            signal, conf, _ = predict_signal(window_df, threshold=dyn_thresh)
 
             if signal is None or conf is None:
                 continue
