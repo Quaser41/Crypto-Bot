@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-from contextlib import contextmanager, redirect_stderr
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -13,12 +13,13 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 @contextmanager
 def suppress_stderr():
-    """Redirect ``sys.stderr`` to devnull within the context."""
-    original_stderr = sys.stderr
+    """Redirect ``sys.stderr`` and ``sys.stdout`` to devnull within the context."""
+    original_stderr, original_stdout = sys.stderr, sys.stdout
     with open(os.devnull, "w") as devnull:
-        with redirect_stderr(devnull):
+        with redirect_stderr(devnull), redirect_stdout(devnull):
             yield
     sys.stderr = original_stderr
+    sys.stdout = original_stdout
 
 def extract_gainers():
     """Scrape the CoinMarketCap gainers page.
@@ -29,7 +30,7 @@ def extract_gainers():
 
     url = "https://coinmarketcap.com/gainers-losers/"
     service = Service(ChromeDriverManager().install())
-    service.log_path = "NUL"  # suppress ChromeDriver logs (Windows)
+    service.log_path = os.devnull  # suppress ChromeDriver logs cross-platform
 
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")  # ✅ Headless mode
