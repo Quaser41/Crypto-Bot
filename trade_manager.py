@@ -4,6 +4,7 @@ import time
 import numpy as np
 
 from data_fetcher import fetch_live_price
+from config import RISK_PER_TRADE, MIN_TRADE_USD
 
 def convert_numpy_types(obj):
     if isinstance(obj, dict):
@@ -22,7 +23,7 @@ class TradeManager:
 
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
-                 trail_pct=0.03):
+                 trail_pct=0.03, risk_per_trade=RISK_PER_TRADE):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -30,6 +31,8 @@ class TradeManager:
         self.take_profit_pct = tp_pct
         self.trade_fee_pct = trade_fee_pct
         self.trail_pct = trail_pct
+        self.risk_per_trade = risk_per_trade
+        self.min_trade_usd = MIN_TRADE_USD
 
         self.positions = {}
         self.trade_history = []
@@ -41,14 +44,28 @@ class TradeManager:
     def fmt_price(self, p):
         return f"{p:.6f}" if p < 1 else f"{p:.2f}"
 
+    def calculate_allocation(self, confidence=1.0):
+        """Determine trade size based on current balance and risk settings.
+
+        Allocation is derived from a fixed fraction of equity (``risk_per_trade``)
+        and optionally scaled by the model's confidence score to favor
+        higher-conviction entries.
+        """
+        base = self.balance * self.risk_per_trade
+        if confidence is not None:
+            base *= confidence
+        return base
+
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
         if self.has_position(symbol):
             print(f"⚠️ Already have position in {symbol}")
             return
 
-        allocation = self.balance * self.max_allocation
-        if allocation < 10:
-            print(f"💸 Not enough balance to open new trade for {symbol}")
+        allocation = self.calculate_allocation(confidence)
+        if allocation < self.min_trade_usd:
+            print(
+                f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping"
+            )
             return
 
         entry_fee = allocation * self.trade_fee_pct

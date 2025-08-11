@@ -7,11 +7,11 @@ from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
-from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY
+from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD
 from threshold_utils import get_dynamic_threshold
 
 # ✅ Global thresholds
-CONFIDENCE_THRESHOLD = 0.65         # minimum ML confidence for BUY
+# CONFIDENCE_THRESHOLD imported from config
 ROTATE_CONF_THRESHOLD = 0.03        # new trade must have +3% higher confidence to rotate
 STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
@@ -179,6 +179,11 @@ def scan_for_breakouts():
         last_price = df["Close"].iloc[-1]
 
         if signal == "BUY" and label in [3, 4] and last_price > 0:
+            if confidence < CONFIDENCE_THRESHOLD:
+                print(
+                    f"❌ Skipping {symbol}: confidence {confidence:.2f} below threshold {CONFIDENCE_THRESHOLD}"
+                )
+                continue
             candidates.append((symbol, last_price, confidence, coin_id, signal, label))
         else:
             print(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
