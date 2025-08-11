@@ -50,7 +50,8 @@ def prepare_training_data(symbol, coin_id):
         "SMA_20", "SMA_50",
         "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
         "Price_vs_SMA20", "Price_vs_SMA50",
-        "Volatility_7d", "MACD_Hist_norm"
+        "Volatility_7d", "MACD_Hist_norm",
+        "FearGreed_norm", "TxVolume_norm", "ActiveAddresses_norm"
     ]
 
     X = df[feature_cols]
