@@ -8,6 +8,7 @@ from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
 from config import MOMENTUM_TIER_THRESHOLD
+from threshold_utils import get_dynamic_threshold
 
 # ✅ Global thresholds
 CONFIDENCE_THRESHOLD = 0.65         # minimum ML confidence for BUY
@@ -58,13 +59,6 @@ def monitor_thread():
 t = threading.Thread(target=monitor_thread, daemon=True)
 t.start()
 
-def get_dynamic_threshold(volatility_7d, base=CONFIDENCE_THRESHOLD):
-    if volatility_7d > 0.10:
-        return base - 0.05
-    elif volatility_7d < 0.03:
-        return base + 0.05
-    return base
-
 def scan_for_breakouts():
     print(f"⚠️ Currently open trades before scanning: {list(tm.positions.keys())}")
 
@@ -112,12 +106,11 @@ def scan_for_breakouts():
             continue
 
         try:
-            signal, confidence, label = predict_signal(df)
-            print(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
-
             vol_7d = df["Volatility_7d"].iloc[-1]
-            threshold = get_dynamic_threshold(vol_7d)
-            print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
+            threshold = get_dynamic_threshold(vol_7d, base=CONFIDENCE_THRESHOLD)
+            signal, confidence, label = predict_signal(df, threshold=threshold)
+            print(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
+            print(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
             if label == 1 and confidence < 0.85:
                 print(f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})")
@@ -127,11 +120,6 @@ def scan_for_breakouts():
             if label in [3, 4] and confidence >= 0.75:
                 print("🔥 High Conviction BUY override active")
                 signal = "BUY"
-
-            # === Volatility-adjusted dynamic threshold ===
-            vol_7d = df["Volatility_7d"].iloc[-1]
-            threshold = get_dynamic_threshold(vol_7d)
-            print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
             # === Skip flat coins early (no momentum) ===
             if (
