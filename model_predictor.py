@@ -10,6 +10,12 @@ def load_model():
     try:
         bundle = joblib.load(MODEL_PATH)
         print(f"DEBUG: Loaded model content type: {type(bundle)}")
+    except ModuleNotFoundError as e:
+        if e.name == "xgboost":
+            print("❌ Missing dependency 'xgboost'. Install it with 'pip install xgboost' to load the ML model.")
+        else:
+            print(f"❌ Required module not found: {e.name}")
+        return None, []
     except FileNotFoundError:
         print(f"❌ Model file not found at {MODEL_PATH}")
         return None, []
