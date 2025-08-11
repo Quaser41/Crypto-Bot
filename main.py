@@ -83,7 +83,8 @@ def scan_for_breakouts():
             continue
 
         print(f"\n🔎 Analyzing {name} ({symbol})...")
-        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
+        # Fetch a wider OHLCV window to ensure enough data remains after indicator dropna
+        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
 
         if df.empty or len(df) < 60:
             print(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
