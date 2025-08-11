@@ -28,7 +28,8 @@ class TradeManager:
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
-                 atr_mult_tp=ATR_MULT_TP):
+                 atr_mult_tp=ATR_MULT_TP,
+                 max_drawdown_pct=0.20, max_daily_loss_pct=0.05):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -38,6 +39,20 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
+
+        # Risk parameters
+        self.risk_per_trade = RISK_PER_TRADE
+        self.min_trade_usd = MIN_TRADE_USD
+        self.max_drawdown_pct = max_drawdown_pct
+        self.max_daily_loss_pct = max_daily_loss_pct
+
+        # Equity tracking
+        self.peak_equity = starting_balance
+        self.drawdown_pct = 0.0
+        self.current_day = time.strftime("%Y-%m-%d")
+        self.daily_start_balance = starting_balance
+        self.daily_loss_pct = 0.0
+
         self.positions = {}
         self.trade_history = []
         self.total_fees = 0.0
@@ -60,7 +75,42 @@ class TradeManager:
             base *= confidence
         return base
 
+    def _update_equity_metrics(self):
+        """Recalculate drawdown and daily loss percentages."""
+        today = time.strftime("%Y-%m-%d")
+        if self.current_day != today:
+            self.current_day = today
+            self.daily_start_balance = self.balance
+            self.daily_loss_pct = 0.0
+
+        # Only update drawdown using realized equity when no open positions
+        if self.positions:
+            return
+
+        if self.balance > self.peak_equity:
+            self.peak_equity = self.balance
+
+        if self.peak_equity > 0:
+            self.drawdown_pct = max(0.0, (self.peak_equity - self.balance) / self.peak_equity)
+
+        if self.daily_start_balance > 0:
+            self.daily_loss_pct = max(0.0, (self.daily_start_balance - self.balance) / self.daily_start_balance)
+
+    def can_trade(self):
+        """Return True if drawdown and daily loss are within limits."""
+        # Refresh metrics to account for new day boundaries
+        self._update_equity_metrics()
+        if self.drawdown_pct >= self.max_drawdown_pct:
+            return False
+        if self.daily_loss_pct >= self.max_daily_loss_pct:
+            return False
+        return True
+
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
+        if not self.can_trade():
+            print("🚫 Risk limits exceeded — cannot open new trades.")
+            return
+
         if self.has_position(symbol):
             print(f"⚠️ Already have position in {symbol}")
             return
@@ -163,6 +213,9 @@ class TradeManager:
 
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
+
+        # Update drawdown and daily loss metrics after realizing PnL
+        self._update_equity_metrics()
 
         duration = time.time() - pos.get("entry_time", time.time())
 
@@ -349,6 +402,9 @@ class TradeManager:
         print("\n📊 ACCOUNT SUMMARY")
         print(f"💰 Current Balance: ${self.balance:.2f}")
         print(f"📈 Open Trades: {open_trades}")
+        print(
+            f"📉 Drawdown: {self.drawdown_pct*100:.2f}% | Daily Loss: {self.daily_loss_pct*100:.2f}%"
+        )
         print(f"✅ Closed Trades: {len(self.trade_history)} | "
             f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f}")
 
@@ -453,7 +509,12 @@ class TradeManager:
             "balance": self.balance,
             "positions": self.positions,
             "trade_history": self.trade_history,
-            "total_fees": self.total_fees
+            "total_fees": self.total_fees,
+            "peak_equity": self.peak_equity,
+            "drawdown_pct": self.drawdown_pct,
+            "current_day": self.current_day,
+            "daily_start_balance": self.daily_start_balance,
+            "daily_loss_pct": self.daily_loss_pct,
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -468,6 +529,11 @@ class TradeManager:
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
             self.total_fees = state.get("total_fees", 0.0)
+            self.peak_equity = state.get("peak_equity", self.balance)
+            self.drawdown_pct = state.get("drawdown_pct", 0.0)
+            self.current_day = state.get("current_day", time.strftime("%Y-%m-%d"))
+            self.daily_start_balance = state.get("daily_start_balance", self.balance)
+            self.daily_loss_pct = state.get("daily_loss_pct", 0.0)
             print("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
@@ -476,5 +542,6 @@ class TradeManager:
                     self.positions[sym]["coin_id"] = sym.lower()
 
             # WebSocket subscription removed; no live feed setup needed
+            self._update_equity_metrics()
         else:
             print("ℹ️ No saved state found, starting fresh.")
