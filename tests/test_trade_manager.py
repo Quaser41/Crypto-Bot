@@ -52,3 +52,23 @@ def test_close_trade_records_rotation_price(monkeypatch):
     tm.close_trade('ABC', 12.0, reason='Rotated to better candidate')
     record = tm.trade_history[-1]
     assert record['rotation_exit_price'] == pytest.approx(12.0)
+
+
+def test_open_trade_respects_risk_limits(monkeypatch):
+    tm = create_tm()
+    monkeypatch.setattr(tm, "can_trade", lambda: False)
+
+    def fail_fetch(*a, **k):
+        raise AssertionError("fetch_ohlcv_smart should not be called")
+
+    monkeypatch.setattr("data_fetcher.fetch_ohlcv_smart", fail_fetch)
+    tm.open_trade("ABC", 10.0)
+    assert "ABC" not in tm.positions
+    assert tm.balance == pytest.approx(1000)
+
+
+def test_close_trade_handles_missing_position(capfd):
+    tm = create_tm()
+    tm.close_trade("XYZ", 5.0)
+    out = capfd.readouterr().out
+    assert "No open position" in out
