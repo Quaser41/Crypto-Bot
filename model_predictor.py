@@ -58,8 +58,9 @@ def load_model():
         _MODEL_LOADED = True
     return _MODEL_CACHE, _FEATURES_CACHE
 
+
 # === Predict signal from latest row ===
-def predict_signal(df, threshold=None, volatility=None):
+def predict_signal(df, threshold=None):
     model, expected_features = load_model()
     if model is None or not expected_features:
         print("⚠️ No valid model available, skipping prediction.")
@@ -85,10 +86,10 @@ def predict_signal(df, threshold=None, volatility=None):
         print(f"🔍 Class probabilities: {dict(enumerate(np.round(class_probs, 3)))}")
         print(f"📊 Predicted class: {predicted_class} with confidence {confidence:.2f}")
 
-        # Volatility dynamic threshold
-        vol = df.get("Volatility_7d", pd.Series([0.0])).iloc[-1]
-        threshold = 0.6 if vol > 0.2 else 0.7
-        print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol:.3f})")
+        if threshold is None:
+            vol = df.get("Volatility_7d", pd.Series([0.0])).iloc[-1]
+            threshold = get_dynamic_threshold(vol)
+            print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol:.3f})")
 
         # Logic overrides
         if predicted_class == 1 and confidence < threshold:

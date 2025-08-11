@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
+from config import MOMENTUM_SCORE_CONFIG
 
 # Minimum rows required after indicator calculations
 MIN_ROWS_AFTER_INDICATORS = 60
@@ -95,25 +96,33 @@ def momentum_signal(df):
         return "HOLD"
 
 def compute_momentum_score(row):
-    score = 0
-    if row.get("Return_3d", 0) > 0.02:
-        score += 1
-    if row.get("RSI", 0) > 50:
-        score += 1
-    if row.get("MACD", 0) > row.get("Signal", 0):
-        score += 1
-    if row.get("Price_vs_SMA20", 0) > 0:
-        score += 1
-    if row.get("MACD_Hist_norm", 0) > 0:
-        score += 1
+    """Compute a weighted momentum score for a row of indicator data.
+
+    Thresholds and weights are defined in :data:`config.MOMENTUM_SCORE_CONFIG`
+    and can be overridden via environment variables. This allows momentum
+    scoring to be tuned without modifying code.
+    """
+
+    cfg = MOMENTUM_SCORE_CONFIG
+    score = 0.0
+    if row.get("Return_3d", 0) > cfg["Return_3d"]["threshold"]:
+        score += cfg["Return_3d"]["weight"]
+    if row.get("RSI", 0) > cfg["RSI"]["threshold"]:
+        score += cfg["RSI"]["weight"]
+    if (row.get("MACD", 0) - row.get("Signal", 0)) > cfg["MACD_minus_Signal"]["threshold"]:
+        score += cfg["MACD_minus_Signal"]["weight"]
+    if row.get("Price_vs_SMA20", 0) > cfg["Price_vs_SMA20"]["threshold"]:
+        score += cfg["Price_vs_SMA20"]["weight"]
+    if row.get("MACD_Hist_norm", 0) > cfg["MACD_Hist_norm"]["threshold"]:
+        score += cfg["MACD_Hist_norm"]["weight"]
     return score
 
 def classify_momentum_tier(score):
     if score >= 4:
         return "Tier 1"
-    elif score == 3:
+    elif score >= 3:
         return "Tier 2"
-    elif score == 2:
+    elif score >= 2:
         return "Tier 3"
     else:
         return "Tier 4"
