@@ -52,3 +52,21 @@ def test_close_trade_records_rotation_price(monkeypatch):
     tm.close_trade('ABC', 12.0, reason='Rotated to better candidate')
     record = tm.trade_history[-1]
     assert record['rotation_exit_price'] == pytest.approx(12.0)
+
+
+def test_slippage_applied_to_trade(monkeypatch):
+    tm = create_tm()
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.01
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    price = 10.0
+    tm.open_trade('ABC', price, confidence=1.0)
+    pos = tm.positions['ABC']
+    assert pos['entry_price'] == pytest.approx(price * 1.01)
+    tm.close_trade('ABC', 12.0)
+    record = tm.trade_history[-1]
+    assert record['exit_price'] == pytest.approx(12.0 * (1 - tm.slippage_pct))
+    expected_pnl = (record['exit_price'] - pos['entry_price']) * pos['qty']
+    assert record['pnl'] == pytest.approx(expected_pnl)

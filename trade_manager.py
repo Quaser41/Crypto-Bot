@@ -8,7 +8,7 @@ from data_fetcher import fetch_live_price
 
 from config import ATR_MULT_SL, ATR_MULT_TP
 
-from config import RISK_PER_TRADE, MIN_TRADE_USD
+from config import RISK_PER_TRADE, MIN_TRADE_USD, SLIPPAGE_PCT
 
 
 def convert_numpy_types(obj):
@@ -31,7 +31,8 @@ class TradeManager:
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
-                 max_drawdown_pct=0.20, max_daily_loss_pct=0.05):
+                 max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
+                 slippage_pct=SLIPPAGE_PCT):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -41,6 +42,7 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
+        self.slippage_pct = slippage_pct
 
         # Risk parameters
         self.risk_per_trade = RISK_PER_TRADE
@@ -125,7 +127,13 @@ class TradeManager:
 
         entry_fee = allocation * self.trade_fee_pct
         net_allocation = allocation - entry_fee
-        qty = net_allocation / price
+
+        if side == "BUY":
+            exec_price = price * (1 + self.slippage_pct)
+        else:
+            exec_price = price * (1 - self.slippage_pct)
+
+        qty = net_allocation / exec_price
 
         if qty < 0.0001:
 
@@ -156,11 +164,11 @@ class TradeManager:
             sl_offset = self.atr_mult_sl * atr
             tp_offset = self.atr_mult_tp * atr
             if side == "SELL":
-                stop_loss = (price + sl_offset) * (1 + self.trade_fee_pct)
-                take_profit = (price - tp_offset) * (1 - self.trade_fee_pct)
+                stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
+                take_profit = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
-                take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
+                stop_loss = (exec_price - sl_offset) * (1 - self.trade_fee_pct)
+                take_profit = (exec_price + tp_offset) * (1 + self.trade_fee_pct)
         else:
 
             print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
@@ -168,20 +176,20 @@ class TradeManager:
             tp_pct = self.take_profit_pct
             sl_pct = self.stop_loss_pct
             if side == "SELL":
-                stop_loss = price * (1 + sl_pct) * (1 + self.trade_fee_pct)
-                take_profit = price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+                stop_loss = exec_price * (1 + sl_pct) * (1 + self.trade_fee_pct)
+                take_profit = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = price * (1 - sl_pct) * (1 - self.trade_fee_pct)
-                take_profit = price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+                stop_loss = exec_price * (1 - sl_pct) * (1 - self.trade_fee_pct)
+                take_profit = exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
 
         self.positions[symbol] = {
             "coin_id": coin_id or symbol.lower(),
-            "entry_price": price,
+            "entry_price": exec_price,
             "qty": qty,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
             "entry_fee": entry_fee,
-            "highest_price": price,
+            "highest_price": exec_price,
             "confidence": confidence,
             "label": label,
             "side": side,
@@ -191,7 +199,7 @@ class TradeManager:
         }
 
         msg = (
-            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(price)} | "
+            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(exec_price)} | "
             f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
             f"Label={label}"
         )
@@ -205,13 +213,19 @@ class TradeManager:
             return
 
         pos = self.positions.pop(symbol)
+        side = pos.get("side", "BUY")
 
         if pos["qty"] <= 0:
             print(f"❌ Invalid quantity for {symbol}, skipping close.")
             return
 
+        if side == "BUY":
+            exec_price = current_price * (1 - self.slippage_pct)
+        else:
+            exec_price = current_price * (1 + self.slippage_pct)
+
         entry_val = pos["entry_price"] * pos["qty"]
-        exit_val = current_price * pos["qty"]
+        exit_val = exec_price * pos["qty"]
 
         exit_fee = exit_val * self.trade_fee_pct
         net_exit = exit_val - exit_fee
@@ -248,7 +262,7 @@ class TradeManager:
         trade_record = {
             "symbol": symbol,
             "entry_price": pos["entry_price"],
-            "exit_price": current_price,
+            "exit_price": exec_price,
             "qty": pos["qty"],
             "pnl": pnl,
             "reason": reason,
@@ -266,7 +280,7 @@ class TradeManager:
 
         self.trade_history.append(trade_record)
 
-        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
+        print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exec_price)} | "
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
         self.save_state()
 
