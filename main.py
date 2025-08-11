@@ -7,7 +7,7 @@ from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
-from config import MOMENTUM_TIER_THRESHOLD
+from config import MOMENTUM_TIER_THRESHOLD, SCAN_DELAY, ERROR_DELAY
 from threshold_utils import get_dynamic_threshold
 
 # ✅ Global thresholds
@@ -86,7 +86,8 @@ def scan_for_breakouts():
 
         if df.empty or len(df) < 60:
             print(f"⚠️ Not enough OHLCV for {symbol}, skipping.")
-            time.sleep(3)
+            if ERROR_DELAY:
+                time.sleep(ERROR_DELAY)
             continue
 
         df = add_indicators(df).dropna(subset=[
@@ -95,7 +96,8 @@ def scan_for_breakouts():
         ])
         if df.empty:
             print("⚠️ Indicator calc dropped all rows, skipping...")
-            time.sleep(3)
+            if ERROR_DELAY:
+                time.sleep(ERROR_DELAY)
             continue
 
         vol_7d = df["Volatility_7d"].iloc[-1]
@@ -181,7 +183,8 @@ def scan_for_breakouts():
         else:
             print(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
 
-        time.sleep(3)
+        if SCAN_DELAY:
+            time.sleep(SCAN_DELAY)
 
     print(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
 
