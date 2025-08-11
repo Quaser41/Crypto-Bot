@@ -3,3 +3,7 @@ selenium
 webdriver_manager
 pandas
 yfinance
+numpy
+joblib
+ta
+TA-Lib
