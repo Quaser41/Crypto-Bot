@@ -70,3 +70,4 @@ def test_slippage_applied_to_trade(monkeypatch):
     assert record['exit_price'] == pytest.approx(12.0 * (1 - tm.slippage_pct))
     expected_pnl = (record['exit_price'] - pos['entry_price']) * pos['qty']
     assert record['pnl'] == pytest.approx(expected_pnl)
+
