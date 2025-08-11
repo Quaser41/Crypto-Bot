@@ -60,10 +60,16 @@ def monitor_thread():
 t = threading.Thread(target=monitor_thread, daemon=True)
 t.start()
 
-async def scan_for_breakouts():
+
+def scan_for_breakouts():
+    if not tm.can_trade():
+        print("🚫 Risk thresholds hit — skipping scan for new trades.")
+        return
+
     print(f"⚠️ Currently open trades before scanning: {list(tm.positions.keys())}")
 
     movers = get_top_gainers(limit=15)
+
     if not movers:
         print("❌ No valid gainers found on Coinbase — skipping scan.")
         return

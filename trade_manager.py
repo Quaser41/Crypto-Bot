@@ -28,8 +28,8 @@ class TradeManager:
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
-                 atr_mult_tp=ATR_MULT_TP, risk_per_trade=RISK_PER_TRADE,
-                 min_trade_usd=MIN_TRADE_USD):
+                 atr_mult_tp=ATR_MULT_TP,
+                 max_drawdown_pct=0.20, max_daily_loss_pct=0.05):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -39,8 +39,20 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
-        self.risk_per_trade = risk_per_trade
-        self.min_trade_usd = min_trade_usd
+
+        # Risk parameters
+        self.risk_per_trade = RISK_PER_TRADE
+        self.min_trade_usd = MIN_TRADE_USD
+        self.max_drawdown_pct = max_drawdown_pct
+        self.max_daily_loss_pct = max_daily_loss_pct
+
+        # Equity tracking
+        self.peak_equity = starting_balance
+        self.drawdown_pct = 0.0
+        self.current_day = time.strftime("%Y-%m-%d")
+        self.daily_start_balance = starting_balance
+        self.daily_loss_pct = 0.0
+
         self.positions = {}
         self.trade_history = []
         self.total_fees = 0.0
@@ -64,7 +76,42 @@ class TradeManager:
             base *= confidence
         return base
 
+    def _update_equity_metrics(self):
+        """Recalculate drawdown and daily loss percentages."""
+        today = time.strftime("%Y-%m-%d")
+        if self.current_day != today:
+            self.current_day = today
+            self.daily_start_balance = self.balance
+            self.daily_loss_pct = 0.0
+
+        # Only update drawdown using realized equity when no open positions
+        if self.positions:
+            return
+
+        if self.balance > self.peak_equity:
+            self.peak_equity = self.balance
+
+        if self.peak_equity > 0:
+            self.drawdown_pct = max(0.0, (self.peak_equity - self.balance) / self.peak_equity)
+
+        if self.daily_start_balance > 0:
+            self.daily_loss_pct = max(0.0, (self.daily_start_balance - self.balance) / self.daily_start_balance)
+
+    def can_trade(self):
+        """Return True if drawdown and daily loss are within limits."""
+        # Refresh metrics to account for new day boundaries
+        self._update_equity_metrics()
+        if self.drawdown_pct >= self.max_drawdown_pct:
+            return False
+        if self.daily_loss_pct >= self.max_daily_loss_pct:
+            return False
+        return True
+
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
+        if not self.can_trade():
+            print("🚫 Risk limits exceeded — cannot open new trades.")
+            return
+
         if self.has_position(symbol):
             print(f"⚠️ Already have position in {symbol}")
             return
@@ -78,8 +125,7 @@ class TradeManager:
 
         entry_fee = allocation * self.trade_fee_pct
         net_allocation = allocation - entry_fee
-        exec_price = price * (1 + self.slippage_pct) if side == "BUY" else price * (1 - self.slippage_pct)
-        qty = net_allocation / exec_price
+        qty = net_allocation / price
 
         if qty < 0.0001:
             print(f"⚠️ Trade qty too small for {symbol}, skipping")
@@ -89,10 +135,8 @@ class TradeManager:
             print(f"⚠️ Model predicts loss for {symbol} (label 0), skipping long trade.")
             return
 
-        slippage_cost = abs(exec_price - price) * qty
         self.balance -= allocation
         self.total_fees += entry_fee
-        self.total_slippage += slippage_cost
 
         atr = None
         try:
@@ -109,31 +153,30 @@ class TradeManager:
             sl_offset = self.atr_mult_sl * atr
             tp_offset = self.atr_mult_tp * atr
             if side == "SELL":
-                stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
-                take_profit = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
+                stop_loss = (price + sl_offset) * (1 + self.trade_fee_pct)
+                take_profit = (price - tp_offset) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = (exec_price - sl_offset) * (1 - self.trade_fee_pct)
-                take_profit = (exec_price + tp_offset) * (1 + self.trade_fee_pct)
+                stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
+                take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
         else:
             print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
             tp_pct = self.take_profit_pct
             sl_pct = self.stop_loss_pct
             if side == "SELL":
-                stop_loss = exec_price * (1 + sl_pct) * (1 + self.trade_fee_pct)
-                take_profit = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+                stop_loss = price * (1 + sl_pct) * (1 + self.trade_fee_pct)
+                take_profit = price * (1 - tp_pct) * (1 - self.trade_fee_pct)
             else:
-                stop_loss = exec_price * (1 - sl_pct) * (1 - self.trade_fee_pct)
-                take_profit = exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+                stop_loss = price * (1 - sl_pct) * (1 - self.trade_fee_pct)
+                take_profit = price * (1 + tp_pct) * (1 + self.trade_fee_pct)
 
         self.positions[symbol] = {
             "coin_id": coin_id or symbol.lower(),
-            "entry_price": exec_price,
+            "entry_price": price,
             "qty": qty,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
             "entry_fee": entry_fee,
-            "entry_slippage": slippage_cost,
-            "highest_price": exec_price,
+            "highest_price": price,
             "confidence": confidence,
             "label": label,
             "side": side,
@@ -143,13 +186,14 @@ class TradeManager:
         }
 
         msg = (
-            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(exec_price)} | "
+            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(price)} | "
             f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
             f"Label={label}"
         )
         if atr:
             msg += f" | ATR={atr:.6f}"
         print(msg)
+
 
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
@@ -170,13 +214,14 @@ class TradeManager:
         net_exit = exit_val - exit_fee
         self.total_fees += exit_fee
 
-        slippage_cost = abs(exit_price - current_price) * pos["qty"]
-        self.total_slippage += slippage_cost
-
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
 
+        # Update drawdown and daily loss metrics after realizing PnL
+        self._update_equity_metrics()
+
         duration = time.time() - pos.get("entry_time", time.time())
+
 
         # ✅ Exit momentum capture BEFORE building trade_record
         exit_momentum = {}
@@ -362,9 +407,11 @@ class TradeManager:
         print("\n📊 ACCOUNT SUMMARY")
         print(f"💰 Current Balance: ${self.balance:.2f}")
         print(f"📈 Open Trades: {open_trades}")
+        print(
+            f"📉 Drawdown: {self.drawdown_pct*100:.2f}% | Daily Loss: {self.daily_loss_pct*100:.2f}%"
+        )
         print(f"✅ Closed Trades: {len(self.trade_history)} | "
-            f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f} | "
-            f"Slippage: ${self.total_slippage:.2f}")
+            f"Total PnL: ${total_pnl:.2f} | Fees Paid: ${self.total_fees:.2f}")
 
         # ➕ Average duration and PnL
         durations = [t["duration"] for t in self.trade_history if "duration" in t]
@@ -463,13 +510,19 @@ class TradeManager:
         if len(self.trade_history) > MAX_HISTORY:
             self.trade_history = self.trade_history[-MAX_HISTORY:]
 
+
         state = {
             "balance": self.balance,
             "positions": self.positions,
             "trade_history": self.trade_history,
             "total_fees": self.total_fees,
-            "total_slippage": self.total_slippage
+            "peak_equity": self.peak_equity,
+            "drawdown_pct": self.drawdown_pct,
+            "current_day": self.current_day,
+            "daily_start_balance": self.daily_start_balance,
+            "daily_loss_pct": self.daily_loss_pct,
         }
+
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
             json.dump(state, f, indent=2)
@@ -479,12 +532,18 @@ class TradeManager:
         if os.path.exists(self.STATE_FILE):
             with open(self.STATE_FILE, "r") as f:
                 state = json.load(f)
+
             self.balance = state.get("balance", self.starting_balance)
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
             self.total_fees = state.get("total_fees", 0.0)
-            self.total_slippage = state.get("total_slippage", 0.0)
+            self.peak_equity = state.get("peak_equity", self.balance)
+            self.drawdown_pct = state.get("drawdown_pct", 0.0)
+            self.current_day = state.get("current_day", time.strftime("%Y-%m-%d"))
+            self.daily_start_balance = state.get("daily_start_balance", self.balance)
+            self.daily_loss_pct = state.get("daily_loss_pct", 0.0)
             print("📂 TradeManager state loaded.")
+
 
             for sym, pos in self.positions.items():
                 cid = pos.get("coin_id")
@@ -492,5 +551,6 @@ class TradeManager:
                     self.positions[sym]["coin_id"] = sym.lower()
 
             # WebSocket subscription removed; no live feed setup needed
+            self._update_equity_metrics()
         else:
             print("ℹ️ No saved state found, starting fresh.")
