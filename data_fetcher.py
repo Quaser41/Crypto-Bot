@@ -7,7 +7,11 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
-from symbol_resolver import resolve_symbol_binance_us, resolve_symbol_binance_global
+from symbol_resolver import (
+    resolve_symbol_binance_us,
+    resolve_symbol_binance_global,
+    resolve_symbol_coinbase,
+)
 from extract_gainers import extract_gainers
 
 
@@ -147,8 +151,8 @@ def get_top_gainers(limit=10):
         except ValueError:
             continue
 
-        # ✅ Check Binance.US directly first
-        if not is_symbol_on_binance_us(symbol):
+        # ✅ Check availability on Coinbase
+        if not is_symbol_on_coinbase(symbol):
             continue
 
         # 🔍 Resolve coin ID only if symbol is valid
@@ -164,18 +168,10 @@ def get_top_gainers(limit=10):
     return result
 
 
-def is_symbol_on_binance_us(symbol):
+def is_symbol_on_coinbase(symbol):
     try:
-        url = f"https://api.binance.us/api/v3/exchangeInfo"
-        data = cached_fetch("binance_us_exchange_info", ttl=3600)
-        if not data:
-            data = safe_request(url)
-            update_cache("binance_us_exchange_info", data)
-
-        symbols = {s["symbol"] for s in data["symbols"]}
-        # Convert coin symbol like "HBAR" to valid pairs like "HBARUSDT"
-        return any(symbol + quote in symbols for quote in ["USDT", "USD", "BUSD"])
-    except:
+        return resolve_symbol_coinbase(symbol) is not None
+    except Exception:
         return False
 
 # =========================================================
@@ -185,21 +181,15 @@ def is_symbol_on_binance_us(symbol):
 # =========================================================
 # ✅ MULTI-SOURCE OHLCV FETCHING
 # =========================================================
-DATA_SOURCES = ["binance_us", "binance", "coingecko", "dexscreener"]
+DATA_SOURCES = ["coinbase", "coingecko", "dexscreener"]
 
 def fetch_ohlcv_smart(symbol, **kwargs):
     """Smart OHLCV fetcher that tries all sources in order per token."""
     for source in DATA_SOURCES:
         try:
-            if source == "binance":
-                print(f"⚡ Trying Binance for {symbol}")
-                df = fetch_binance_ohlcv(symbol, **kwargs)
-                if not df.empty:
-                    return df
-
-            elif source == "binance_us":
-                print(f"⚡ Trying Binance.US for {symbol}")
-                df = fetch_binance_us_ohlcv(symbol, **kwargs)
+            if source == "coinbase":
+                print(f"⚡ Trying Coinbase for {symbol}")
+                df = fetch_coinbase_ohlcv(symbol, **kwargs)
                 if not df.empty:
                     return df
 
@@ -294,6 +284,37 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         return pd.DataFrame()
 
 
+def fetch_coinbase_ohlcv(symbol, interval="15m", limit=96, **kwargs):
+    product_id = resolve_symbol_coinbase(symbol)
+    if not product_id:
+        print(f"⚠️ Symbol {symbol.upper()} not found on Coinbase.")
+        return pd.DataFrame()
+
+    gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
+    granularity = gran_map.get(interval, 900)
+    end = datetime.utcnow()
+    start = end - timedelta(seconds=granularity * limit)
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
+    params = {
+        "granularity": granularity,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+    }
+
+    data = safe_request(url, params=params, backoff_on_429=False)
+    if not data:
+        return pd.DataFrame()
+
+    try:
+        df = pd.DataFrame(data, columns=["Timestamp", "Low", "High", "Open", "Close", "Volume"])
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="s")
+        df = df.sort_values("Timestamp")
+        return df[["Timestamp", "Close"]]
+    except Exception as e:
+        print(f"❌ Coinbase fetch fail ({symbol}): {e}")
+        return pd.DataFrame()
+
+
 def fetch_dexscreener_ohlcv(symbol):
     url = f"https://api.dexscreener.com/latest/dex/search?q={symbol.lower()}"
     data = safe_request(url)
@@ -366,32 +387,18 @@ def fetch_live_price(symbol, coin_id=None):
         return cached
 
     symbol_upper = symbol.upper()
-    resolved_global = resolve_symbol_binance_global(symbol)
-    resolved_us = resolve_symbol_binance_us(symbol)
+    coinbase_symbol = resolve_symbol_coinbase(symbol)
 
-    sources = ["cryptocompare", "binance", "binance_us", "dexscreener", "coingecko"]
+    sources = ["cryptocompare", "coinbase", "dexscreener", "coingecko"]
 
     for source in sources:
         try:
-            if source == "binance":
-                if not resolved_global:
-                    print(f"⚠️ Skipping Binance Global: {symbol} not found")
+            if source == "coinbase":
+                if not coinbase_symbol:
+                    print(f"⚠️ Skipping Coinbase: {symbol} not found")
                     continue
-                print(f"⚡ Trying Binance Global for {symbol} → {resolved_global}")
-                url = f"https://api.binance.com/api/v3/ticker/price?symbol={resolved_global}"
-                data = safe_request(url, backoff_on_429=False)
-                if data and "price" in data:
-                    price = float(data["price"])
-                    if price > 0:
-                        update_cache(cache_key, price)
-                        return price
-
-            elif source == "binance_us":
-                if not resolved_us:
-                    print(f"⚠️ Skipping Binance.US: {symbol} not found")
-                    continue
-                print(f"⚡ Trying Binance.US for {symbol} → {resolved_us}")
-                url = f"https://api.binance.us/api/v3/ticker/price?symbol={resolved_us}"
+                print(f"⚡ Trying Coinbase for {symbol} → {coinbase_symbol}")
+                url = f"https://api.exchange.coinbase.com/products/{coinbase_symbol}/ticker"
                 data = safe_request(url, backoff_on_429=False)
                 if data and "price" in data:
                     price = float(data["price"])

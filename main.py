@@ -60,7 +60,7 @@ def scan_for_breakouts():
 
     movers = get_top_gainers(limit=15)
     if not movers:
-        print("❌ No valid gainers found from Binance.US — skipping scan.")
+        print("❌ No valid gainers found on Coinbase — skipping scan.")
         return
 
     print("\n🔥 TOP GAINERS:")
