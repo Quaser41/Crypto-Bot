@@ -5,6 +5,7 @@ import pickle
 import requests
 import pandas as pd
 import yfinance as yf
+import asyncio
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
 from symbol_resolver import (
@@ -531,4 +532,5 @@ def fetch_live_price(symbol, coin_id=None):
 
     logger.error(f"❌ No live price found for {symbol}")
     return None
+
 

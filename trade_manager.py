@@ -480,3 +480,4 @@ class TradeManager:
             # WebSocket subscription removed; no live feed setup needed
         else:
             logger.info("ℹ️ No saved state found, starting fresh.")
+

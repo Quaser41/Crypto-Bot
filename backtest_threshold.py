@@ -5,7 +5,7 @@ from model_predictor import predict_signal
 from data_fetcher import fetch_ohlcv_smart
 from threshold_utils import get_dynamic_threshold
 
-def backtest_thresholds(coin_id, thresholds=None):
+def backtest_thresholds(coin_id, thresholds=None, slippage_pct: float = 0.001):
     if thresholds is None:
         thresholds = np.arange(0.5, 0.75, 0.05)  # test 0.50 to 0.70
 
@@ -45,18 +45,20 @@ def backtest_thresholds(coin_id, thresholds=None):
             # Simulate trades
             if signal == "BUY" and position == 0:
                 position = 1
-                entry_price = price
+                entry_price = price * (1 + slippage_pct)
                 trades += 1
             elif signal == "SELL" and position == 1:
-                # Close position, calculate return
-                ret = (price - entry_price) / entry_price
+                # Close position, calculate return with slippage
+                exit_price = price * (1 - slippage_pct)
+                ret = (exit_price - entry_price) / entry_price
                 returns.append(ret)
                 position = 0
                 entry_price = 0
 
         # If still holding position at end, close at last price
         if position == 1:
-            ret = (df["Close"].iloc[-1] - entry_price) / entry_price
+            exit_price = df["Close"].iloc[-1] * (1 - slippage_pct)
+            ret = (exit_price - entry_price) / entry_price
             returns.append(ret)
 
         total_return = np.sum(returns) if returns else 0

@@ -90,7 +90,7 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
-def backtest_symbol(symbol: str, days: int = 90):
+def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = 0.001):
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     if df.empty:
         print(f"❌ No data for {symbol}")
@@ -119,14 +119,17 @@ def backtest_symbol(symbol: str, days: int = 90):
         prev_price = df["Close"].iloc[i - 1]
         ret = price / prev_price - 1
         period_return = ret if position == 1 else 0
+
+        if signal == "BUY" and position == 0:
+            period_return -= slippage_pct
+            position = 1
+        elif signal == "SELL" and position == 1:
+            period_return -= slippage_pct
+            position = 0
+
         equity *= (1 + period_return)
         equity_curve.append(equity)
         returns.append(period_return)
-
-        if signal == "BUY" and position == 0:
-            position = 1
-        elif signal == "SELL" and position == 1:
-            position = 0
 
     returns = pd.Series(returns)
     equity_curve = pd.Series(equity_curve[1:], index=timestamps)
@@ -138,12 +141,13 @@ def main():
     parser = argparse.ArgumentParser(description="Backtest breakout strategy")
     parser.add_argument("--symbols", required=True, help="Comma-separated list e.g. BTC,ETH")
     parser.add_argument("--days", type=int, default=90, help="Days of history to fetch")
+    parser.add_argument("--slippage", type=float, default=0.001, help="Slippage percentage per trade")
     args = parser.parse_args()
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     for sym in symbols:
         print(f"\n=== Backtesting {sym} ===")
-        stats = backtest_symbol(sym, days=args.days)
+        stats = backtest_symbol(sym, days=args.days, slippage_pct=args.slippage)
         if stats:
             for k, v in stats.items():
                 print(f"{k}: {v:.2%}" if k != "Sharpe" else f"{k}: {v:.2f}")
