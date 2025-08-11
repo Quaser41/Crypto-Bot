@@ -332,6 +332,61 @@ class TradeManager:
             avg = sum(pnl_list) / len(pnl_list)
             print(f"🔢 Label {label}: {len(pnl_list)} trades")
 
+        # 📈 Group performance by symbol & duration bucket
+        group_stats = defaultdict(lambda: {"pnl": 0, "wins": 0, "count": 0, "fees": 0})
+
+        def bucket(seconds):
+            if seconds < 60:
+                return "<1m"
+            elif seconds < 5 * 60:
+                return "1-5m"
+            elif seconds < 30 * 60:
+                return "5-30m"
+            elif seconds < 2 * 3600:
+                return "30m-2h"
+            else:
+                return ">2h"
+
+        for t in self.trade_history:
+            symbol = t.get("symbol", "?")
+            dur = t.get("duration", 0)
+            b = bucket(dur)
+            pnl = t.get("pnl", 0)
+            fees = t.get("entry_fee", 0) + t.get("exit_fee", 0)
+            g = group_stats[(symbol, b)]
+            g["pnl"] += pnl
+            g["fees"] += fees
+            g["count"] += 1
+            if pnl > 0:
+                g["wins"] += 1
+
+        rows = []
+        if group_stats:
+            print("\n📊 Performance by Symbol & Duration:")
+            for (sym, b), s in group_stats.items():
+                win_rate = s["wins"] / s["count"] * 100 if s["count"] else 0
+                avg_pnl = s["pnl"] / s["count"] if s["count"] else 0
+                fee_ratio = s["fees"] / abs(s["pnl"]) if s["pnl"] else 0
+                print(f" - {sym} [{b}]: {s['count']} trades | Win {win_rate:.1f}% | Avg PnL ${avg_pnl:.2f} | Fee/PnL {fee_ratio:.2f}")
+                rows.append({
+                    "symbol": sym,
+                    "duration_bucket": b,
+                    "trade_count": s["count"],
+                    "win_rate": round(win_rate, 2),
+                    "avg_pnl": round(avg_pnl, 2),
+                    "fee_ratio": round(fee_ratio, 4)
+                })
+
+            # Save analytics to CSV
+            import csv, os
+            os.makedirs("analytics", exist_ok=True)
+            csv_path = os.path.join("analytics", "trade_stats.csv")
+            with open(csv_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=["symbol", "duration_bucket", "trade_count", "win_rate", "avg_pnl", "fee_ratio"])
+                writer.writeheader()
+                writer.writerows(rows)
+            print(f"📁 Trade analytics saved to {csv_path}")
+
         # 🔁 Recent trades overview
         if self.trade_history:
             print("\n📌 Recent Trades:")
