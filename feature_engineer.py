@@ -1,5 +1,10 @@
 # feature_engineer.py
-import talib
+# TA-Lib is optional. Import if available, otherwise proceed without it.
+try:
+    import talib  # type: ignore  # noqa: F401
+except ImportError:
+    talib = None
+
 import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator
