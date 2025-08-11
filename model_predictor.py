@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import numpy as np
 import xgboost as xgb
+import asyncio
 
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
@@ -115,6 +116,11 @@ def predict_signal(df, threshold):
     except Exception as e:
         print(f"❌ ML prediction failed: {e}")
         return None, 0.0, None
+
+
+async def predict_signal_async(df, threshold):
+    """Asynchronous helper for :func:`predict_signal`."""
+    return await asyncio.to_thread(predict_signal, df, threshold)
 
 
 

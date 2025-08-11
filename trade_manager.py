@@ -1,3 +1,4 @@
+
 import json
 import os
 import time
@@ -21,6 +22,7 @@ def convert_numpy_types(obj):
         return int(obj)
     else:
         return obj
+
 
 class TradeManager:
     STATE_FILE = "trade_manager_state.json"
@@ -117,9 +119,8 @@ class TradeManager:
 
         allocation = self.calculate_allocation(confidence)
         if allocation < self.min_trade_usd:
-            print(
-                f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping"
-            )
+
+            print(f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping")
             return
 
         entry_fee = allocation * self.trade_fee_pct
@@ -127,6 +128,7 @@ class TradeManager:
         qty = net_allocation / price
 
         if qty < 0.0001:
+
             print(f"⚠️ Trade qty too small for {symbol}, skipping")
             return
 
@@ -146,7 +148,9 @@ class TradeManager:
             if "ATR" in df.columns and not df["ATR"].dropna().empty:
                 atr = float(df["ATR"].iloc[-1])
         except Exception as e:
+
             print(f"⚠️ Could not compute ATR for {symbol}: {e}")
+
 
         if atr and atr > 0:
             sl_offset = self.atr_mult_sl * atr
@@ -158,7 +162,9 @@ class TradeManager:
                 stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
                 take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
         else:
+
             print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
+
             tp_pct = self.take_profit_pct
             sl_pct = self.stop_loss_pct
             if side == "SELL":
@@ -505,6 +511,7 @@ class TradeManager:
         if len(self.trade_history) > MAX_HISTORY:
             self.trade_history = self.trade_history[-MAX_HISTORY:]
 
+
         state = {
             "balance": self.balance,
             "positions": self.positions,
@@ -525,6 +532,7 @@ class TradeManager:
         if os.path.exists(self.STATE_FILE):
             with open(self.STATE_FILE, "r") as f:
                 state = json.load(f)
+
             self.balance = state.get("balance", self.starting_balance)
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
@@ -545,3 +553,4 @@ class TradeManager:
             self._update_equity_metrics()
         else:
             print("ℹ️ No saved state found, starting fresh.")
+

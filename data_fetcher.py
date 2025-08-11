@@ -5,6 +5,7 @@ import pickle
 import requests
 import pandas as pd
 import yfinance as yf
+import asyncio
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
 from symbol_resolver import (
@@ -13,6 +14,10 @@ from symbol_resolver import (
     resolve_symbol_coinbase,
 )
 from extract_gainers import extract_gainers
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 # =========================================================
 # ✅ SENTIMENT & ON-CHAIN METRICS
@@ -32,7 +37,7 @@ def fetch_fear_greed_index(limit=30):
         df["FearGreed"] = pd.to_numeric(df["FearGreed"], errors="coerce")
         return df[["Timestamp", "FearGreed"]].sort_values("Timestamp")
     except Exception as e:
-        print(f"❌ Failed to parse Fear & Greed index: {e}")
+        logger.error(f"❌ Failed to parse Fear & Greed index: {e}")
         return pd.DataFrame()
 
 
@@ -90,9 +95,9 @@ def cached_fetch(key, ttl=180):
             if time.time() - timestamp < ttl:
                 return data
             else:
-                print(f"🕒 Cache expired for {key}")
+                logger.info(f"🕒 Cache expired for {key}")
     except Exception as e:
-        print(f"⚠️ Cache read error for {key}: {e}")
+        logger.warning(f"⚠️ Cache read error for {key}: {e}")
     return None
 
 def update_cache(key, data):
@@ -102,7 +107,7 @@ def update_cache(key, data):
         with open(path, "wb") as f:
             pickle.dump((time.time(), data), f)
     except Exception as e:
-        print(f"❌ Cache write error for {key}: {e}")
+        logger.error(f"❌ Cache write error for {key}: {e}")
 
 def clear_old_cache(cache_dir="cache", max_age=600):
     """
@@ -122,9 +127,9 @@ def clear_old_cache(cache_dir="cache", max_age=600):
                     os.remove(path)
                     removed += 1
                 except PermissionError:
-                    print(f"⚠️ Skipping in-use file: {filename}")
+                    logger.warning(f"⚠️ Skipping in-use file: {filename}")
     if removed:
-        print(f"🧹 Cleared {removed} old cache file(s)")        
+        logger.info(f"🧹 Cleared {removed} old cache file(s)")        
 
 # =========================================================
 # ✅ GENERIC SAFE REQUEST WRAPPER (w/ retry + rate limit)
@@ -138,23 +143,23 @@ def safe_request(url, params=None, timeout=10, max_retries=3, retry_delay=5, bac
             r = requests.get(url, params=params, timeout=timeout)
 
             if r.status_code == 429 and backoff_on_429:
-                print(f"⚠️ Rate limited {url} (attempt {attempt}) → backoff...")
+                logger.warning(f"⚠️ Rate limited {url} (attempt {attempt}) → backoff...")
                 wait_for_slot(backoff=True)
                 time.sleep(2 ** attempt)
                 continue
 
             if r.status_code != 200:
-                print(f"❌ Failed ({r.status_code}) {url} attempt {attempt}")
+                logger.error(f"❌ Failed ({r.status_code}) {url} attempt {attempt}")
                 time.sleep(retry_delay)
                 continue
 
             return r.json()
 
         except Exception as e:
-            print(f"❌ Exception on attempt {attempt} for {url}: {e}")
+            logger.error(f"❌ Exception on attempt {attempt} for {url}: {e}")
             time.sleep(retry_delay)
 
-    print(f"❌ All attempts failed for {url}")
+    logger.error(f"❌ All attempts failed for {url}")
     return None
 
 
@@ -186,7 +191,7 @@ def resolve_coin_id(symbol, name):
                     COINGECKO_LIST.update({item["symbol"].upper(): item["id"] for item in data})
                     update_cache("coingecko_full_list", COINGECKO_LIST)
             except Exception as e:
-                print(f"❌ Failed to preload Coingecko list: {e}")
+                logger.error(f"❌ Failed to preload Coingecko list: {e}")
 
     if symbol.upper() in COINGECKO_LIST:
         coin_id = COINGECKO_LIST[symbol.upper()]
@@ -208,7 +213,7 @@ def resolve_coin_id(symbol, name):
                     COIN_ID_CACHE[symbol] = coin_id
                     return coin_id
     except Exception as e:
-        print(f"❌ Coin ID resolution failed for {symbol}: {e}")
+        logger.error(f"❌ Coin ID resolution failed for {symbol}: {e}")
 
     return None
 
@@ -261,34 +266,34 @@ def fetch_ohlcv_smart(symbol, **kwargs):
     for source in DATA_SOURCES:
         try:
             if source == "coinbase":
-                print(f"⚡ Trying Coinbase for {symbol}")
+                logger.info(f"⚡ Trying Coinbase for {symbol}")
                 df = fetch_coinbase_ohlcv(symbol, **kwargs)
                 if not df.empty:
                     return df
 
             elif source == "yfinance":
-                print(f"⚡ Trying YFinance for {symbol}")
+                logger.info(f"⚡ Trying YFinance for {symbol}")
                 df = fetch_from_yfinance(symbol, days=kwargs.get("days", 1))
                 if not df.empty:
                     return df
 
             elif source == "dexscreener":
-                print(f"⚡ Trying DexScreener for {symbol}")
+                logger.info(f"⚡ Trying DexScreener for {symbol}")
                 df = fetch_dexscreener_ohlcv(symbol)
                 if not df.empty:
                     return df
 
             elif source == "coingecko":
-                print(f"⚡ Trying Coingecko for {symbol} (days={kwargs.get('days', 1)})")
+                logger.info(f"⚡ Trying Coingecko for {symbol} (days={kwargs.get('days', 1)})")
                 df = fetch_coingecko_ohlcv(kwargs.get("coin_id", symbol), days=kwargs.get("days", 1))
                 if not df.empty:
                     return df
 
         except Exception as e:
-            print(f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}")
+            logger.warning(f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}")
             continue
 
-    print(f"❌ All sources failed for {symbol}")
+    logger.error(f"❌ All sources failed for {symbol}")
     return pd.DataFrame()
 
 
@@ -296,7 +301,7 @@ def fetch_ohlcv_smart(symbol, **kwargs):
 def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     binance_symbol = resolve_symbol_binance_global(symbol)
     if not binance_symbol:
-        print(f"⚠️ Symbol {symbol.upper()} not found on Binance Global.")
+        logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Binance Global.")
         return pd.DataFrame()
 
     url = f"https://api.binance.com/api/v3/klines"
@@ -307,7 +312,7 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         r = requests.get(url, params=params, timeout=10)
 
         if r.status_code == 451:
-            print(f"⚠️ Binance 451 for {symbol} — skipping.")
+            logger.warning(f"⚠️ Binance 451 for {symbol} — skipping.")
             return pd.DataFrame()
 
         try:
@@ -322,17 +327,17 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
             df["Timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             return df[["Timestamp", "Close"]]
         except Exception as e:
-            print(f"❌ Binance fetch fail ({symbol}): {e}")
+            logger.error(f"❌ Binance fetch fail ({symbol}): {e}")
             time.sleep(2)
 
-    print(f"❌ All Binance fetch attempts failed for {symbol}")
+    logger.error(f"❌ All Binance fetch attempts failed for {symbol}")
     return pd.DataFrame()
 
 
 def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     binance_symbol = resolve_symbol_binance_us(symbol)
     if not binance_symbol:
-        print(f"⚠️ Symbol {symbol.upper()} not found on Binance.US.")
+        logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Binance.US.")
         return pd.DataFrame()
 
     url = "https://api.binance.us/api/v3/klines"
@@ -353,14 +358,14 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         df["Timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df[["Timestamp", "Close"]]
     except Exception as e:
-        print(f"❌ Binance.US fetch fail ({symbol}): {e}")
+        logger.error(f"❌ Binance.US fetch fail ({symbol}): {e}")
         return pd.DataFrame()
 
 
 def fetch_coinbase_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     product_id = resolve_symbol_coinbase(symbol)
     if not product_id:
-        print(f"⚠️ Symbol {symbol.upper()} not found on Coinbase.")
+        logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Coinbase.")
         return pd.DataFrame()
 
     gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
@@ -384,7 +389,7 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         df = df.sort_values("Timestamp")
         return df[["Timestamp", "Close"]]
     except Exception as e:
-        print(f"❌ Coinbase fetch fail ({symbol}): {e}")
+        logger.error(f"❌ Coinbase fetch fail ({symbol}): {e}")
         return pd.DataFrame()
 
 
@@ -407,7 +412,7 @@ def fetch_dexscreener_ohlcv(symbol):
 
     for yf_symbol in yf_candidates:
         try:
-            print(f"🔎 Trying yfinance ticker: {yf_symbol}")
+            logger.info(f"🔎 Trying yfinance ticker: {yf_symbol}")
             df = yf.download(yf_symbol, period=f"{days}d", interval="1h", progress=False)
 
             if not df.empty and "Close" in df.columns and df["Close"].dropna().shape[0] > 0:
@@ -415,13 +420,13 @@ def fetch_dexscreener_ohlcv(symbol):
                     "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"
                 })[["Open", "High", "Low", "Close", "Volume"]]
                 df.reset_index(drop=True, inplace=True)
-                print(f"✅ YFinance data loaded for {yf_symbol}")
+                logger.info(f"✅ YFinance data loaded for {yf_symbol}")
                 return df
 
         except Exception as e:
-            print(f"⚠️ Failed for {yf_symbol}: {e}")
+            logger.warning(f"⚠️ Failed for {yf_symbol}: {e}")
 
-    print(f"❌ YFinance could not fetch data for {symbol}")
+    logger.error(f"❌ YFinance could not fetch data for {symbol}")
     return pd.DataFrame()
 
 
@@ -429,7 +434,7 @@ def fetch_coingecko_ohlcv(coin_id, days=1):
     cache_key = f"cg_ohlcv:{coin_id}:{days}"
     cached = cached_fetch(cache_key, ttl=180)  # 3 min TTL
     if cached is not None:
-        print(f"📦 Using cached Coingecko OHLCV for {coin_id}")
+        logger.info(f"📦 Using cached Coingecko OHLCV for {coin_id}")
         return cached
 
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
@@ -440,10 +445,10 @@ def fetch_coingecko_ohlcv(coin_id, days=1):
         df = pd.DataFrame(data["prices"], columns=["Timestamp", "Close"])
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms")
         update_cache(cache_key, df)
-        print(f"✅ Coingecko OHLCV loaded for {coin_id}")
+        logger.info(f"✅ Coingecko OHLCV loaded for {coin_id}")
         return df
 
-    print(f"❌ Coingecko OHLCV fetch failed for {coin_id}")
+    logger.error(f"❌ Coingecko OHLCV fetch failed for {coin_id}")
     return pd.DataFrame()
 
 
@@ -456,7 +461,7 @@ def fetch_live_price(symbol, coin_id=None):
     # ✅ Check disk cache first
     cached = cached_fetch(cache_key, ttl=60)
     if cached is not None:
-        print(f"📦 Using cached disk price for {symbol}: {cached}")
+        logger.info(f"📦 Using cached disk price for {symbol}: {cached}")
         return cached
 
     symbol_upper = symbol.upper()
@@ -468,9 +473,9 @@ def fetch_live_price(symbol, coin_id=None):
         try:
             if source == "coinbase":
                 if not coinbase_symbol:
-                    print(f"⚠️ Skipping Coinbase: {symbol} not found")
+                    logger.warning(f"⚠️ Skipping Coinbase: {symbol} not found")
                     continue
-                print(f"⚡ Trying Coinbase for {symbol} → {coinbase_symbol}")
+                logger.info(f"⚡ Trying Coinbase for {symbol} → {coinbase_symbol}")
                 url = f"https://api.exchange.coinbase.com/products/{coinbase_symbol}/ticker"
                 data = safe_request(url, backoff_on_429=False)
                 if data and "price" in data:
@@ -480,7 +485,7 @@ def fetch_live_price(symbol, coin_id=None):
                         return price
 
             elif source == "dexscreener":
-                print(f"⚡ Trying DexScreener for {symbol}")
+                logger.info(f"⚡ Trying DexScreener for {symbol}")
                 search_query = coin_id or symbol
                 dex_url = f"https://api.dexscreener.com/latest/dex/search?q={search_query}"
                 data = safe_request(dex_url, backoff_on_429=False)
@@ -496,7 +501,7 @@ def fetch_live_price(symbol, coin_id=None):
                         return best_price
 
             elif source == "cryptocompare":
-                print(f"⚡ Trying CryptoCompare for {symbol_upper}")
+                logger.info(f"⚡ Trying CryptoCompare for {symbol_upper}")
                 url = "https://min-api.cryptocompare.com/data/price"
                 params = {"fsym": symbol_upper, "tsyms": "USD"}
                 data = safe_request(url, params=params, backoff_on_429=False)
@@ -508,9 +513,9 @@ def fetch_live_price(symbol, coin_id=None):
                                      
             elif source == "coingecko":
                 if not coin_id:
-                    print(f"⚠️ Skipping CoinGecko: no coin_id for {symbol}")
+                    logger.warning(f"⚠️ Skipping CoinGecko: no coin_id for {symbol}")
                     continue
-                print(f"⚡ Trying CoinGecko for {coin_id}")
+                logger.info(f"⚡ Trying CoinGecko for {coin_id}")
 
                 url = f"https://api.coingecko.com/api/v3/simple/price"
                 params = {"ids": coin_id, "vs_currencies": "usd"}
@@ -523,8 +528,9 @@ def fetch_live_price(symbol, coin_id=None):
                         return price
 
         except Exception as e:
-            print(f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}")
+            logger.warning(f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}")
 
-    print(f"❌ No live price found for {symbol}")
+    logger.error(f"❌ No live price found for {symbol}")
     return None
+
 
