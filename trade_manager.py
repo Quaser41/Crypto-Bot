@@ -3,7 +3,7 @@ import os
 import time
 import numpy as np
 
-from data_fetcher import fetch_live_price, track_symbol, untrack_symbol
+from data_fetcher import fetch_live_price
 
 def convert_numpy_types(obj):
     if isinstance(obj, dict):
@@ -108,8 +108,6 @@ class TradeManager:
               f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
               f"Label={label}")
 
-        track_symbol(symbol)
-
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
             print(f"⚠️ No open position to close for {symbol}")
@@ -177,7 +175,6 @@ class TradeManager:
         print(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(current_price)} | "
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
         self.save_state()
-        untrack_symbol(symbol)
 
     def monitor_open_trades(self, check_interval=60, single_run=False):
         print(f"🚦 Monitoring {len(self.positions)} open trade(s)...")
@@ -381,9 +378,6 @@ class TradeManager:
                 if not cid or cid.upper() == sym.upper():
                     self.positions[sym]["coin_id"] = sym.lower()
 
-            # ✅ Re-subscribe open trades to Coinbase WebSocket
-            for sym in self.positions:
-                print(f"📡 Re-subscribing to Coinbase WebSocket for open trade: {sym}")
-                track_symbol(sym)        
+            # WebSocket subscription removed; no live feed setup needed
         else:
             print("ℹ️ No saved state found, starting fresh.")

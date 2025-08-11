@@ -3,4 +3,3 @@ selenium
 webdriver_manager
 pandas
 yfinance
-websocket-client
