@@ -28,7 +28,8 @@ class TradeManager:
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
-                 atr_mult_tp=ATR_MULT_TP, slippage_pct=0.001):
+                 atr_mult_tp=ATR_MULT_TP, risk_per_trade=RISK_PER_TRADE,
+                 min_trade_usd=MIN_TRADE_USD):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -38,13 +39,12 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
-        self.slippage_pct = slippage_pct
+        self.risk_per_trade = risk_per_trade
+        self.min_trade_usd = min_trade_usd
         self.positions = {}
         self.trade_history = []
         self.total_fees = 0.0
-        self.total_slippage = 0.0
-        self.risk_per_trade = RISK_PER_TRADE
-        self.min_trade_usd = MIN_TRADE_USD
+
 
     def has_position(self, symbol):
         return symbol in self.positions
