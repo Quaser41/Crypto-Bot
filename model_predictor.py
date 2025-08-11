@@ -8,8 +8,14 @@ import xgboost as xgb
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
 
-# === Load model and expected features ===
-def load_model():
+# Cached model, features and load flag
+_MODEL_CACHE = None
+_FEATURES_CACHE = None
+_MODEL_LOADED = False
+
+
+def _load_model_from_disk():
+    """Load the XGBoost model and expected feature list from disk."""
     try:
         model = xgb.Booster()
         model.load_model(MODEL_PATH)
@@ -42,6 +48,15 @@ def load_model():
 
     print(f"🔄 Loaded ML model expecting {len(expected_features)} features: {expected_features}")
     return model, list(expected_features)
+
+
+def load_model():
+    """Return cached model and features, loading them if necessary."""
+    global _MODEL_CACHE, _FEATURES_CACHE, _MODEL_LOADED
+    if not _MODEL_LOADED:
+        _MODEL_CACHE, _FEATURES_CACHE = _load_model_from_disk()
+        _MODEL_LOADED = True
+    return _MODEL_CACHE, _FEATURES_CACHE
 
 # === Predict signal from latest row ===
 def predict_signal(df, threshold=None, volatility=None):
