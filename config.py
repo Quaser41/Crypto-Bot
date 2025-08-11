@@ -5,6 +5,7 @@ import os
 # Override with environment variable MOMENTUM_TIER_THRESHOLD.
 MOMENTUM_TIER_THRESHOLD = int(os.getenv("MOMENTUM_TIER_THRESHOLD", "3"))
 
+
 # Thresholds and weights used when computing the momentum score. Each entry
 # specifies the minimum value required to contribute to the score and the
 # weight that will be added when the condition is met. All values can be
@@ -33,3 +34,12 @@ MOMENTUM_SCORE_CONFIG = {
         "weight": float(os.getenv("MOMENTUM_MACD_HIST_NORM_WEIGHT", "1")),
     },
 }
+
+# Optional delay between processing symbols during scans.
+# Set via environment variable SCAN_DELAY (seconds).
+SCAN_DELAY = float(os.getenv("SCAN_DELAY", "0"))
+
+# Delay applied when an error occurs during symbol processing.
+# Set via environment variable ERROR_DELAY (seconds).
+ERROR_DELAY = float(os.getenv("ERROR_DELAY", "0"))
+
