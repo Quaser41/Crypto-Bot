@@ -15,6 +15,12 @@ STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
 
+# ✅ Fallback momentum thresholds
+FALLBACK_RSI_THRESHOLD = 55
+FALLBACK_RETURN_3D_THRESHOLD = 0.03
+FLAT_1D_THRESHOLD = 0.001
+FLAT_3D_THRESHOLD = 0.003
+
 # 🔍 Rotation audit logging (toggleable)
 ENABLE_ROTATION_AUDIT = True
 
@@ -123,8 +129,13 @@ def scan_for_breakouts():
             print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
             # === Skip flat coins early (no momentum) ===
-            if abs(df["Return_1d"].iloc[-1]) < 0.0025 and abs(df["Return_3d"].iloc[-1]) < 0.005:
-                print(f"⛔ Skipping {symbol}: too flat for fallback trigger (1d={df['Return_1d'].iloc[-1]:.2%}, 3d={df['Return_3d'].iloc[-1]:.2%})")
+            if (
+                abs(df["Return_1d"].iloc[-1]) < FLAT_1D_THRESHOLD
+                and abs(df["Return_3d"].iloc[-1]) < FLAT_3D_THRESHOLD
+            ):
+                print(
+                    f"⛔ Skipping {symbol}: too flat for fallback trigger (1d={df['Return_1d'].iloc[-1]:.2%}, 3d={df['Return_3d'].iloc[-1]:.2%})"
+                )
                 continue
 
             # === High-confidence override for Class 3 or 4 ===
@@ -147,8 +158,14 @@ def scan_for_breakouts():
                 fallbacks += 1
 
                 # === Fallback breakout trigger ===
-                if signal == "BUY" and df["Return_3d"].iloc[-1] > 0.05 and df["RSI"].iloc[-1] > 60:
-                    print(f"🔥 Fallback BUY trigger: {symbol} shows 3d return {df['Return_3d'].iloc[-1]:.2%} with RSI {df['RSI'].iloc[-1]:.1f}")
+                if (
+                    signal == "BUY"
+                    and df["Return_3d"].iloc[-1] > FALLBACK_RETURN_3D_THRESHOLD
+                    and df["RSI"].iloc[-1] > FALLBACK_RSI_THRESHOLD
+                ):
+                    print(
+                        f"🔥 Fallback BUY trigger: {symbol} shows 3d return {df['Return_3d'].iloc[-1]:.2%} with RSI {df['RSI'].iloc[-1]:.1f}"
+                    )
                 else:
                     signal = "HOLD"
 

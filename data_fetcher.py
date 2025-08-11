@@ -19,6 +19,7 @@ from extract_gainers import extract_gainers
 # ✅ GLOBAL CACHING SYSTEM
 # =========================================================
 COIN_ID_CACHE = {}
+COINGECKO_LIST = {}
 
 CACHE_DIR = "cache"
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -110,7 +111,7 @@ def safe_request(url, params=None, timeout=10, max_retries=3, retry_delay=5, bac
 # =========================================================
 def resolve_coin_id(symbol, name):
     cache_key = f"resolve_id:{symbol}"
-    
+
     # Check in-session memory first
     if symbol in COIN_ID_CACHE:
         return COIN_ID_CACHE[symbol]
@@ -121,7 +122,27 @@ def resolve_coin_id(symbol, name):
         COIN_ID_CACHE[symbol] = cached
         return cached
 
-    # Fallback: call Coingecko (only if absolutely needed)
+    # Try preloaded Coingecko list before making search calls
+    if not COINGECKO_LIST:
+        cache = cached_fetch("coingecko_full_list", ttl=86400)
+        if cache:
+            COINGECKO_LIST.update(cache)
+        else:
+            try:
+                data = safe_request("https://api.coingecko.com/api/v3/coins/list", backoff_on_429=False)
+                if data:
+                    COINGECKO_LIST.update({item["symbol"].upper(): item["id"] for item in data})
+                    update_cache("coingecko_full_list", COINGECKO_LIST)
+            except Exception as e:
+                print(f"❌ Failed to preload Coingecko list: {e}")
+
+    if symbol.upper() in COINGECKO_LIST:
+        coin_id = COINGECKO_LIST[symbol.upper()]
+        update_cache(cache_key, coin_id)
+        COIN_ID_CACHE[symbol] = coin_id
+        return coin_id
+
+    # Fallback: call Coingecko search only if list lookup fails
     url = "https://api.coingecko.com/api/v3/search"
     params = {"query": name}
 
