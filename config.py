@@ -48,3 +48,8 @@ MOMENTUM_SCORE_CONFIG = {
 # Set via environment variable ERROR_DELAY (seconds).
 ERROR_DELAY = float(os.getenv("ERROR_DELAY", "0"))
 
+# Multipliers for ATR-based stop-loss and take-profit calculations.
+# These can be overridden via environment variables ATR_MULT_SL and ATR_MULT_TP.
+ATR_MULT_SL = float(os.getenv("ATR_MULT_SL", "1.5"))
+ATR_MULT_TP = float(os.getenv("ATR_MULT_TP", "3.0"))
+
