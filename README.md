@@ -55,3 +55,22 @@ run_bot.bat
 
 Both scripts change to the project directory and execute `python main.py`.
 
+## Configuration
+
+Momentum scoring thresholds and weights can be adjusted without touching the
+source code by setting environment variables:
+
+- `MOMENTUM_TIER_THRESHOLD`: Lowest momentum tier allowed before an asset is
+  skipped. Defaults to `3`.
+- `MOMENTUM_RETURN_3D_THRESHOLD`, `MOMENTUM_RSI_THRESHOLD`,
+  `MOMENTUM_MACD_DIFF_THRESHOLD`, `MOMENTUM_PRICE_SMA20_THRESHOLD`,
+  `MOMENTUM_MACD_HIST_NORM_THRESHOLD`: Minimum values required for each
+  indicator to contribute to the momentum score. Defaults are `0.015`, `45`,
+  and `0` for the remaining indicators respectively.
+- `MOMENTUM_RETURN_3D_WEIGHT`, `MOMENTUM_RSI_WEIGHT`,
+  `MOMENTUM_MACD_DIFF_WEIGHT`, `MOMENTUM_PRICE_SMA20_WEIGHT`,
+  `MOMENTUM_MACD_HIST_NORM_WEIGHT`: Weight applied when an indicator exceeds
+  its threshold. All default to `1`.
+
+These options allow fine-tuning of momentum evaluation without code changes.
+
