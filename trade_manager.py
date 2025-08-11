@@ -4,7 +4,11 @@ import time
 import numpy as np
 
 from data_fetcher import fetch_live_price
+
+from config import ATR_MULT_SL, ATR_MULT_TP
+
 from config import RISK_PER_TRADE, MIN_TRADE_USD
+
 
 def convert_numpy_types(obj):
     if isinstance(obj, dict):
@@ -23,7 +27,8 @@ class TradeManager:
 
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
-                 trail_pct=0.03, risk_per_trade=RISK_PER_TRADE):
+                 trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
+                 atr_mult_tp=ATR_MULT_TP):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -31,9 +36,8 @@ class TradeManager:
         self.take_profit_pct = tp_pct
         self.trade_fee_pct = trade_fee_pct
         self.trail_pct = trail_pct
-        self.risk_per_trade = risk_per_trade
-        self.min_trade_usd = MIN_TRADE_USD
-
+        self.atr_mult_sl = atr_mult_sl
+        self.atr_mult_tp = atr_mult_tp
         self.positions = {}
         self.trade_history = []
         self.total_fees = 0.0
@@ -83,28 +87,36 @@ class TradeManager:
         self.balance -= allocation
         self.total_fees += entry_fee
 
-        tp_pct = self.take_profit_pct
-        sl_pct = self.stop_loss_pct
+        atr = None
+        try:
+            from data_fetcher import fetch_ohlcv_smart
+            from feature_engineer import add_indicators
+            df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
+            df = add_indicators(df)
+            if "ATR" in df.columns and not df["ATR"].dropna().empty:
+                atr = float(df["ATR"].iloc[-1])
+        except Exception as e:
+            print(f"⚠️ Could not compute ATR for {symbol}: {e}")
 
-        if label == 4:
-            tp_pct = 0.15
-            sl_pct = 0.05
-        elif label == 3:
-            tp_pct = 0.10
-            sl_pct = 0.06
-        elif label == 2:
-            tp_pct = 0.06
-            sl_pct = 0.06
-        elif label == 1:
-            tp_pct = 0.04
-            sl_pct = 0.08
-
-        if side == "SELL":
-            stop_loss = price * (1 + sl_pct) * (1 + self.trade_fee_pct)
-            take_profit = price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+        if atr and atr > 0:
+            sl_offset = self.atr_mult_sl * atr
+            tp_offset = self.atr_mult_tp * atr
+            if side == "SELL":
+                stop_loss = (price + sl_offset) * (1 + self.trade_fee_pct)
+                take_profit = (price - tp_offset) * (1 - self.trade_fee_pct)
+            else:
+                stop_loss = (price - sl_offset) * (1 - self.trade_fee_pct)
+                take_profit = (price + tp_offset) * (1 + self.trade_fee_pct)
         else:
-            stop_loss = price * (1 - sl_pct) * (1 - self.trade_fee_pct)
-            take_profit = price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+            print(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
+            tp_pct = self.take_profit_pct
+            sl_pct = self.stop_loss_pct
+            if side == "SELL":
+                stop_loss = price * (1 + sl_pct) * (1 + self.trade_fee_pct)
+                take_profit = price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+            else:
+                stop_loss = price * (1 - sl_pct) * (1 - self.trade_fee_pct)
+                take_profit = price * (1 + tp_pct) * (1 + self.trade_fee_pct)
 
         self.positions[symbol] = {
             "coin_id": coin_id or symbol.lower(),
@@ -118,12 +130,18 @@ class TradeManager:
             "label": label,
             "side": side,
             "entry_time": time.time(),
-            "last_movement_time": time.time()
+            "last_movement_time": time.time(),
+            "atr": atr,
         }
 
-        print(f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(price)} | "
-              f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
-              f"Label={label}")
+        msg = (
+            f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(price)} | "
+            f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
+            f"Label={label}"
+        )
+        if atr:
+            msg += f" | ATR={atr:.6f}"
+        print(msg)
 
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
@@ -279,10 +297,17 @@ class TradeManager:
                 pos["highest_price"] = current_price
 
         trail_stop = None
-        if side == "BUY" and pos["highest_price"] > entry_price:
-            trail_stop = pos["highest_price"] * (1 - self.trail_pct)
-        elif side == "SELL" and pos["highest_price"] < entry_price:
-            trail_stop = pos["highest_price"] * (1 + self.trail_pct)
+        atr = pos.get("atr")
+        if atr and atr > 0:
+            if side == "BUY" and pos["highest_price"] > entry_price:
+                trail_stop = pos["highest_price"] - atr * self.atr_mult_sl
+            elif side == "SELL" and pos["highest_price"] < entry_price:
+                trail_stop = pos["highest_price"] + atr * self.atr_mult_sl
+        else:
+            if side == "BUY" and pos["highest_price"] > entry_price:
+                trail_stop = pos["highest_price"] * (1 - self.trail_pct)
+            elif side == "SELL" and pos["highest_price"] < entry_price:
+                trail_stop = pos["highest_price"] * (1 + self.trail_pct)
 
         sl_buffer = 0.999
         if side == "BUY":

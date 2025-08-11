@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator
+from ta.volatility import AverageTrueRange
 from config import LOG_MOMENTUM_DISTRIBUTION, MOMENTUM_SCORE_CONFIG
 from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics
 
@@ -41,6 +42,17 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     sma_50 = SMAIndicator(df["Close"], window=50)
     df["SMA_20"] = sma_20.sma_indicator()
     df["SMA_50"] = sma_50.sma_indicator()
+
+    # Average True Range (ATR) as a volatility measure. If High/Low are not
+    # provided by the data source, fall back to a rolling standard deviation of
+    # Close prices as a rough proxy.
+    if {"High", "Low"}.issubset(df.columns):
+        atr_ind = AverageTrueRange(
+            high=df["High"], low=df["Low"], close=df["Close"], window=14
+        )
+        df["ATR"] = atr_ind.average_true_range()
+    else:
+        df["ATR"] = df["Close"].rolling(window=14, min_periods=14).std()
 
     # Daily and short-term returns
     df["Return_1d"] = df["Close"].pct_change()

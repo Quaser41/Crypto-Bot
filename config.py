@@ -48,6 +48,12 @@ MOMENTUM_SCORE_CONFIG = {
 # Set via environment variable ERROR_DELAY (seconds).
 ERROR_DELAY = float(os.getenv("ERROR_DELAY", "0"))
 
+
+# Multipliers for ATR-based stop-loss and take-profit calculations.
+# These can be overridden via environment variables ATR_MULT_SL and ATR_MULT_TP.
+ATR_MULT_SL = float(os.getenv("ATR_MULT_SL", "1.5"))
+ATR_MULT_TP = float(os.getenv("ATR_MULT_TP", "3.0"))
+
 # === Risk management and trade sizing ===
 # Percentage of account equity risked per trade (e.g. 0.01 = 1%)
 RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))
@@ -57,4 +63,5 @@ MIN_TRADE_USD = float(os.getenv("MIN_TRADE_USD", "10"))
 
 # Baseline minimum model confidence required to consider a trade.
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
+
 
