@@ -1,16 +1,18 @@
+
 # model_predictor.py
-import joblib
+import json
 import numpy as np
 import pandas as pd
-from threshold_utils import get_dynamic_threshold
+import xgboost as xgb
 
-MODEL_PATH = "ml_model.pkl"
+MODEL_PATH = "ml_model.json"
+FEATURES_PATH = "features.json"
 
 # === Load model and expected features ===
 def load_model():
     try:
-        bundle = joblib.load(MODEL_PATH)
-        print(f"DEBUG: Loaded model content type: {type(bundle)}")
+        model = xgb.Booster()
+        model.load_model(MODEL_PATH)
     except ModuleNotFoundError as e:
         if e.name == "xgboost":
             print("❌ Missing dependency 'xgboost'. Install it with 'pip install xgboost' to load the ML model.")
@@ -20,21 +22,22 @@ def load_model():
     except FileNotFoundError:
         print(f"❌ Model file not found at {MODEL_PATH}")
         return None, []
-    except ValueError as e:
+    except Exception as e:
         print(f"❌ Failed to load model from {MODEL_PATH}: {e}")
         return None, []
 
-    if isinstance(bundle, tuple) and len(bundle) == 2:
-        model, expected_features = bundle
-    elif isinstance(bundle, dict) and "model" in bundle and "features" in bundle:
-        model = bundle["model"]
-        expected_features = bundle["features"]
-    else:
-        print("❌ Unsupported model format in ml_model.pkl")
+    try:
+        with open(FEATURES_PATH, "r") as f:
+            expected_features = json.load(f)
+    except FileNotFoundError:
+        print(f"❌ Feature list file not found at {FEATURES_PATH}")
+        return None, []
+    except json.JSONDecodeError as e:
+        print(f"❌ Failed to parse feature list: {e}")
         return None, []
 
     if not isinstance(expected_features, (list, tuple)) or not all(isinstance(f, str) for f in expected_features):
-        print("❌ Expected features missing or malformed in model bundle")
+        print("❌ Expected features missing or malformed in feature list")
         return None, []
 
     print(f"🔄 Loaded ML model expecting {len(expected_features)} features: {expected_features}")
@@ -52,23 +55,25 @@ def predict_signal(df, threshold=None, volatility=None):
         print(f"⚠️ Missing features in input: {missing}")
         return None, 0.0, None
 
+
     X = df[expected_features].tail(1)
     if X.isnull().any().any():
         print("⚠️ NaNs found in final feature row, skipping prediction.")
         return None, 0.0, None
 
     try:
-        class_probs = model.predict_proba(X)[0]
+        dmatrix = xgb.DMatrix(X)
+        class_probs = model.predict(dmatrix)[0]
         predicted_class = int(np.argmax(class_probs))
         confidence = class_probs[predicted_class]
 
         print(f"🔍 Class probabilities: {dict(enumerate(np.round(class_probs, 3)))}")
         print(f"📊 Predicted class: {predicted_class} with confidence {confidence:.2f}")
 
-        if threshold is None:
-            if volatility is None:
-                raise ValueError("Either threshold or volatility must be provided")
-            threshold = get_dynamic_threshold(volatility)
+        # Volatility dynamic threshold
+        vol = df.get("Volatility_7d", pd.Series([0.0])).iloc[-1]
+        threshold = 0.6 if vol > 0.2 else 0.7
+        print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol:.3f})")
 
         # Logic overrides
         if predicted_class == 1 and confidence < threshold:
