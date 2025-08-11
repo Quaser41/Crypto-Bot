@@ -3,7 +3,7 @@ import pandas as pd
 import threading
 
 # ✅ Now use refactored fetchers
-from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache, start_coinbase_ws
+from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
@@ -31,9 +31,6 @@ def record_rotation_audit(current, candidate):
     })
     if len(ROTATION_AUDIT_LOG) > ROTATION_LOG_LIMIT:
         ROTATION_AUDIT_LOG.pop(0)
-
-# Start WebSocket feed
-start_coinbase_ws()
 
 # ✅ TradeManager instance
 tm = TradeManager()

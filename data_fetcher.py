@@ -4,9 +4,6 @@ import time
 import pickle
 import requests
 import pandas as pd
-import websocket
-import threading
-import json
 import yfinance as yf
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
@@ -102,133 +99,6 @@ def safe_request(url, params=None, timeout=10, max_retries=3, retry_delay=5, bac
 
     print(f"❌ All attempts failed for {url}")
     return None
-
-# =========================================================
-# ✅ Coinbase Configuration
-# =========================================================
-LIVE_PRICES = {}
-_ws_app = None
-_tracked_symbols = set()
-_lock = threading.Lock()
-
-def _on_message(ws, message):
-    try:
-        msg = json.loads(message)
-        if msg.get("channel") == "ticker" and "events" in msg:
-            for event in msg["events"]:
-                # Unified handler for both snapshot and update
-                tickers = event.get("tickers", [])
-                for ticker in tickers:
-                    product_id = ticker.get("product_id", "")
-                    price = ticker.get("price")
-
-                    if product_id and price:
-                        symbol = product_id.replace("-USD", "").upper()
-                        LIVE_PRICES[symbol.upper()] = float(price)
-                        #print(f"📡 WebSocket price update: {symbol} → {price}")
-
-    except Exception as e:
-        print(f"⚠️ Error parsing WebSocket message: {e}")
-
-
-def _on_open(ws):
-    with _lock:
-        if _tracked_symbols:
-            sub = {
-                "type": "subscribe",
-                "channel": "ticker",
-                "product_ids": [f"{sym}-USD" for sym in _tracked_symbols]
-            }
-
-            print(f"📡 Subscribing to: {sub['product_ids']}")
-            ws.send(json.dumps(sub))
-
-
-def _run_ws():
-    global _ws_app
-    while True:
-        try:
-            _ws_app = websocket.WebSocketApp(
-                "wss://advanced-trade-ws.coinbase.com",
-                on_open=_on_open,
-                on_message=_on_message,
-                on_close=lambda ws, code, msg: print(f"❌ WebSocket closed: {code} - {msg}"),
-                on_error=lambda ws, err: print(f"❌ WebSocket error: {err}")
-            )
-            _ws_app.run_forever()
-        except Exception as e:
-            print(f"❌ WebSocket crashed: {e}")
-        
-        print("🔁 Reconnecting to Coinbase WebSocket in 5 seconds...")
-        time.sleep(5)
-
-
-
-def start_coinbase_ws():
-    t = threading.Thread(target=_run_ws, daemon=True)
-    t.start()
-
-def track_symbol(symbol):
-    global _ws_app
-    symbol = symbol.upper()
-    product_id = f"{symbol}-USD"
-    
-    if product_id not in get_valid_coinbase_products():
-        print(f"❌ {product_id} is not supported on Coinbase, skipping.")
-        return
-
-    with _lock:
-        if symbol not in _tracked_symbols:
-            _tracked_symbols.add(symbol)
-            
-            if _ws_app and _ws_app.sock and _ws_app.sock.connected:
-                msg = {
-                    "type": "subscribe",
-                    "channel": "ticker",
-                    "product_ids": [product_id]
-                }
-                _ws_app.send(json.dumps(msg))
-                print(f"🛰️ Subscribed to Coinbase WebSocket for {symbol}")
-            else:
-                print(f"⚠️ WebSocket not connected when trying to subscribe to {symbol}")
-
-
-def untrack_symbol(symbol):
-    """
-    Dynamically unsubscribe from a symbol if it's no longer needed.
-    """
-    global _ws_app
-    symbol = symbol.upper()
-    product_id = f"{symbol}-USD"
-
-    with _lock:
-        if symbol in _tracked_symbols:
-            _tracked_symbols.remove(symbol)
-            if _ws_app and _ws_app.sock and _ws_app.sock.connected:
-                msg = {
-                    "type": "unsubscribe",
-                    "channels": [{
-                        "name": "ticker",
-                        "product_ids": [product_id]
-                    }]
-                }
-                _ws_app.send(json.dumps(msg))
-                print(f"❌ Unsubscribed from Coinbase WebSocket for {symbol}")
-
-_VALID_COINBASE_PRODUCTS = set()
-
-def get_valid_coinbase_products():
-    global _VALID_COINBASE_PRODUCTS
-    if _VALID_COINBASE_PRODUCTS:
-        return _VALID_COINBASE_PRODUCTS
-
-    url = "https://api.exchange.coinbase.com/products"
-    data = safe_request(url)
-    if not data:
-        return set()
-
-    _VALID_COINBASE_PRODUCTS = set(p["id"] for p in data)  # 'id' like "BTC-USD"
-    return _VALID_COINBASE_PRODUCTS
 
 
 # =========================================================
@@ -488,15 +358,8 @@ def fetch_coingecko_ohlcv(coin_id, days=1):
 # =========================================================
 def fetch_live_price(symbol, coin_id=None):
     cache_key = f"live_price:{symbol}"
-    
-    # ✅ 1st: Check WebSocket
-    ws_price = LIVE_PRICES.get(symbol.upper())
-    if ws_price:
-        print(f"✅ Using live WebSocket price for {symbol}: {ws_price}")
-        update_cache(cache_key, ws_price)
-        return ws_price
 
-    # ✅ 2nd: Check disk cache only if no WebSocket price
+    # ✅ Check disk cache first
     cached = cached_fetch(cache_key, ttl=60)
     if cached is not None:
         print(f"📦 Using cached disk price for {symbol}: {cached}")
@@ -506,7 +369,7 @@ def fetch_live_price(symbol, coin_id=None):
     resolved_global = resolve_symbol_binance_global(symbol)
     resolved_us = resolve_symbol_binance_us(symbol)
 
-    sources = ["coinbase", "binance", "binance_us", "dexscreener", "coingecko"]
+    sources = ["cryptocompare", "binance", "binance_us", "dexscreener", "coingecko"]
 
     for source in sources:
         try:
@@ -552,16 +415,16 @@ def fetch_live_price(symbol, coin_id=None):
                         update_cache(cache_key, best_price)
                         return best_price
 
-            elif source == "coinbase":
-                print(f"⚡ Trying Coinbase WebSocket price for {symbol_upper}")  
-                track_symbol(symbol_upper)  # <-- Dynamically subscribe
-                time.sleep(1.5)  # Let WebSocket deliver at least 1 tick
-                
-                ws_price = LIVE_PRICES.get(symbol_upper)
-                if ws_price:
-                    print(f"✅ WebSocket price found for {symbol_upper}: {ws_price}")
-                    update_cache(cache_key, ws_price)
-                    return ws_price
+            elif source == "cryptocompare":
+                print(f"⚡ Trying CryptoCompare for {symbol_upper}")
+                url = "https://min-api.cryptocompare.com/data/price"
+                params = {"fsym": symbol_upper, "tsyms": "USD"}
+                data = safe_request(url, params=params, backoff_on_429=False)
+                if data and "USD" in data:
+                    price = float(data["USD"])
+                    if price > 0:
+                        update_cache(cache_key, price)
+                        return price
                                      
             elif source == "coingecko":
                 if not coin_id:
