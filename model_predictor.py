@@ -2,7 +2,6 @@
 # model_predictor.py
 import json
 import numpy as np
-import pandas as pd
 import xgboost as xgb
 
 MODEL_PATH = "ml_model.json"
@@ -60,7 +59,17 @@ def load_model():
 
 
 # === Predict signal from latest row ===
-def predict_signal(df, threshold=None):
+def predict_signal(df, threshold):
+    """Predict the trading signal for the latest row in ``df``.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Feature dataframe containing all expected model features.
+    threshold : float
+        Confidence threshold that the caller has already computed.
+    """
+
     model, expected_features = load_model()
     if model is None or not expected_features:
         print("⚠️ No valid model available, skipping prediction.")
@@ -85,11 +94,6 @@ def predict_signal(df, threshold=None):
 
         print(f"🔍 Class probabilities: {dict(enumerate(np.round(class_probs, 3)))}")
         print(f"📊 Predicted class: {predicted_class} with confidence {confidence:.2f}")
-
-        if threshold is None:
-            vol = df.get("Volatility_7d", pd.Series([0.0])).iloc[-1]
-            threshold = get_dynamic_threshold(vol)
-            print(f"🧠 Dynamic threshold: {threshold:.2f} (7d vol={vol:.3f})")
 
         # Logic overrides
         if predicted_class == 1 and confidence < threshold:
