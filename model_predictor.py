@@ -1,5 +1,7 @@
 # model_predictor.py
 import json
+from functools import lru_cache
+
 import numpy as np
 import xgboost as xgb
 
