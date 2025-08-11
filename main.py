@@ -7,7 +7,7 @@ from data_fetcher import get_top_gainers, fetch_ohlcv_smart, clear_old_cache
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from trade_manager import TradeManager
-from config import MOMENTUM_TIER_THRESHOLD, SCAN_DELAY, ERROR_DELAY
+from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY
 from threshold_utils import get_dynamic_threshold
 
 # ✅ Global thresholds
@@ -183,8 +183,9 @@ def scan_for_breakouts():
         else:
             print(f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}")
 
-        if SCAN_DELAY:
-            time.sleep(SCAN_DELAY)
+        # API calls are rate-limited within fetch_ohlcv_smart and other
+        # data_fetcher utilities, so no additional per-symbol delay is
+        # required here.
 
     print(f"📉 {suppressed} suppressed | 🔄 {fallbacks} fallback-triggered")
 
