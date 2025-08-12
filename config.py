@@ -69,6 +69,14 @@ SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0.001"))
 # to model exchange fees.
 FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 
+# Number of bars to delay trade execution in backtests to model latency.
+EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
+
+# Weight for the delayed bar's open price when executing trades.
+# 1.0 uses the open price exclusively, 0.0 uses the close price,
+# and values in between compute a weighted average.
+EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
+
 # Baseline minimum model confidence required to consider a trade.
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
 

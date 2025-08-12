@@ -12,7 +12,13 @@ from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from utils.prediction_class import PredictionClass
 from threshold_utils import get_dynamic_threshold
-from config import MOMENTUM_TIER_THRESHOLD, SLIPPAGE_PCT, FEE_PCT
+from config import (
+    MOMENTUM_TIER_THRESHOLD,
+    SLIPPAGE_PCT,
+    FEE_PCT,
+    EXECUTION_DELAY_BARS,
+    EXECUTION_PRICE_WEIGHT,
+)
 
 # === Constants mirrored from main.py ===
 # Lower base confidence threshold slightly to allow more trades during backtests
@@ -108,7 +114,15 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
 
 
 
-def backtest_symbol(symbol: str, days: int = 90, *, slippage_pct: float, fee_pct: float):
+def backtest_symbol(
+    symbol: str,
+    days: int = 90,
+    slippage_pct: float = SLIPPAGE_PCT,
+    fee_pct: float = FEE_PCT,
+    execution_delay_bars: int = EXECUTION_DELAY_BARS,
+    execution_price_weight: float = EXECUTION_PRICE_WEIGHT,
+):
+
     """Backtest a single symbol using historical OHLCV data.
 
     Parameters
@@ -121,8 +135,16 @@ def backtest_symbol(symbol: str, days: int = 90, *, slippage_pct: float, fee_pct
         Percentage slippage deducted on each trade. A warning is logged if
         this value is set to zero.
     fee_pct: float
-        Trading fee percentage applied when positions are opened or closed. A
-        warning is logged if this value is zero.
+
+        Trading fee percentage applied when positions are opened or closed.
+    execution_delay_bars: int
+        Number of bars to delay order execution after a signal. The trade
+        will be executed on the delayed bar's open price.
+    execution_price_weight: float
+        Weight applied to the delayed bar's open price when executing trades.
+        ``1.0`` uses the open price, ``0.0`` uses the close price, and values in
+        between use a weighted average.
+
     """
     if slippage_pct == 0:
         logger.warning("Slippage percentage is 0; results may be overly optimistic.")
@@ -155,34 +177,60 @@ def _simulate_trades(df: pd.DataFrame, slippage_pct: float, fee_pct: float) -> d
     position = 0
     equity = 1.0
     fees_paid = 0.0
-    equity_curve = [equity]
+    equity_curve = []
     returns = []
     timestamps = df["Timestamp"].iloc[1:].reset_index(drop=True)
 
+    pending_orders: dict[int, str] = {}
+
     for i in range(1, len(df)):
-        window = df.iloc[:i]
-        signal, _, _ = generate_signal(window)
+        price_open = df["Open"].iloc[i]
+        price_close = df["Close"].iloc[i]
+        prev_close = df["Close"].iloc[i - 1]
 
-        price = df["Close"].iloc[i]
-        prev_price = df["Close"].iloc[i - 1]
-        ret = price / prev_price - 1
-        period_return = ret if position == 1 else 0
+        period_return = 0.0
 
-        if signal == "BUY" and position == 0:
-            period_return -= slippage_pct + fee_pct
-            fees_paid += equity * fee_pct
-            position = 1
-        elif signal == "SELL" and position == 1:
-            period_return -= slippage_pct + fee_pct
-            fees_paid += equity * fee_pct
-            position = 0
+        # Return from previous close to current open if holding a position
+        if position == 1:
+            period_return += price_open / prev_close - 1
+
+        # Execute any pending order at this bar's open
+        if i in pending_orders:
+            order = pending_orders.pop(i)
+            exec_price = (
+                execution_price_weight * price_open
+                + (1 - execution_price_weight) * price_close
+            )
+            if order == "BUY" and position == 0:
+                period_return -= slippage_pct + fee_pct
+                fees_paid += equity * fee_pct
+                position = 1
+                period_return += price_close / exec_price - 1
+            elif order == "SELL" and position == 1:
+                period_return += exec_price / price_open - 1
+                period_return -= slippage_pct + fee_pct
+                fees_paid += equity * fee_pct
+                position = 0
+        else:
+            if position == 1:
+                period_return += price_close / price_open - 1
 
         equity *= (1 + period_return)
         equity_curve.append(equity)
         returns.append(period_return)
 
+        # Generate signal at end of bar i and schedule execution
+        window = df.iloc[: i + 1]
+        signal, _, _ = generate_signal(window)
+        exec_index = i + 1 + execution_delay_bars
+        if exec_index < len(df):
+            if signal == "BUY" and position == 0:
+                pending_orders[exec_index] = "BUY"
+            elif signal == "SELL" and position == 1:
+                pending_orders[exec_index] = "SELL"
+
     returns = pd.Series(returns)
-    equity_curve = pd.Series(equity_curve[1:], index=timestamps)
+    equity_curve = pd.Series(equity_curve, index=timestamps)
     metrics = compute_metrics(returns, equity_curve, timestamps)
     metrics["Fees Paid"] = fees_paid
     return metrics
@@ -290,12 +338,31 @@ def main():
     parser.add_argument("--days", type=int, default=90, help="Days of history to fetch")
     parser.add_argument("--slippage", type=float, default=SLIPPAGE_PCT, help="Slippage percentage per trade")
     parser.add_argument("--fee", type=float, default=FEE_PCT, help="Trading fee percentage per trade")
+    parser.add_argument(
+        "--delay",
+        type=int,
+        default=EXECUTION_DELAY_BARS,
+        help="Execution delay in bars before orders are filled",
+    )
+    parser.add_argument(
+        "--delay-weight",
+        type=float,
+        default=EXECUTION_PRICE_WEIGHT,
+        help="Weight for delayed bar's open price when executing orders",
+    )
     args = parser.parse_args()
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     for sym in symbols:
         logger.info("\n=== Backtesting %s ===", sym)
-        stats = backtest_symbol(sym, days=args.days, slippage_pct=args.slippage, fee_pct=args.fee)
+        stats = backtest_symbol(
+            sym,
+            days=args.days,
+            slippage_pct=args.slippage,
+            fee_pct=args.fee,
+            execution_delay_bars=args.delay,
+            execution_price_weight=args.delay_weight,
+        )
         if stats:
             for k, v in stats.items():
                 logger.info("%s: %.2f%s", k, v * 100 if k != "Sharpe" else v, "%" if k != "Sharpe" else "")
