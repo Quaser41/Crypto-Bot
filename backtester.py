@@ -11,7 +11,7 @@ from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from threshold_utils import get_dynamic_threshold
-from config import MOMENTUM_TIER_THRESHOLD
+from config import MOMENTUM_TIER_THRESHOLD, SLIPPAGE_PCT
 
 # === Constants mirrored from main.py ===
 # Lower base confidence threshold slightly to allow more trades during backtests
@@ -106,7 +106,7 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
-def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = 0.001):
+def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT):
     start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
@@ -160,7 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description="Backtest breakout strategy")
     parser.add_argument("--symbols", required=True, help="Comma-separated list e.g. BTC,ETH")
     parser.add_argument("--days", type=int, default=90, help="Days of history to fetch")
-    parser.add_argument("--slippage", type=float, default=0.001, help="Slippage percentage per trade")
+    parser.add_argument("--slippage", type=float, default=SLIPPAGE_PCT, help="Slippage percentage per trade")
     args = parser.parse_args()
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
