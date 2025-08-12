@@ -424,7 +424,14 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         return pd.DataFrame()
 
 
-def fetch_coinbase_ohlcv(symbol, interval="15m", limit=96, **kwargs):
+def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
+    """Fetch OHLCV data from Coinbase.
+
+    Coinbase's candles endpoint returns at most 300 data points per request.
+    This helper splits the desired date range (``days`` back from now) into
+    chunks so that the entire span is covered.
+    """
+
     product_id = resolve_symbol_coinbase(symbol)
     if not product_id:
         logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Coinbase.")
@@ -432,21 +439,34 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", limit=96, **kwargs):
 
     gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
     granularity = gran_map.get(interval, 900)
-    end = datetime.utcnow()
-    start = end - timedelta(seconds=granularity * limit)
-    url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
-    params = {
-        "granularity": granularity,
-        "start": start.isoformat(),
-        "end": end.isoformat(),
-    }
 
-    data = safe_request(url, params=params, backoff_on_429=False)
-    if not data:
+    end = datetime.utcnow()
+    start = end - timedelta(days=days)
+    max_span = timedelta(seconds=granularity * limit)
+    url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
+
+    frames = []
+    window_start = start
+    while window_start < end:
+        window_end = min(window_start + max_span, end)
+        params = {
+            "granularity": granularity,
+            "start": window_start.isoformat(),
+            "end": window_end.isoformat(),
+        }
+
+        data = safe_request(url, params=params, backoff_on_429=False)
+        if not data:
+            return pd.DataFrame()
+
+        frames.append(pd.DataFrame(data, columns=["Timestamp", "Low", "High", "Open", "Close", "Volume"]))
+        window_start = window_end
+
+    if not frames:
         return pd.DataFrame()
 
     try:
-        df = pd.DataFrame(data, columns=["Timestamp", "Low", "High", "Open", "Close", "Volume"])
+        df = pd.concat(frames, ignore_index=True)
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="s")
         df = df.sort_values("Timestamp")
         return df[["Timestamp", "Close"]]
