@@ -70,7 +70,7 @@ MIN_TRADE_USD = float(os.getenv("MIN_TRADE_USD", "10"))
 SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0.001"))
 
 # Trading fee percentage applied to entry and exit prices. Defaults to 0.1%
-# to model exchange fees.
+# to model exchange fees and is used as the default fee in TradeManager.
 FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 
 # Number of bars to delay trade execution in backtests to model latency.

@@ -14,6 +14,7 @@ from config import (
     RISK_PER_TRADE,
     MIN_TRADE_USD,
     SLIPPAGE_PCT,
+    FEE_PCT,
     HOLDING_PERIOD_SECONDS,
     REVERSAL_CONF_DELTA,
 )
@@ -41,7 +42,7 @@ class TradeManager:
     STATE_FILE = "trade_manager_state.json"
 
     def __init__(self, starting_balance=500, max_allocation=0.20,
-                 sl_pct=0.06, tp_pct=0.10, trade_fee_pct=0.005,
+                 sl_pct=0.06, tp_pct=0.10, trade_fee_pct=FEE_PCT,
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
                  max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
