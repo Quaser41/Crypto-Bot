@@ -489,7 +489,9 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
         df = pd.concat(frames, ignore_index=True)
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="s")
         df = df.sort_values("Timestamp")
-        df = df[["Timestamp", "Close"]]
+        # Preserve full OHLCV data so downstream consumers like the backtester
+        # can access Open prices and compute indicators that require High/Low.
+        df = df[["Timestamp", "Open", "High", "Low", "Close", "Volume"]]
         df.attrs["fetch_seconds"] = elapsed
         return df
     except Exception as e:
