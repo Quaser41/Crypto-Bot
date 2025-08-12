@@ -4,6 +4,7 @@ import pandas as pd
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
@@ -107,41 +108,65 @@ def train_model(X, y):
         y_encoded = y_encoded[keep_idx]
         class_dist = pd.Series(y_encoded).value_counts().sort_index()
 
-    # === Balance classes via upsampling ===
+    # === Time-based train/test split (chronological) ===
     df_xy = X.copy()
     df_xy["Target"] = y_encoded
-    max_size = df_xy["Target"].value_counts().max()
+    split_idx = int(len(df_xy) * 0.8)
+    train_df, test_df = df_xy.iloc[:split_idx], df_xy.iloc[split_idx:]
+
+    # === Balance classes via upsampling on training data only ===
+    max_size = train_df["Target"].value_counts().max()
     balanced_parts = []
-    for cls, part in df_xy.groupby("Target"):
+    for cls, part in train_df.groupby("Target"):
         balanced_parts.append(resample(part, replace=True, n_samples=max_size, random_state=42))
-    df_bal = pd.concat(balanced_parts).sample(frac=1, random_state=42)  # shuffle
-    X_bal = df_bal.drop(columns=["Target"])
-    y_bal = df_bal["Target"].astype(int)
+    train_bal = pd.concat(balanced_parts).sample(frac=1, random_state=42)
+    X_train = train_bal.drop(columns=["Target"])
+    y_train = train_bal["Target"].astype(int)
 
-    logger.info("📊 Balanced class distribution:")
-    logger.info("%s", y_bal.value_counts().sort_index())
+    logger.info("📊 Balanced training class distribution:")
+    logger.info("%s", y_train.value_counts().sort_index())
 
-    # === Time-based train/test split ===
-    split_idx = int(len(X_bal) * 0.8)
-    X_train, X_test = X_bal.iloc[:split_idx], X_bal.iloc[split_idx:]
-    y_train, y_test = y_bal.iloc[:split_idx], y_bal.iloc[split_idx:]
+    X_test = test_df.drop(columns=["Target"])
+    y_test = test_df["Target"].astype(int)
 
-    present_classes = np.unique(y_train)
-    if len(present_classes) < class_count:
-        logger.warning(
-            "⚠️ Not all classes present in training split: %s. Skipping sample weighting.",
-            present_classes,
-        )
-        sample_weights = None
-    else:
-        sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
-        class_weights = (
-            pd.Series(sample_weights, index=y_train)
-            .groupby(level=0)
-            .mean()
-            .to_dict()
-        )
-        logger.info("⚖️ Class weights: %s", class_weights)
+    # === Walk-forward cross-validation ===
+    try:
+        n_splits = min(5, max(2, len(X_train) // 50))
+        tscv = TimeSeriesSplit(n_splits=n_splits)
+        for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
+            X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
+            y_tr, y_val = y_train.iloc[tr_idx], y_train.iloc[val_idx]
+            fold_weights = compute_sample_weight(class_weight="balanced", y=y_tr)
+            cv_model = XGBClassifier(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                objective='multi:softprob',
+                num_class=len(np.unique(y_encoded)),
+                random_state=42,
+                eval_metric='mlogloss'
+            )
+            cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
+            cv_preds = cv_model.predict(X_val)
+            logger.info(
+                "📊 CV Fold %d classification report:\n%s",
+                fold,
+                classification_report(y_val, cv_preds, digits=3),
+            )
+    except Exception as e:
+        logger.warning("⚠️ Time series cross-validation failed: %s", e)
+
+    # === Final model training on balanced training set ===
+    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
+    class_weights = (
+        pd.Series(sample_weights, index=y_train)
+        .groupby(level=0)
+        .mean()
+        .to_dict()
+    )
+    logger.info("⚖️ Class weights: %s", class_weights)
 
     model = XGBClassifier(
         n_estimators=200,
