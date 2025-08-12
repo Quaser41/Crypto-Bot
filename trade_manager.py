@@ -117,7 +117,8 @@ class TradeManager:
             return False
         return True
 
-    def open_trade(self, symbol, price, coin_id=None, confidence=0.5, label=None, side="BUY"):
+    def open_trade(self, symbol, price, coin_id=None, confidence=0.5,
+                   label=None, side="BUY", atr=None):
         if not self.can_trade():
             logger.warning("🚫 Risk limits exceeded — cannot open new trades.")
             return
@@ -159,22 +160,22 @@ class TradeManager:
         self.balance -= allocation
         self.total_fees += entry_fee
 
-        atr = None
-        try:
-            from data_fetcher import fetch_ohlcv_smart
-            from feature_engineer import add_indicators
-            df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
-            df = add_indicators(df)
-            if "ATR" in df.columns and not df["ATR"].dropna().empty:
-                atr = float(df["ATR"].iloc[-1])
-        except Exception as e:
+        atr_val = atr
+        if atr_val is None:
+            try:
+                from data_fetcher import fetch_ohlcv_smart
+                from feature_engineer import add_indicators
+                df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
+                df = add_indicators(df)
+                if "ATR" in df.columns and not df["ATR"].dropna().empty:
+                    atr_val = float(df["ATR"].iloc[-1])
+            except Exception as e:
+                logger.warning(f"⚠️ Could not compute ATR for {symbol}: {e}")
 
-            logger.warning(f"⚠️ Could not compute ATR for {symbol}: {e}")
 
-
-        if atr and atr > 0:
-            sl_offset = self.atr_mult_sl * atr
-            tp_offset = self.atr_mult_tp * atr
+        if atr_val and atr_val > 0:
+            sl_offset = self.atr_mult_sl * atr_val
+            tp_offset = self.atr_mult_tp * atr_val
             if side == "SELL":
                 stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
                 take_profit = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
@@ -207,7 +208,7 @@ class TradeManager:
             "side": side,
             "entry_time": time.time(),
             "last_movement_time": time.time(),
-            "atr": atr,
+            "atr": atr_val,
         }
 
         msg = (
@@ -215,8 +216,8 @@ class TradeManager:
             f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
             f"Label={label}"
         )
-        if atr:
-            msg += f" | ATR={atr:.6f}"
+        if atr_val:
+            msg += f" | ATR={atr_val:.6f}"
         logger.info(msg)
 
     def close_trade(self, symbol, current_price, reason=""):
