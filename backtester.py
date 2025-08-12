@@ -107,12 +107,50 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
+
+def backtest_symbol(symbol: str, days: int = 90, *, slippage_pct: float, fee_pct: float):
+    """Backtest a single symbol using historical OHLCV data.
+
+    Parameters
+    ----------
+    symbol: str
+        Ticker to backtest.
+    days: int
+        Number of days of history to fetch.
+    slippage_pct: float
+        Percentage slippage deducted on each trade. A warning is logged if
+        this value is set to zero.
+    fee_pct: float
+        Trading fee percentage applied when positions are opened or closed. A
+        warning is logged if this value is zero.
+    """
+    if slippage_pct == 0:
+        logger.warning("Slippage percentage is 0; results may be overly optimistic.")
+    if fee_pct == 0:
+        logger.warning("Fee percentage is 0; results may be overly optimistic.")
+    start = time.time()
+    df = fetch_ohlcv_smart(symbol, days=days, limit=200)
+    fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
+    logger.info("⏱️ Fetched %s in %.2f seconds", symbol, fetch_seconds)
+    if df.empty:
+        logger.error("❌ No data for %s", symbol)
+        return None
+    df = add_indicators(df)
+    df = add_atr(df)
+    df = df.dropna(subset=[
+        "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
+        "Return_1d", "Volatility_7d"
+    ])
+    if df.empty:
+        logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
+        return None
+
 def _simulate_trades(df: pd.DataFrame, slippage_pct: float, fee_pct: float) -> dict:
     """Simulate trades on a prepared dataframe and return performance metrics.
 
     This helper contains the core backtesting loop so it can be reused by
     :func:`backtest_symbol` and stress testing utilities.
-    """
+
 
     position = 0
     equity = 1.0
