@@ -449,6 +449,7 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     frames = []
     window_start = start
     chunk = 1
+    start_time = time.time()
     while window_start < end:
         window_end = min(window_start + max_span, end)
         logger.info(
@@ -465,23 +466,33 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
 
         data = safe_request(url, params=params, backoff_on_429=False)
         if not data:
-            return pd.DataFrame()
+            df = pd.DataFrame()
+            df.attrs["fetch_seconds"] = time.time() - start_time
+            return df
 
         frames.append(pd.DataFrame(data, columns=["Timestamp", "Low", "High", "Open", "Close", "Volume"]))
         window_start = window_end
         chunk += 1
 
+    elapsed = time.time() - start_time
+
     if not frames:
-        return pd.DataFrame()
+        df = pd.DataFrame()
+        df.attrs["fetch_seconds"] = elapsed
+        return df
 
     try:
         df = pd.concat(frames, ignore_index=True)
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="s")
         df = df.sort_values("Timestamp")
-        return df[["Timestamp", "Close"]]
+        df = df[["Timestamp", "Close"]]
+        df.attrs["fetch_seconds"] = elapsed
+        return df
     except Exception as e:
         logger.error(f"❌ Coinbase fetch fail ({symbol}): {e}")
-        return pd.DataFrame()
+        df = pd.DataFrame()
+        df.attrs["fetch_seconds"] = elapsed
+        return df
 
 
 def fetch_dexscreener_ohlcv(symbol):
