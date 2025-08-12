@@ -1,17 +1,17 @@
 {
-  "balance": 1100.0,
+  "balance": 1176.2376237623762,
   "positions": {},
   "trade_history": [
     {
       "symbol": "ABC",
-      "entry_price": 10.0,
-      "exit_price": 12.0,
-      "qty": 50.0,
-      "pnl": 100.0,
-      "reason": "Rotated to better candidate",
+      "entry_price": 10.1,
+      "exit_price": 11.879999999999999,
+      "qty": 99.00990099009901,
+      "pnl": 176.2376237623762,
+      "reason": "",
       "entry_fee": 0.0,
       "exit_fee": 0.0,
-      "confidence": 0.5,
+      "confidence": 1.0,
       "label": null,
       "trail_triggered": false,
       "duration": 0.0,
@@ -20,14 +20,13 @@
         "return_3d": 0.03,
         "rsi": 55.0,
         "macd_hist": 0.1
-      },
-      "rotation_exit_price": 12.0
+      }
     }
   ],
   "total_fees": 0.0,
-  "peak_equity": 1100.0,
+  "peak_equity": 1176.2376237623762,
   "drawdown_pct": 0.0,
-  "current_day": "2025-08-11",
+  "current_day": "2025-08-12",
   "daily_start_balance": 1000,
   "daily_loss_pct": 0.0
 }

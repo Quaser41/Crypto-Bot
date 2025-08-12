@@ -18,6 +18,9 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Status codes for which we retry by default (server errors)
+SERVER_ERROR_CODES = set(range(500, 600))
+
 
 # =========================================================
 # ✅ SENTIMENT & ON-CHAIN METRICS
@@ -46,8 +49,9 @@ def fetch_onchain_metrics(days=30):
     tx_url = f"https://api.blockchain.info/charts/transaction-volume?timespan={days}days&format=json"
     active_url = f"https://api.blockchain.info/charts/activeaddresses?timespan={days}days&format=json"
 
-    tx_data = safe_request(tx_url, backoff_on_429=False)
-    active_data = safe_request(active_url, backoff_on_429=False)
+    # Only retry on server errors for these endpoints
+    tx_data = safe_request(tx_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
+    active_data = safe_request(active_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
 
     frames = []
     if tx_data and "values" in tx_data:
@@ -134,24 +138,57 @@ def clear_old_cache(cache_dir="cache", max_age=600):
 # =========================================================
 # ✅ GENERIC SAFE REQUEST WRAPPER (w/ retry + rate limit)
 # =========================================================
-def safe_request(url, params=None, timeout=10, max_retries=3, retry_delay=5, backoff_on_429=True):
-    """Safe API request with retries, rate-limit handling, and backoff."""
+def safe_request(
+    url,
+    params=None,
+    timeout=10,
+    max_retries=3,
+    retry_delay=5,
+    retry_statuses=None,
+    backoff_on_429=True,
+):
+    """Safe API request with configurable retry logic.
+
+    Retries are attempted only for status codes listed in ``retry_statuses``.
+    By default, this includes HTTP 429 and all 5xx server errors. Any 4xx
+    response other than 429 will immediately return ``None``.
+    """
+
+    if retry_statuses is None:
+        retry_statuses = SERVER_ERROR_CODES | {429}
+    else:
+        retry_statuses = set(retry_statuses)
+
     for attempt in range(1, max_retries + 1):
         wait_for_slot()  # throttle
 
         try:
             r = requests.get(url, params=params, timeout=timeout)
 
-            if r.status_code == 429 and backoff_on_429:
-                logger.warning(f"⚠️ Rate limited {url} (attempt {attempt}) → backoff...")
-                wait_for_slot(backoff=True)
-                time.sleep(2 ** attempt)
-                continue
+            # Special handling for rate limiting
+            if r.status_code == 429:
+                if 429 in retry_statuses:
+                    logger.warning(
+                        f"⚠️ Rate limited {url} (attempt {attempt})"
+                        + (" → backoff..." if backoff_on_429 else "")
+                    )
+                    if backoff_on_429:
+                        wait_for_slot(backoff=True)
+                        time.sleep(2 ** attempt)
+                    else:
+                        time.sleep(retry_delay)
+                    continue
+                logger.error(f"❌ Failed (429) {url} attempt {attempt}")
+                return None
 
-            if r.status_code != 200:
+            if r.status_code in retry_statuses:
                 logger.error(f"❌ Failed ({r.status_code}) {url} attempt {attempt}")
                 time.sleep(retry_delay)
                 continue
+
+            if 400 <= r.status_code < 600:
+                logger.error(f"❌ Failed ({r.status_code}) {url} (no retry)")
+                return None
 
             return r.json()
 
