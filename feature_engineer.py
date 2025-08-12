@@ -89,13 +89,14 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if not sentiment.empty:
         sentiment = sentiment.sort_values("Timestamp")
         df = pd.merge_asof(df, sentiment, on="Timestamp", direction="backward")
-        df["FearGreed"] = df["FearGreed"].ffill()
+        df["FearGreed"] = df["FearGreed"].ffill().bfill()
         std = df["FearGreed"].std()
         if std and std != 0:
             df["FearGreed_norm"] = (df["FearGreed"] - df["FearGreed"].mean()) / std
         else:
             df["FearGreed_norm"] = 0.0
         df.drop(columns=["FearGreed"], inplace=True)
+        df["FearGreed_norm"] = df["FearGreed_norm"].fillna(0.0)
     else:
         df["FearGreed_norm"] = 0.0
 
@@ -104,7 +105,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
         for col in ["TxVolume", "ActiveAddresses"]:
-            df[col] = df[col].ffill()
+            df[col] = df[col].ffill().bfill()
         if "TxVolume" in df.columns:
             std = df["TxVolume"].std()
             df["TxVolume_norm"] = (
@@ -122,6 +123,8 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         else:
             df["ActiveAddresses_norm"] = 0.0
         df.drop(columns=[c for c in ["TxVolume", "ActiveAddresses"] if c in df.columns], inplace=True)
+        df["TxVolume_norm"] = df["TxVolume_norm"].fillna(0.0)
+        df["ActiveAddresses_norm"] = df["ActiveAddresses_norm"].fillna(0.0)
     else:
         df["TxVolume_norm"] = 0.0
         df["ActiveAddresses_norm"] = 0.0
