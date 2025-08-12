@@ -59,6 +59,8 @@ def test_backtest_symbol_generates_positive_return(monkeypatch):
     df = pd.DataFrame({
         'Timestamp': pd.date_range('2020-01-01', periods=5, freq='D'),
         'Open': close_prices,
+        'High': close_prices,
+        'Low': close_prices,
         'Close': close_prices,
         'Return_1d': close_prices.pct_change().fillna(0),
         'Return_3d': close_prices.pct_change(3).fillna(0),
@@ -70,9 +72,10 @@ def test_backtest_symbol_generates_positive_return(monkeypatch):
         'SMA_50': [90] * 5,
         'Volatility_7d': [0.05] * 5,
         'Momentum_Tier': ['Tier 1'] * 5,
+        'ATR': [1] * 5,
     })
 
-    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'Close']])
+    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
     monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
@@ -95,6 +98,8 @@ def test_backtest_symbol_applies_fee(monkeypatch):
     df = pd.DataFrame({
         'Timestamp': pd.date_range('2020-01-01', periods=5, freq='D'),
         'Open': close_prices,
+        'High': close_prices,
+        'Low': close_prices,
         'Close': close_prices,
         'Return_1d': close_prices.pct_change().fillna(0),
         'Return_3d': close_prices.pct_change(3).fillna(0),
@@ -106,9 +111,10 @@ def test_backtest_symbol_applies_fee(monkeypatch):
         'SMA_50': [90] * 5,
         'Volatility_7d': [0.05] * 5,
         'Momentum_Tier': ['Tier 1'] * 5,
+        'ATR': [1] * 5,
     })
 
-    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'Close']])
+    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
     monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
@@ -145,6 +151,7 @@ def test_backtest_symbol_respects_execution_delay(monkeypatch):
         'SMA_50': [90] * 5,
         'Volatility_7d': [0.05] * 5,
         'Momentum_Tier': ['Tier 1'] * 5,
+        'ATR': [1] * 5,
     })
 
     monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'Close']])
@@ -164,4 +171,37 @@ def test_backtest_symbol_respects_execution_delay(monkeypatch):
     no_delay = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.0, execution_delay_bars=0)
     delay = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.0, execution_delay_bars=1)
     assert delay['Total Return'] < no_delay['Total Return']
+
+
+def test_backtest_symbol_compare(monkeypatch):
+    close_prices = pd.Series([100, 110, 120, 130, 140])
+    df = pd.DataFrame({
+        'Timestamp': pd.date_range('2020-01-01', periods=5, freq='D'),
+        'Open': close_prices,
+        'High': close_prices,
+        'Low': close_prices,
+        'Close': close_prices,
+        'Return_1d': close_prices.pct_change().fillna(0),
+        'Return_3d': close_prices.pct_change(3).fillna(0),
+        'RSI': [60] * 5,
+        'MACD': [1] * 5,
+        'Signal': [0.5] * 5,
+        'Hist': [0.5] * 5,
+        'SMA_20': [95] * 5,
+        'SMA_50': [90] * 5,
+        'Volatility_7d': [0.05] * 5,
+        'Momentum_Tier': ['Tier 1'] * 5,
+        'ATR': [1] * 5,
+    })
+
+    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
+
+    monkeypatch.setattr(backtester, 'predict_signal', lambda w, t: ('HOLD', 0.6, PredictionClass.SMALL_GAIN.value))
+
+    result = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.0, execution_delay_bars=0, compare=True)
+    assert 'baseline' in result and 'risk_managed' in result
+    assert 'Max Exposure' in result['baseline']
+    assert 'Max Exposure' in result['risk_managed']
 

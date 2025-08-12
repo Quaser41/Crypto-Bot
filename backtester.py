@@ -19,6 +19,7 @@ from config import (
     EXECUTION_DELAY_BARS,
     EXECUTION_PRICE_WEIGHT,
 )
+from trade_manager import TradeManager
 
 # === Constants mirrored from main.py ===
 # Lower base confidence threshold slightly to allow more trades during backtests
@@ -167,88 +168,207 @@ def backtest_symbol(
         logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
         return None
 
-def _simulate_trades(df: pd.DataFrame, slippage_pct: float, fee_pct: float) -> dict:
+def _simulate_trades(
+    df: pd.DataFrame,
+    slippage_pct: float,
+    fee_pct: float,
+    symbol: str,
+    use_trade_manager: bool = False,
+    execution_delay_bars: int = EXECUTION_DELAY_BARS,
+    execution_price_weight: float = EXECUTION_PRICE_WEIGHT,
+) -> dict:
     """Simulate trades on a prepared dataframe and return performance metrics.
 
-    This helper contains the core backtesting loop so it can be reused by
-    :func:`backtest_symbol` and stress testing utilities.
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame containing OHLCV and indicator columns.
+    slippage_pct : float
+        Slippage per trade.
+    fee_pct : float
+        Trading fee per trade.
+    symbol : str
+        Symbol being tested.
+    use_trade_manager : bool
+        When ``True`` leverage :class:`TradeManager` for position sizing and
+        risk controls. When ``False`` the legacy full-allocation simulator is
+        used.
+    """
 
-
-    position = 0
-    equity = 1.0
-    fees_paid = 0.0
-    equity_curve = []
-    returns = []
     timestamps = df["Timestamp"].iloc[1:].reset_index(drop=True)
 
-    pending_orders: dict[int, str] = {}
+    if not use_trade_manager:
+        position = 0
+        equity = 1.0
+        fees_paid = 0.0
+        equity_curve = []
+        max_exposure = 0.0
+        returns = []
+        pending_orders: dict[int, str] = {}
+
+        for i in range(1, len(df)):
+            price_open = df["Open"].iloc[i]
+            price_close = df["Close"].iloc[i]
+            prev_close = df["Close"].iloc[i - 1]
+
+            period_return = 0.0
+
+            if position == 1:
+                period_return += price_open / prev_close - 1
+
+            if i in pending_orders:
+                order = pending_orders.pop(i)
+                exec_price = (
+                    execution_price_weight * price_open
+                    + (1 - execution_price_weight) * price_close
+                )
+                if order == "BUY" and position == 0:
+                    period_return -= slippage_pct + fee_pct
+                    fees_paid += equity * fee_pct
+                    position = 1
+                    period_return += price_close / exec_price - 1
+                elif order == "SELL" and position == 1:
+                    period_return += exec_price / price_open - 1
+                    period_return -= slippage_pct + fee_pct
+                    fees_paid += equity * fee_pct
+                    position = 0
+            else:
+                if position == 1:
+                    period_return += price_close / price_open - 1
+
+            equity *= (1 + period_return)
+            exposure = equity if position == 1 else 0.0
+            max_exposure = max(max_exposure, exposure)
+            equity_curve.append(equity)
+            returns.append(period_return)
+
+            window = df.iloc[: i + 1]
+            signal, _, _ = generate_signal(window)
+            exec_index = i + 1 + execution_delay_bars
+            if exec_index < len(df):
+                if signal == "BUY" and position == 0:
+                    pending_orders[exec_index] = "BUY"
+                elif signal == "SELL" and position == 1:
+                    pending_orders[exec_index] = "SELL"
+
+        returns = pd.Series(returns)
+        equity_curve = pd.Series(equity_curve, index=timestamps)
+        metrics = compute_metrics(returns, equity_curve, timestamps)
+        metrics["Fees Paid"] = fees_paid
+        metrics["Max Exposure"] = max_exposure
+        if metrics.get("Max Drawdown") and metrics["Max Drawdown"] != 0:
+            metrics["Calmar"] = metrics["CAGR"] / abs(metrics["Max Drawdown"])
+        else:
+            metrics["Calmar"] = np.nan
+        return metrics
+
+    # === TradeManager-powered simulation ===
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=fee_pct, slippage_pct=slippage_pct)
+    equity_curve = []
+    returns = []
+    max_exposure = 0.0
+    pending_orders: dict[int, dict] = {}
 
     for i in range(1, len(df)):
         price_open = df["Open"].iloc[i]
+        price_high = df["High"].iloc[i]
+        price_low = df["Low"].iloc[i]
         price_close = df["Close"].iloc[i]
-        prev_close = df["Close"].iloc[i - 1]
 
-        period_return = 0.0
-
-        # Return from previous close to current open if holding a position
-        if position == 1:
-            period_return += price_open / prev_close - 1
-
-        # Execute any pending order at this bar's open
+        # Execute any pending orders at the bar's open
         if i in pending_orders:
             order = pending_orders.pop(i)
-            exec_price = (
-                execution_price_weight * price_open
-                + (1 - execution_price_weight) * price_close
-            )
-            if order == "BUY" and position == 0:
-                period_return -= slippage_pct + fee_pct
-                fees_paid += equity * fee_pct
-                position = 1
-                period_return += price_close / exec_price - 1
-            elif order == "SELL" and position == 1:
-                period_return += exec_price / price_open - 1
-                period_return -= slippage_pct + fee_pct
-                fees_paid += equity * fee_pct
-                position = 0
-        else:
-            if position == 1:
-                period_return += price_close / price_open - 1
+            if order["type"] == "BUY" and not tm.has_position(symbol):
+                tm.open_trade(
+                    symbol,
+                    price_open,
+                    confidence=order.get("confidence"),
+                    label=order.get("label"),
+                    atr=df["ATR"].iloc[i],
+                )
+            elif order["type"] == "SELL" and tm.has_position(symbol):
+                tm.close_trade(symbol, price_open, reason="Signal Exit")
 
-        equity *= (1 + period_return)
+        # Check stops/take-profits within the bar
+        for sym, pos in list(tm.positions.items()):
+            side = pos.get("side", "BUY")
+            if side == "BUY":
+                if price_low <= pos["stop_loss"]:
+                    tm.close_trade(sym, pos["stop_loss"], reason="Stop-Loss")
+                    continue
+                if price_high >= pos["take_profit"]:
+                    tm.close_trade(sym, pos["take_profit"], reason="Take-Profit")
+                    continue
+            else:
+                if price_high >= pos["stop_loss"]:
+                    tm.close_trade(sym, pos["stop_loss"], reason="Stop-Loss")
+                    continue
+                if price_low <= pos["take_profit"]:
+                    tm.close_trade(sym, pos["take_profit"], reason="Take-Profit")
+                    continue
+
+        equity = tm.balance + sum(pos["qty"] * price_close for pos in tm.positions.values())
+        exposure = sum(pos["qty"] * price_close for pos in tm.positions.values())
+        max_exposure = max(max_exposure, exposure)
         equity_curve.append(equity)
-        returns.append(period_return)
+        if len(equity_curve) > 1:
+            returns.append(equity_curve[-1] / equity_curve[-2] - 1)
+        else:
+            returns.append(0.0)
 
-        # Generate signal at end of bar i and schedule execution
+        # Generate signal at end of bar and schedule execution
         window = df.iloc[: i + 1]
-        signal, _, _ = generate_signal(window)
+        signal, conf, label = generate_signal(window)
         exec_index = i + 1 + execution_delay_bars
         if exec_index < len(df):
-            if signal == "BUY" and position == 0:
-                pending_orders[exec_index] = "BUY"
-            elif signal == "SELL" and position == 1:
-                pending_orders[exec_index] = "SELL"
+            if signal == "BUY" and not tm.has_position(symbol):
+                pending_orders[exec_index] = {"type": "BUY", "confidence": conf, "label": label}
+            elif signal == "SELL" and tm.has_position(symbol):
+                pending_orders[exec_index] = {"type": "SELL"}
 
+    equity_series = pd.Series(equity_curve, index=timestamps)
+    equity_norm = equity_series / tm.starting_balance
     returns = pd.Series(returns)
-    equity_curve = pd.Series(equity_curve, index=timestamps)
-    metrics = compute_metrics(returns, equity_curve, timestamps)
-    metrics["Fees Paid"] = fees_paid
+    metrics = compute_metrics(returns, equity_norm, timestamps)
+    metrics["Fees Paid"] = tm.total_fees
+    metrics["Max Exposure"] = max_exposure / tm.starting_balance
+    if metrics.get("Max Drawdown") and metrics["Max Drawdown"] != 0:
+        metrics["Calmar"] = metrics["CAGR"] / abs(metrics["Max Drawdown"])
+    else:
+        metrics["Calmar"] = np.nan
     return metrics
 
 
-def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT, fee_pct: float = FEE_PCT):
+def backtest_symbol(
+    symbol: str,
+    days: int = 90,
+    slippage_pct: float = SLIPPAGE_PCT,
+    fee_pct: float = FEE_PCT,
+    execution_delay_bars: int = EXECUTION_DELAY_BARS,
+    execution_price_weight: float = EXECUTION_PRICE_WEIGHT,
+    use_trade_manager: bool = False,
+    compare: bool = False,
+):
     """Backtest a single symbol using historical OHLCV data.
 
     Parameters
     ----------
-    symbol: str
+    symbol : str
         Ticker to backtest.
-    days: int
+    days : int
         Number of days of history to fetch.
-    slippage_pct: float
-        Percentage slippage deducted on each trade.
-    fee_pct: float
-        Trading fee percentage applied when positions are opened or closed.
+    slippage_pct : float
+        Slippage applied on each trade.
+    fee_pct : float
+        Trading fee percentage per trade.
+    execution_delay_bars : int
+        Bars to delay order execution after a signal.
+    execution_price_weight : float
+        Weight applied to the delayed bar's open price when executing trades.
+    use_trade_manager : bool
+        When ``True`` use :class:`TradeManager` for risk-aware execution.
+    compare : bool
+        If ``True`` return metrics for both legacy and risk-managed modes.
     """
     start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
@@ -261,12 +381,36 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_
     df = add_atr(df)
     df = df.dropna(subset=[
         "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
-        "Return_1d", "Volatility_7d"
+        "Return_1d", "Volatility_7d",
+        "ATR",
     ])
     if df.empty:
         logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
         return None
-    return _simulate_trades(df, slippage_pct, fee_pct)
+
+    base_metrics = _simulate_trades(
+        df.copy(),
+        slippage_pct,
+        fee_pct,
+        symbol,
+        False,
+        execution_delay_bars,
+        execution_price_weight,
+    )
+    if compare or use_trade_manager:
+        tm_metrics = _simulate_trades(
+            df.copy(),
+            slippage_pct,
+            fee_pct,
+            symbol,
+            True,
+            execution_delay_bars,
+            execution_price_weight,
+        )
+        if compare:
+            return {"baseline": base_metrics, "risk_managed": tm_metrics}
+        return tm_metrics
+    return base_metrics
 
 
 def run_stress_tests(symbol: str, windows: list, param_grid: list[dict]) -> pd.DataFrame:
@@ -318,7 +462,15 @@ def run_stress_tests(symbol: str, windows: list, param_grid: list[dict]) -> pd.D
         for params in param_grid:
             slippage = params.get("slippage_pct", SLIPPAGE_PCT)
             fee = params.get("fee_pct", FEE_PCT)
-            metrics = _simulate_trades(df.copy(), slippage, fee)
+            metrics = _simulate_trades(
+                df.copy(),
+                slippage,
+                fee,
+                symbol,
+                False,
+                EXECUTION_DELAY_BARS,
+                EXECUTION_PRICE_WEIGHT,
+            )
             metrics.update({
                 "start": start,
                 "duration": duration,
@@ -362,10 +514,17 @@ def main():
             fee_pct=args.fee,
             execution_delay_bars=args.delay,
             execution_price_weight=args.delay_weight,
+            compare=True,
         )
         if stats:
-            for k, v in stats.items():
-                logger.info("%s: %.2f%s", k, v * 100 if k != "Sharpe" else v, "%" if k != "Sharpe" else "")
+            base = stats.get("baseline", {})
+            rm = stats.get("risk_managed", {})
+            logger.info("-- Baseline --")
+            for k, v in base.items():
+                logger.info("%s: %.2f%s", k, v * 100 if k not in {"Sharpe", "Calmar"} else v, "%" if k not in {"Sharpe", "Calmar"} else "")
+            logger.info("-- With Risk Controls --")
+            for k, v in rm.items():
+                logger.info("%s: %.2f%s", k, v * 100 if k not in {"Sharpe", "Calmar"} else v, "%" if k not in {"Sharpe", "Calmar"} else "")
 
 
 if __name__ == "__main__":
