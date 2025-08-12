@@ -61,11 +61,13 @@ RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))
 # Minimum dollar allocation for any trade. Trades below this are skipped.
 MIN_TRADE_USD = float(os.getenv("MIN_TRADE_USD", "10"))
 
-# Slippage percentage applied to entry and exit prices.
-SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0"))
+# Slippage percentage applied to entry and exit prices. Defaults to 0.1%
+# to approximate typical market impact on each trade.
+SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0.001"))
 
-# Trading fee percentage applied to entry and exit prices.
-FEE_PCT = float(os.getenv("FEE_PCT", "0"))
+# Trading fee percentage applied to entry and exit prices. Defaults to 0.1%
+# to model exchange fees.
+FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 
 # Number of bars to delay trade execution in backtests to model latency.
 EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))

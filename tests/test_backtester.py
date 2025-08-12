@@ -164,3 +164,4 @@ def test_backtest_symbol_respects_execution_delay(monkeypatch):
     no_delay = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.0, execution_delay_bars=0)
     delay = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.0, execution_delay_bars=1)
     assert delay['Total Return'] < no_delay['Total Return']
+

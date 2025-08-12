@@ -113,6 +113,7 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
+
 def backtest_symbol(
     symbol: str,
     days: int = 90,
@@ -121,6 +122,7 @@ def backtest_symbol(
     execution_delay_bars: int = EXECUTION_DELAY_BARS,
     execution_price_weight: float = EXECUTION_PRICE_WEIGHT,
 ):
+
     """Backtest a single symbol using historical OHLCV data.
 
     Parameters
@@ -130,8 +132,10 @@ def backtest_symbol(
     days: int
         Number of days of history to fetch.
     slippage_pct: float
-        Percentage slippage deducted on each trade.
+        Percentage slippage deducted on each trade. A warning is logged if
+        this value is set to zero.
     fee_pct: float
+
         Trading fee percentage applied when positions are opened or closed.
     execution_delay_bars: int
         Number of bars to delay order execution after a signal. The trade
@@ -140,7 +144,12 @@ def backtest_symbol(
         Weight applied to the delayed bar's open price when executing trades.
         ``1.0`` uses the open price, ``0.0`` uses the close price, and values in
         between use a weighted average.
+
     """
+    if slippage_pct == 0:
+        logger.warning("Slippage percentage is 0; results may be overly optimistic.")
+    if fee_pct == 0:
+        logger.warning("Fee percentage is 0; results may be overly optimistic.")
     start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
@@ -157,6 +166,13 @@ def backtest_symbol(
     if df.empty:
         logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
         return None
+
+def _simulate_trades(df: pd.DataFrame, slippage_pct: float, fee_pct: float) -> dict:
+    """Simulate trades on a prepared dataframe and return performance metrics.
+
+    This helper contains the core backtesting loop so it can be reused by
+    :func:`backtest_symbol` and stress testing utilities.
+
 
     position = 0
     equity = 1.0
@@ -218,6 +234,102 @@ def backtest_symbol(
     metrics = compute_metrics(returns, equity_curve, timestamps)
     metrics["Fees Paid"] = fees_paid
     return metrics
+
+
+def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT, fee_pct: float = FEE_PCT):
+    """Backtest a single symbol using historical OHLCV data.
+
+    Parameters
+    ----------
+    symbol: str
+        Ticker to backtest.
+    days: int
+        Number of days of history to fetch.
+    slippage_pct: float
+        Percentage slippage deducted on each trade.
+    fee_pct: float
+        Trading fee percentage applied when positions are opened or closed.
+    """
+    start = time.time()
+    df = fetch_ohlcv_smart(symbol, days=days, limit=200)
+    fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
+    logger.info("⏱️ Fetched %s in %.2f seconds", symbol, fetch_seconds)
+    if df.empty:
+        logger.error("❌ No data for %s", symbol)
+        return None
+    df = add_indicators(df)
+    df = add_atr(df)
+    df = df.dropna(subset=[
+        "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
+        "Return_1d", "Volatility_7d"
+    ])
+    if df.empty:
+        logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
+        return None
+    return _simulate_trades(df, slippage_pct, fee_pct)
+
+
+def run_stress_tests(symbol: str, windows: list, param_grid: list[dict]) -> pd.DataFrame:
+    """Run backtests across multiple historical windows and parameter sets.
+
+    Parameters
+    ----------
+    symbol: str
+        Ticker to backtest.
+    windows: list of dict
+        Each dict should contain ``start`` (datetime-like) and ``days`` keys
+        defining the historical slice to test.
+    param_grid: list of dict
+        Each dict specifies variations of parameters such as ``slippage_pct``
+        and ``fee_pct``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Aggregated metrics for each window and parameter combination.
+    """
+
+    results = []
+    for win in windows:
+        start = pd.to_datetime(win["start"])
+        duration = int(win.get("days", win.get("duration", 0)))
+        end = start + pd.Timedelta(days=duration)
+
+        df = fetch_ohlcv_smart(symbol, days=duration, limit=200)
+        if df.empty:
+            logger.warning("⚠️ No data for %s in stress window %s", symbol, win)
+            continue
+
+        df = df[(df["Timestamp"] >= start) & (df["Timestamp"] < end)]
+        if df.empty:
+            logger.warning("⚠️ No data after slicing for %s in window %s", symbol, win)
+            continue
+
+        df = add_indicators(df)
+        df = add_atr(df)
+        df = df.dropna(subset=[
+            "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",
+            "Return_1d", "Volatility_7d",
+        ])
+        if df.empty:
+            logger.warning("⚠️ Indicator calculation dropped all rows for %s in window %s", symbol, win)
+            continue
+
+        for params in param_grid:
+            slippage = params.get("slippage_pct", SLIPPAGE_PCT)
+            fee = params.get("fee_pct", FEE_PCT)
+            metrics = _simulate_trades(df.copy(), slippage, fee)
+            metrics.update({
+                "start": start,
+                "duration": duration,
+                "slippage_pct": slippage,
+                "fee_pct": fee,
+            })
+            results.append(metrics)
+
+    if results:
+        return pd.DataFrame(results)
+    return pd.DataFrame()
 
 
 def main():
