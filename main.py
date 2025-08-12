@@ -97,15 +97,11 @@ def scan_for_breakouts():
             continue
         fetch_meta.append((coin_id, symbol, name))
 
-    async def _gather():
-        tasks = [
-            fetch_ohlcv_smart_async(symbol, coin_id=coin_id, days=10, limit=200)
-            for coin_id, symbol, _ in fetch_meta
-        ]
-        return await asyncio.gather(*tasks)
-
     logger.info("📡 Fetching OHLCV data for candidates...")
-    ohlcvs = asyncio.run(_gather()) if fetch_meta else []
+    ohlcvs = [
+        fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
+        for coin_id, symbol, _ in fetch_meta
+    ] if fetch_meta else []
 
     for (coin_id, symbol, name), df in zip(fetch_meta, ohlcvs):
         logger.info(f"\n🔎 Analyzing {name} ({symbol})...")

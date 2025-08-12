@@ -11,6 +11,10 @@ from xgboost import XGBClassifier
 import json
 import numpy as np
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r):
     if r <= -0.06:
@@ -25,17 +29,17 @@ def return_bucket(r):
         return 4  # Big gain
 
 def prepare_training_data(symbol, coin_id):
-    print(f"\n⏳ Preparing data for {coin_id}...")
+    logger.info("\n⏳ Preparing data for %s...", coin_id)
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
 
     if df.empty:
-        print(f"⚠️ No data for {coin_id}")
+        logger.warning("⚠️ No data for %s", coin_id)
         return None, None
 
     df = add_indicators(df)
     df = df.copy()
     if df.empty:
-        print(f"⚠️ Failed to calculate indicators for {coin_id}")
+        logger.warning("⚠️ Failed to calculate indicators for %s", coin_id)
         return None, None
 
     df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
@@ -59,20 +63,20 @@ def prepare_training_data(symbol, coin_id):
     return X, y
 
 def train_model(X, y):
-    print("\n🚀 Training multi-class classifier...")
+    logger.info("\n🚀 Training multi-class classifier...")
 
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)
     class_count = len(le.classes_)
-    print(f"✅ Model will use {class_count} classes: {list(le.classes_)}")
+    logger.info("✅ Model will use %d classes: %s", class_count, list(le.classes_))
 
-    print("📊 Class distribution:")
+    logger.info("📊 Class distribution:")
     class_dist = pd.Series(y_encoded).value_counts().sort_index()
-    print(class_dist)
+    logger.info("%s", class_dist)
 
     rare_classes = class_dist[class_dist < 5].index.tolist()
     if rare_classes:
-        print(f"⚠️ Dropping rare classes: {rare_classes}")
+        logger.warning("⚠️ Dropping rare classes: %s", rare_classes)
         keep_idx = ~pd.Series(y_encoded).isin(rare_classes).values
         X = X[keep_idx]
         y_encoded = y_encoded[keep_idx]
@@ -81,11 +85,17 @@ def train_model(X, y):
 
     present_classes = np.unique(y_train)
     if len(present_classes) < class_count:
-        print(f"⚠️ Not all classes present in training split: {present_classes}. Skipping sample weighting.")
+        logger.warning(
+            "⚠️ Not all classes present in training split: %s. Skipping sample weighting.",
+            present_classes,
+        )
         sample_weights = None
     else:
         sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
-        print(f"⚖️ Class weights: {dict(zip(present_classes, compute_sample_weight(class_weight='balanced', y=y_train)))}")
+        logger.info(
+            "⚖️ Class weights: %s",
+            dict(zip(present_classes, compute_sample_weight(class_weight='balanced', y=y_train))),
+        )
 
     model = XGBClassifier(
         n_estimators=200,
@@ -102,8 +112,8 @@ def train_model(X, y):
     model.fit(X_train, y_train, sample_weight=sample_weights)
     preds = model.predict(X_test)
 
-    print("\n📊 Classification Report:")
-    print(classification_report(y_test, preds, digits=3))
+    logger.info("\n📊 Classification Report:")
+    logger.info("%s", classification_report(y_test, preds, digits=3))
 
     return model
 
@@ -139,7 +149,7 @@ def main():
     y_list = [y for y in y_list if y is not None and not y.empty]
 
     if not X_list:
-        print("⚠️ No usable data, aborting.")
+        logger.warning("⚠️ No usable data, aborting.")
         return
 
     X_all = pd.concat(X_list)
@@ -149,7 +159,7 @@ def main():
     model.save_model("ml_model.json")
     with open("features.json", "w") as f:
         json.dump(X_all.columns.tolist(), f)
-    print("💾 Saved multi-class model and feature list")
+    logger.info("💾 Saved multi-class model and feature list")
 
 if __name__ == "__main__":
     main()

@@ -14,18 +14,22 @@ from ta.volatility import AverageTrueRange
 from config import LOG_MOMENTUM_DISTRIBUTION, MOMENTUM_SCORE_CONFIG
 from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 # Minimum rows required after indicator calculations
 MIN_ROWS_AFTER_INDICATORS = 60
 
 def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if df.empty or "Close" not in df.columns:
-        print("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
+        logger.warning("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
         return pd.DataFrame()
 
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
 
     if len(df) < 50:
-        print(f"⚠️ Not enough candles to compute full indicators: {len(df)} rows")
+        logger.warning("⚠️ Not enough candles to compute full indicators: %d rows", len(df))
         return pd.DataFrame()
 
     # RSI
@@ -66,7 +70,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     df["Volatility_3d"] = df["Close"].rolling(window=3, min_periods=3).std()
     df["Volatility_7d"] = df["Close"].rolling(window=7, min_periods=7).std()
     if df["Volatility_7d"].dropna().eq(0).any():
-        print("⚠️ Volatility_7d contains zero values; check OHLCV data quality")
+        logger.warning("⚠️ Volatility_7d contains zero values; check OHLCV data quality")
 
     # Price deltas
     df["Price_Change_3d"] = df["Close"] - df["Close"].shift(3)
@@ -128,18 +132,20 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     if LOG_MOMENTUM_DISTRIBUTION:
         tier_counts = df["Momentum_Tier"].value_counts(dropna=False)
-        print("Momentum tier distribution:\n" + tier_counts.to_string())
+        logger.info("Momentum tier distribution:\n%s", tier_counts.to_string())
 
     df = df.dropna()
     remaining = df.shape[0]
     if remaining < min_rows:
-        print(
-            f"⚠️ Indicators left only {remaining} rows (<{min_rows}); skipping symbol"
+        logger.warning(
+            "⚠️ Indicators left only %d rows (<%d); skipping symbol",
+            remaining,
+            min_rows,
         )
         # Return an empty DataFrame with expected columns so downstream code can handle gracefully
         return pd.DataFrame(columns=df.columns)
 
-    print(f"✅ Indicators added: {remaining} rows remaining after dropna")
+    logger.info("✅ Indicators added: %d rows remaining after dropna", remaining)
     return df
 
 

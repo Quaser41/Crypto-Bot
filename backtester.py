@@ -2,6 +2,10 @@ import argparse
 import numpy as np
 import pandas as pd
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
@@ -93,7 +97,7 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
 def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = 0.001):
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     if df.empty:
-        print(f"❌ No data for {symbol}")
+        logger.error("❌ No data for %s", symbol)
         return None
     df = add_indicators(df)
     df = add_atr(df)
@@ -102,7 +106,7 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = 0.001):
         "Return_1d", "Volatility_7d"
     ])
     if df.empty:
-        print(f"⚠️ Indicator calculation dropped all rows for {symbol}")
+        logger.warning("⚠️ Indicator calculation dropped all rows for %s", symbol)
         return None
 
     position = 0
@@ -146,11 +150,11 @@ def main():
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     for sym in symbols:
-        print(f"\n=== Backtesting {sym} ===")
+        logger.info("\n=== Backtesting %s ===", sym)
         stats = backtest_symbol(sym, days=args.days, slippage_pct=args.slippage)
         if stats:
             for k, v in stats.items():
-                print(f"{k}: {v:.2%}" if k != "Sharpe" else f"{k}: {v:.2f}")
+                logger.info("%s: %.2f%s", k, v * 100 if k != "Sharpe" else v, "%" if k != "Sharpe" else "")
 
 
 if __name__ == "__main__":

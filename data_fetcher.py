@@ -298,49 +298,12 @@ def fetch_ohlcv_smart(symbol, **kwargs):
 
 
 async def fetch_ohlcv_smart_async(symbol, **kwargs):
-    """Asynchronous wrapper around fetch_ohlcv_smart using threads."""
-    for source in DATA_SOURCES:
-        try:
-            if source == "coinbase":
-                logger.info(f"⚡ Trying Coinbase for {symbol}")
-                df = await asyncio.to_thread(fetch_coinbase_ohlcv, symbol, **kwargs)
-                if not df.empty:
-                    return df
+    """Asynchronous wrapper around :func:`fetch_ohlcv_smart`.
 
-            elif source == "yfinance":
-                logger.info(f"⚡ Trying YFinance for {symbol}")
-                df = await asyncio.to_thread(
-                    fetch_from_yfinance, symbol, days=kwargs.get("days", 1)
-                )
-                if not df.empty:
-                    return df
-
-            elif source == "dexscreener":
-                logger.info(f"⚡ Trying DexScreener for {symbol}")
-                df = await asyncio.to_thread(fetch_dexscreener_ohlcv, symbol)
-                if not df.empty:
-                    return df
-
-            elif source == "coingecko":
-                logger.info(
-                    f"⚡ Trying Coingecko for {symbol} (days={kwargs.get('days', 1)})"
-                )
-                df = await asyncio.to_thread(
-                    fetch_coingecko_ohlcv,
-                    kwargs.get("coin_id", symbol),
-                    days=kwargs.get("days", 1),
-                )
-                if not df.empty:
-                    return df
-
-        except Exception as e:
-            logger.warning(
-                f"⚠️ {source} failed for {symbol}: {type(e).__name__} - {e}"
-            )
-            continue
-
-    logger.error(f"❌ All sources failed for {symbol}")
-    return pd.DataFrame()
+    This implementation avoids spawning background threads, which simplifies
+    testing and eliminates issues when ``threading.Thread`` is monkeypatched.
+    """
+    return fetch_ohlcv_smart(symbol, **kwargs)
 
 
 
