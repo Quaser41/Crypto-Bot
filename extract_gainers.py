@@ -58,10 +58,27 @@ def extract_gainers():
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     os.environ["ABSL_LOG_LEVEL"] = "FATAL"
 
+    driver = None
+
     try:
-        with suppress_stderr():
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-            driver.get(url)
+        for attempt in range(2):
+            try:
+                with suppress_stderr():
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                    driver.get(url)
+                break
+            except WebDriverException as e:
+                if attempt == 0:
+                    logger.warning(
+                        "Chrome WebDriver failed to start (attempt %d). Retrying...", attempt + 1
+                    )
+                    time.sleep(1)
+                else:
+                    logger.error(
+                        "❌ Unable to start Chrome WebDriver: %s. Ensure Google Chrome or Chromium is installed.",
+                        e,
+                    )
+                    return []
 
         logger.info("⏳ Waiting for page to fully load...")
         time.sleep(5)
@@ -113,7 +130,8 @@ def extract_gainers():
         )
         return []
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
         if tf_log is None:
             os.environ.pop("TF_CPP_MIN_LOG_LEVEL", None)
         else:
