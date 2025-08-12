@@ -32,6 +32,7 @@ def fetch_fear_greed_index(limit=30):
 
     try:
         df = pd.DataFrame(data["data"])
+        df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
         df.rename(columns={"timestamp": "Timestamp", "value": "FearGreed"}, inplace=True)
         df["FearGreed"] = pd.to_numeric(df["FearGreed"], errors="coerce")
@@ -59,12 +60,14 @@ def fetch_onchain_metrics(days=30):
     frames = []
     if tx_data and "values" in tx_data:
         df_tx = pd.DataFrame(tx_data["values"])
+        df_tx["x"] = pd.to_numeric(df_tx["x"], errors="coerce")
         df_tx["x"] = pd.to_datetime(df_tx["x"], unit="s")
         df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
         frames.append(df_tx)
 
     if active_data and "values" in active_data:
         df_active = pd.DataFrame(active_data["values"])
+        df_active["x"] = pd.to_numeric(df_active["x"], errors="coerce")
         df_active["x"] = pd.to_datetime(df_active["x"], unit="s")
         df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
         frames.append(df_active)
