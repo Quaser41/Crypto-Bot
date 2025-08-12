@@ -169,7 +169,7 @@ def safe_request(
         retry_statuses = set(retry_statuses)
 
     for attempt in range(1, max_retries + 1):
-        wait_for_slot()  # throttle
+        wait_for_slot(url)  # throttle
 
         try:
             r = requests.get(url, params=params, timeout=timeout)
@@ -189,7 +189,7 @@ def safe_request(
                         + (" → backoff..." if backoff_on_429 else "")
                     )
                     if backoff_on_429:
-                        wait_for_slot(backoff=True)
+                        wait_for_slot(url, backoff=True)
                         time.sleep(2 ** attempt)
                     else:
                         time.sleep(retry_delay)
@@ -371,7 +371,7 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
 
     for attempt in range(3):
-        wait_for_slot()
+        wait_for_slot(url)
         r = requests.get(url, params=params, timeout=10)
 
         if r.status_code == 451:
@@ -406,7 +406,7 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     url = "https://api.binance.us/api/v3/klines"
     params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
 
-    wait_for_slot()
+    wait_for_slot(url)
     try:
         r = requests.get(url, params=params, timeout=10)
         r.raise_for_status()
