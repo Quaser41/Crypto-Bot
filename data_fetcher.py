@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 
 # Status codes for which we retry by default (server errors)
 SERVER_ERROR_CODES = set(range(500, 600))
+SEEN_404_URLS = set()
 
 
 # =========================================================
@@ -45,17 +46,15 @@ def fetch_fear_greed_index(limit=30):
         return pd.DataFrame()
 
 
-def fetch_onchain_metrics(days=30):
+def fetch_onchain_metrics(days=14):
     """Fetch basic on-chain metrics like transaction volume and active addresses."""
-    # Updated to use Blockchain.com's v3 API endpoints for on-chain charts.
-    # These endpoints return the same structure as the legacy `blockchain.info` charts
-    # API but are actively maintained.
-    tx_url = (
-        f"https://api.blockchain.com/charts/transaction-volume?timespan={days}days&format=json"
-    )
-    active_url = (
-        f"https://api.blockchain.com/charts/activeaddresses?timespan={days}days&format=json"
-    )
+    # ``blockchain.info`` exposes anonymous chart endpoints for a handful of
+    # on-chain statistics.  Using this domain keeps the API working reliably.
+    # The default ``days`` parameter has been reduced so that requests stay
+    # within the range the service supports and avoid ``404`` responses.
+    base = "https://api.blockchain.info/charts"
+    tx_url = f"{base}/transaction-volume?timespan={days}days&format=json"
+    active_url = f"{base}/activeaddresses?timespan={days}days&format=json"
 
     # Only retry on server errors for these endpoints
     tx_data = safe_request(tx_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
@@ -177,7 +176,9 @@ def safe_request(
 
 
             if r.status_code == 404:
-                logger.error(f"❌ 404 Not Found {url} (attempt {attempt})")
+                if url not in SEEN_404_URLS:
+                    logger.error(f"❌ 404 Not Found {url}")
+                    SEEN_404_URLS.add(url)
                 return None
       
             # Special handling for rate limiting
