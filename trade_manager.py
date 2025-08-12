@@ -47,7 +47,8 @@ class TradeManager:
                  max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
-                 reverse_conf_delta=REVERSAL_CONF_DELTA):
+                 reverse_conf_delta=REVERSAL_CONF_DELTA,
+                 exchange=None):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -71,6 +72,9 @@ class TradeManager:
         self.min_trade_usd = MIN_TRADE_USD
         self.max_drawdown_pct = max_drawdown_pct
         self.max_daily_loss_pct = max_daily_loss_pct
+
+        # Optional exchange adapter (paper or live trading)
+        self.exchange = exchange
 
         # Equity tracking
         self.peak_equity = starting_balance
@@ -170,19 +174,38 @@ class TradeManager:
         if allocation < self.min_trade_usd:
 
             logger.warning(
-                f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping"
+                f"💸 Allocation ${allocation:.2f} below minimum {self.min_trade_usd} for {symbol}, skipping",
             )
             return
 
-        entry_fee = allocation * self.trade_fee_pct
-        net_allocation = allocation - entry_fee
-
-        if side == "BUY":
-            exec_price = price * (1 + self.slippage_pct)
-        else:
-            exec_price = price * (1 - self.slippage_pct)
-
-        qty = net_allocation / exec_price
+        order = None
+        try:
+            if self.exchange:
+                order = self.exchange.place_market_order(
+                    symbol, side, quote_quantity=allocation
+                )
+                exec_price = order.get("price", price)
+                qty = order.get("executed_qty", 0)
+                entry_cost = exec_price * qty
+                entry_fee = entry_cost * self.trade_fee_pct
+                allocation = entry_cost + entry_fee
+            else:
+                entry_fee = allocation * self.trade_fee_pct
+                net_allocation = allocation - entry_fee
+                if side == "BUY":
+                    exec_price = price * (1 + self.slippage_pct)
+                else:
+                    exec_price = price * (1 - self.slippage_pct)
+                qty = net_allocation / exec_price
+        except Exception as e:
+            logger.error(f"❌ Order placement failed for {symbol}: {e}")
+            entry_fee = allocation * self.trade_fee_pct
+            net_allocation = allocation - entry_fee
+            if side == "BUY":
+                exec_price = price * (1 + self.slippage_pct)
+            else:
+                exec_price = price * (1 - self.slippage_pct)
+            qty = net_allocation / exec_price
 
         if qty < 0.0001:
 
@@ -248,6 +271,7 @@ class TradeManager:
             "entry_time": time.time(),
             "last_movement_time": time.time(),
             "atr": atr_val,
+            "order_id": order.get("order_id") if order else None,
         }
 
         msg = (
@@ -275,13 +299,30 @@ class TradeManager:
             logger.warning(f"❌ Invalid quantity for {symbol}, skipping close.")
             return
 
-        if side == "BUY":
-            exec_price = current_price * (1 - self.slippage_pct)
+        qty = pos["qty"]
+        exit_order = None
+        if self.exchange:
+            exit_side = "SELL" if side == "BUY" else "BUY"
+            try:
+                exit_order = self.exchange.place_market_order(
+                    symbol, exit_side, quantity=qty
+                )
+                exec_price = exit_order.get("price", current_price)
+                qty = exit_order.get("executed_qty", qty)
+            except Exception as e:
+                logger.error(f"❌ Close order failed for {symbol}: {e}")
+                if side == "BUY":
+                    exec_price = current_price * (1 - self.slippage_pct)
+                else:
+                    exec_price = current_price * (1 + self.slippage_pct)
         else:
-            exec_price = current_price * (1 + self.slippage_pct)
+            if side == "BUY":
+                exec_price = current_price * (1 - self.slippage_pct)
+            else:
+                exec_price = current_price * (1 + self.slippage_pct)
 
-        entry_val = pos["entry_price"] * pos["qty"]
-        exit_val = exec_price * pos["qty"]
+        entry_val = pos["entry_price"] * qty
+        exit_val = exec_price * qty
 
         exit_fee = exit_val * self.trade_fee_pct
         net_exit = exit_val - exit_fee
@@ -330,7 +371,9 @@ class TradeManager:
             "label": pos.get("label"),
             "trail_triggered": reason == "Trailing Stop",
             "duration": round(duration, 2),
-            "exit_momentum": exit_momentum
+            "exit_momentum": exit_momentum,
+            "order_id": pos.get("order_id"),
+            "exit_order_id": exit_order.get("order_id") if exit_order else None,
         }
 
         if reason == "Rotated to better candidate":

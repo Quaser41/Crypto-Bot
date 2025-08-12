@@ -1,5 +1,9 @@
 import os
 
+# Trading mode: "live" routes orders to the real exchange, while "paper"
+# uses the sandbox/testnet APIs.  Default to paper trading for safety.
+TRADING_MODE = os.getenv("TRADING_MODE", "paper").lower()
+
 # Lowest allowed momentum tier (1=strongest, 4=weakest).
 # Assets with a tier value higher than this will be skipped.
 # The default of ``4`` temporarily admits all tiers so we can analyze score
