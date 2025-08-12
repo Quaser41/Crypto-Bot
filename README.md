@@ -71,6 +71,8 @@ source code by setting environment variables:
   `MOMENTUM_MACD_DIFF_WEIGHT`, `MOMENTUM_PRICE_SMA20_WEIGHT`,
   `MOMENTUM_MACD_HIST_NORM_WEIGHT`: Weight applied when an indicator exceeds
   its threshold. All default to `1`.
+- `SLIPPAGE_PCT`: Estimated slippage percentage applied to each trade. Defaults to `0`.
+- `FEE_PCT`: Trading fee percentage deducted on entry and exit. Defaults to `0`.
 
 - `PREDICT_SIGNAL_LOG_FREQ`: How often `predict_signal` emits info-level logs
   of the predicted class. Defaults to `100`. Set to `0` to silence per-iteration

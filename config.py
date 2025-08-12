@@ -64,6 +64,9 @@ MIN_TRADE_USD = float(os.getenv("MIN_TRADE_USD", "10"))
 # Slippage percentage applied to entry and exit prices.
 SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0"))
 
+# Trading fee percentage applied to entry and exit prices.
+FEE_PCT = float(os.getenv("FEE_PCT", "0"))
+
 # Baseline minimum model confidence required to consider a trade.
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
 
