@@ -10,7 +10,13 @@ from utils.prediction_class import PredictionClass
 
 from config import ATR_MULT_SL, ATR_MULT_TP
 
-from config import RISK_PER_TRADE, MIN_TRADE_USD, SLIPPAGE_PCT
+from config import (
+    RISK_PER_TRADE,
+    MIN_TRADE_USD,
+    SLIPPAGE_PCT,
+    HOLDING_PERIOD_SECONDS,
+    REVERSAL_CONF_DELTA,
+)
 
 from utils.logging import get_logger
 
@@ -39,7 +45,9 @@ class TradeManager:
                  trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
                  max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
-                 slippage_pct=SLIPPAGE_PCT):
+                 slippage_pct=SLIPPAGE_PCT,
+                 hold_period_sec=HOLDING_PERIOD_SECONDS,
+                 reverse_conf_delta=REVERSAL_CONF_DELTA):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -50,6 +58,13 @@ class TradeManager:
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
         self.slippage_pct = slippage_pct
+
+        # Holding period and reversal requirements
+        self.min_hold_time = hold_period_sec
+        self.reverse_conf_delta = reverse_conf_delta
+        self.last_trade_time = 0.0
+        self.last_trade_side = None
+        self.last_trade_confidence = None
 
         # Risk parameters
         self.risk_per_trade = RISK_PER_TRADE
@@ -121,6 +136,30 @@ class TradeManager:
                    label=None, side="BUY", atr=None):
         if not self.can_trade():
             logger.warning("🚫 Risk limits exceeded — cannot open new trades.")
+            return
+
+        now = time.time()
+        if self.min_hold_time > 0 and now - self.last_trade_time < self.min_hold_time:
+            remaining = self.min_hold_time - (now - self.last_trade_time)
+            logger.info(
+                f"⏳ Holding period active — skipping trade for {symbol} ({remaining:.0f}s remaining)"
+            )
+            return
+
+        if (
+            self.reverse_conf_delta > 0
+            and self.last_trade_side
+            and side != self.last_trade_side
+            and self.last_trade_confidence is not None
+            and confidence is not None
+            and confidence - self.last_trade_confidence < self.reverse_conf_delta
+        ):
+            logger.info(
+                "🔁 Skipping reversal trade for %s: confidence delta %.2f < %.2f",
+                symbol,
+                confidence - self.last_trade_confidence,
+                self.reverse_conf_delta,
+            )
             return
 
         if self.has_position(symbol):
@@ -220,6 +259,10 @@ class TradeManager:
             msg += f" | ATR={atr_val:.6f}"
         logger.info(msg)
 
+        self.last_trade_time = now
+        self.last_trade_side = side
+        self.last_trade_confidence = confidence
+
     def close_trade(self, symbol, current_price, reason=""):
         if not self.has_position(symbol):
             logger.warning(f"⚠️ No open position to close for {symbol}")
@@ -246,6 +289,8 @@ class TradeManager:
 
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
+
+        self.last_trade_time = time.time()
 
         # Update drawdown and daily loss metrics after realizing PnL
         self._update_equity_metrics()
@@ -577,6 +622,9 @@ class TradeManager:
             "current_day": self.current_day,
             "daily_start_balance": self.daily_start_balance,
             "daily_loss_pct": self.daily_loss_pct,
+            "last_trade_time": self.last_trade_time,
+            "last_trade_side": self.last_trade_side,
+            "last_trade_confidence": self.last_trade_confidence,
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -597,6 +645,9 @@ class TradeManager:
             self.current_day = state.get("current_day", time.strftime("%Y-%m-%d"))
             self.daily_start_balance = state.get("daily_start_balance", self.balance)
             self.daily_loss_pct = state.get("daily_loss_pct", 0.0)
+            self.last_trade_time = state.get("last_trade_time", 0.0)
+            self.last_trade_side = state.get("last_trade_side")
+            self.last_trade_confidence = state.get("last_trade_confidence")
             logger.info("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
