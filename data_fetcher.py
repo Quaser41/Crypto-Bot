@@ -43,8 +43,15 @@ def fetch_fear_greed_index(limit=30):
 
 def fetch_onchain_metrics(days=30):
     """Fetch basic on-chain metrics like transaction volume and active addresses."""
-    tx_url = f"https://api.blockchain.info/charts/transaction-volume?timespan={days}days&format=json"
-    active_url = f"https://api.blockchain.info/charts/activeaddresses?timespan={days}days&format=json"
+    # Updated to use Blockchain.com's v3 API endpoints for on-chain charts.
+    # These endpoints return the same structure as the legacy `blockchain.info` charts
+    # API but are actively maintained.
+    tx_url = (
+        f"https://api.blockchain.com/charts/transaction-volume?timespan={days}days&format=json"
+    )
+    active_url = (
+        f"https://api.blockchain.com/charts/activeaddresses?timespan={days}days&format=json"
+    )
 
     tx_data = safe_request(tx_url, backoff_on_429=False)
     active_data = safe_request(active_url, backoff_on_429=False)
@@ -142,8 +149,14 @@ def safe_request(url, params=None, timeout=10, max_retries=3, retry_delay=5, bac
         try:
             r = requests.get(url, params=params, timeout=timeout)
 
+            if r.status_code == 404:
+                logger.error(f"❌ 404 Not Found {url} (attempt {attempt})")
+                return None
+
             if r.status_code == 429 and backoff_on_429:
-                logger.warning(f"⚠️ Rate limited {url} (attempt {attempt}) → backoff...")
+                logger.warning(
+                    f"⚠️ Rate limited {url} (attempt {attempt}) → backoff..."
+                )
                 wait_for_slot(backoff=True)
                 time.sleep(2 ** attempt)
                 continue
