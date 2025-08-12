@@ -339,8 +339,11 @@ def scan_for_breakouts():
 
 def main_loop():
     while True:
-        clear_old_cache(cache_dir="cache", max_age=600)  # Purge cache >10 min old
-        scan_for_breakouts()
+        try:
+            clear_old_cache(cache_dir="cache", max_age=600)  # Purge cache >10 min old
+            scan_for_breakouts()
+        except Exception:
+            logger.exception("Scan iteration failed")
         time.sleep(210)
 
 if __name__ == "__main__":
