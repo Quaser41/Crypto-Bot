@@ -12,6 +12,7 @@ from data_fetcher import (
 )
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
+from utils.prediction_class import PredictionClass
 from trade_manager import TradeManager
 from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD
 from threshold_utils import get_dynamic_threshold
@@ -143,14 +144,14 @@ def scan_for_breakouts():
             logger.info(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
             logger.info(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
-            if label == 1 and confidence < 0.85:
+            if label == PredictionClass.SMALL_LOSS.value and confidence < 0.85:
                 logger.info(
                     f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
                 )
                 signal = "HOLD"
                 suppressed += 1
 
-            if label in [3, 4] and confidence >= 0.75:
+            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= 0.75:
                 logger.info("🔥 High Conviction BUY override active")
                 signal = "BUY"
 
@@ -165,14 +166,14 @@ def scan_for_breakouts():
                 continue
 
             # === High-confidence override for Class 3 or 4 ===
-            if label in [3, 4] and confidence >= 0.90:
+            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= 0.90:
                 logger.info(
                     f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}"
                 )
                 signal = "BUY"
 
             # === Suppress weak Class 1 signals ===
-            elif label == 1 and confidence < 0.85:
+            elif label == PredictionClass.SMALL_LOSS.value and confidence < 0.85:
                 logger.info(
                     f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
                 )
@@ -186,7 +187,7 @@ def scan_for_breakouts():
                 )
                 signal = momentum_signal(df)
                 logger.info(f"📉 Fallback momentum signal: {signal}")
-                label = 2
+                label = PredictionClass.NEUTRAL.value
                 fallbacks += 1
 
                 # === Fallback breakout trigger ===
@@ -205,12 +206,12 @@ def scan_for_breakouts():
             logger.error(f"❌ Prediction failed: {e}")
             signal = momentum_signal(df)
             confidence = 0.0
-            label = 2
+            label = PredictionClass.NEUTRAL.value
             fallbacks += 1
 
         last_price = df["Close"].iloc[-1]
 
-        if signal == "BUY" and label in [3, 4] and last_price > 0:
+        if signal == "BUY" and label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and last_price > 0:
             if confidence < CONFIDENCE_THRESHOLD:
                 logger.error(
                     f"❌ Skipping {symbol}: confidence {confidence:.2f} below threshold {CONFIDENCE_THRESHOLD}"

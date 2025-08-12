@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
+from utils.prediction_class import PredictionClass
 from threshold_utils import get_dynamic_threshold
 from config import MOMENTUM_TIER_THRESHOLD
 
@@ -54,9 +55,9 @@ def generate_signal(window: pd.DataFrame):
     except Exception:
         return momentum_signal(window), 0.0, None
 
-    if label == 1 and confidence < 0.85:
+    if label == PredictionClass.SMALL_LOSS.value and confidence < 0.85:
         signal = "HOLD"
-    elif label in [3, 4] and confidence >= 0.90:
+    elif label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= 0.90:
         signal = "BUY"
     elif signal == "HOLD" or confidence < threshold:
         if (
