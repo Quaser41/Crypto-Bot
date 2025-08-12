@@ -182,7 +182,51 @@ def clear_old_cache(cache_dir="cache", max_age=600):
                 except PermissionError:
                     logger.warning(f"⚠️ Skipping in-use file: {filename}")
     if removed:
-        logger.info(f"🧹 Cleared {removed} old cache file(s)")        
+        logger.info(f"🧹 Cleared {removed} old cache file(s)")
+
+# =========================================================
+# ✅ OHLCV CACHING HELPERS
+# =========================================================
+OHLCV_MEMORY_CACHE = {}
+OHLCV_TTL = 60  # seconds
+OHLCV_CACHE_LIMIT = 1000
+
+
+def _ohlcv_key(symbol: str, interval: str) -> str:
+    return f"ohlcv:{symbol}:{interval}"
+
+
+def load_ohlcv_cache(symbol: str, interval: str):
+    """Return cached OHLCV DataFrame and its age in seconds."""
+    key = _ohlcv_key(symbol, interval)
+
+    # Memory first
+    entry = OHLCV_MEMORY_CACHE.get(key)
+    if entry:
+        ts, df = entry
+        return df.copy(), time.time() - ts
+
+    # Disk fallback
+    path = _cache_path(key)
+    if os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                ts, df = pickle.load(f)
+            OHLCV_MEMORY_CACHE[key] = (ts, df)
+            return df.copy(), time.time() - ts
+        except Exception as e:
+            logger.warning(f"⚠️ Cache read error for {key}: {e}")
+    return None, None
+
+
+def save_ohlcv_cache(symbol: str, interval: str, df: pd.DataFrame, max_size: int = OHLCV_CACHE_LIMIT):
+    """Persist OHLCV data to memory and disk with optional size trimming."""
+    if df.empty:
+        return
+    key = _ohlcv_key(symbol, interval)
+    df = df.sort_values("Timestamp").tail(max_size)
+    OHLCV_MEMORY_CACHE[key] = (time.time(), df)
+    update_cache(key, df)
 
 # =========================================================
 # ✅ GENERIC SAFE REQUEST WRAPPER (w/ retry + rate limit)
@@ -371,32 +415,49 @@ def is_symbol_on_coinbase(symbol):
 # =========================================================
 DATA_SOURCES = ["coinbase", "coingecko", "dexscreener"]
 
-def fetch_ohlcv_smart(symbol, **kwargs):
+
+def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
     """Smart OHLCV fetcher that tries all sources in order per token."""
+    ttl = kwargs.get("ttl", OHLCV_TTL)
+    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
+
+    cached_df, age = load_ohlcv_cache(symbol, interval)
+    if cached_df is not None and age is not None and age < ttl:
+        logger.info(f"📦 Using cached OHLCV for {symbol} ({interval})")
+        return cached_df
+
+    params = kwargs.copy()
+    params["interval"] = interval
+    params.setdefault("ttl", ttl)
+    params.setdefault("cache_limit", cache_limit)
+
     for source in DATA_SOURCES:
         try:
             if source == "coinbase":
                 logger.info(f"⚡ Trying Coinbase for {symbol}")
-                df = fetch_coinbase_ohlcv(symbol, **kwargs)
+                df = fetch_coinbase_ohlcv(symbol, **params)
                 if not df.empty:
                     return df
 
             elif source == "yfinance":
                 logger.info(f"⚡ Trying YFinance for {symbol}")
-                df = fetch_from_yfinance(symbol, days=kwargs.get("days", 1))
+                df = fetch_from_yfinance(symbol, days=params.get("days", 1))
                 if not df.empty:
+                    save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
 
             elif source == "dexscreener":
                 logger.info(f"⚡ Trying DexScreener for {symbol}")
                 df = fetch_dexscreener_ohlcv(symbol)
                 if not df.empty:
+                    save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
 
             elif source == "coingecko":
-                logger.info(f"⚡ Trying Coingecko for {symbol} (days={kwargs.get('days', 1)})")
-                df = fetch_coingecko_ohlcv(kwargs.get("coin_id", symbol), days=kwargs.get("days", 1))
+                logger.info(f"⚡ Trying Coingecko for {symbol} (days={params.get('days', 1)})")
+                df = fetch_coingecko_ohlcv(params.get("coin_id", symbol), days=params.get("days", 1))
                 if not df.empty:
+                    save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
 
         except Exception as e:
@@ -418,13 +479,25 @@ async def fetch_ohlcv_smart_async(symbol, **kwargs):
 
 
 def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
+    ttl = kwargs.get("ttl", OHLCV_TTL)
+    cache_limit = kwargs.get("cache_limit", limit)
+    cached, age = load_ohlcv_cache(symbol, interval)
+    if cached is not None and age is not None and age < ttl:
+        logger.info(f"📦 Using cached Binance OHLCV for {symbol}")
+        return cached
+
     binance_symbol = resolve_symbol_binance_global(symbol)
     if not binance_symbol:
         logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Binance Global.")
-        return pd.DataFrame()
+        return cached if cached is not None else pd.DataFrame()
 
     url = f"https://api.binance.com/api/v3/klines"
-    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
+    params = {"symbol": binance_symbol, "interval": interval}
+    if cached is None:
+        params["limit"] = limit
+    else:
+        last_ts = cached["Timestamp"].max()
+        params["startTime"] = int((last_ts.to_pydatetime().timestamp() + 1) * 1000)
 
     for attempt in range(3):
         wait_for_slot(url)
@@ -432,35 +505,52 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
 
         if r.status_code == 451:
             logger.warning(f"⚠️ Binance 451 for {symbol} — skipping.")
-            return pd.DataFrame()
+            return cached if cached is not None else pd.DataFrame()
 
         try:
             r.raise_for_status()
             data = r.json()
             if not data:
-                return pd.DataFrame()
-            df = pd.DataFrame(data, columns=[
+                return cached if cached is not None else pd.DataFrame()
+            df_new = pd.DataFrame(data, columns=[
                 "timestamp", "open", "high", "low", "close", "volume", "x", "y", "z", "a", "b", "c"
             ])
-            df["Close"] = df["close"].astype(float)
-            df["Timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            return df[["Timestamp", "Close"]]
+            df_new["Close"] = df_new["close"].astype(float)
+            df_new["Timestamp"] = pd.to_datetime(df_new["timestamp"], unit="ms")
+            df = df_new[["Timestamp", "Close"]]
+            if cached is not None:
+                df = pd.concat([cached, df])
+            df = df.drop_duplicates("Timestamp").sort_values("Timestamp").tail(cache_limit)
+            save_ohlcv_cache(symbol, interval, df, cache_limit)
+            return df
         except Exception as e:
             logger.error(f"❌ Binance fetch fail ({symbol}): {e}")
             time.sleep(2)
 
     logger.error(f"❌ All Binance fetch attempts failed for {symbol}")
-    return pd.DataFrame()
+    return cached if cached is not None else pd.DataFrame()
 
 
 def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
+    ttl = kwargs.get("ttl", OHLCV_TTL)
+    cache_limit = kwargs.get("cache_limit", limit)
+    cached, age = load_ohlcv_cache(symbol, interval)
+    if cached is not None and age is not None and age < ttl:
+        logger.info(f"📦 Using cached Binance.US OHLCV for {symbol}")
+        return cached
+
     binance_symbol = resolve_symbol_binance_us(symbol)
     if not binance_symbol:
         logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Binance.US.")
-        return pd.DataFrame()
+        return cached if cached is not None else pd.DataFrame()
 
     url = "https://api.binance.us/api/v3/klines"
-    params = {"symbol": binance_symbol, "interval": interval, "limit": limit}
+    params = {"symbol": binance_symbol, "interval": interval}
+    if cached is None:
+        params["limit"] = limit
+    else:
+        last_ts = cached["Timestamp"].max()
+        params["startTime"] = int((last_ts.to_pydatetime().timestamp() + 1) * 1000)
 
     wait_for_slot(url)
     try:
@@ -468,37 +558,47 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         r.raise_for_status()
         data = r.json()
         if not data:
-            return pd.DataFrame()
+            return cached if cached is not None else pd.DataFrame()
 
-        df = pd.DataFrame(data, columns=[
+        df_new = pd.DataFrame(data, columns=[
             "timestamp", "open", "high", "low", "close", "volume", "x", "y", "z", "a", "b", "c"
         ])
-        df["Close"] = df["close"].astype(float)
-        df["Timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-        return df[["Timestamp", "Close"]]
+        df_new["Close"] = df_new["close"].astype(float)
+        df_new["Timestamp"] = pd.to_datetime(df_new["timestamp"], unit="ms")
+        df = df_new[["Timestamp", "Close"]]
+        if cached is not None:
+            df = pd.concat([cached, df])
+        df = df.drop_duplicates("Timestamp").sort_values("Timestamp").tail(cache_limit)
+        save_ohlcv_cache(symbol, interval, df, cache_limit)
+        return df
     except Exception as e:
         logger.error(f"❌ Binance.US fetch fail ({symbol}): {e}")
-        return pd.DataFrame()
+        return cached if cached is not None else pd.DataFrame()
 
 
 def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
-    """Fetch OHLCV data from Coinbase.
+    """Fetch OHLCV data from Coinbase with caching and incremental updates."""
 
-    Coinbase's candles endpoint returns at most 300 data points per request.
-    This helper splits the desired date range (``days`` back from now) into
-    chunks so that the entire span is covered.
-    """
+    ttl = kwargs.get("ttl", OHLCV_TTL)
+    cache_limit = kwargs.get("cache_limit", limit)
+    cached, age = load_ohlcv_cache(symbol, interval)
+    if cached is not None and age is not None and age < ttl:
+        logger.info(f"📦 Using cached Coinbase OHLCV for {symbol}")
+        return cached
 
     product_id = resolve_symbol_coinbase(symbol)
     if not product_id:
         logger.warning(f"⚠️ Symbol {symbol.upper()} not found on Coinbase.")
-        return pd.DataFrame()
+        return cached if cached is not None else pd.DataFrame()
 
     gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
     granularity = gran_map.get(interval, 900)
 
     end = datetime.utcnow()
-    start = end - timedelta(days=days)
+    if cached is not None and not cached.empty:
+        start = cached["Timestamp"].max().to_pydatetime() + timedelta(seconds=granularity)
+    else:
+        start = end - timedelta(days=days)
     max_span = timedelta(seconds=granularity * limit)
     url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
 
@@ -522,7 +622,7 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
 
         data = safe_request(url, params=params, backoff_on_429=False)
         if not data:
-            df = pd.DataFrame()
+            df = cached if cached is not None else pd.DataFrame()
             df.attrs["fetch_seconds"] = time.time() - start_time
             return df
 
@@ -533,22 +633,26 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     elapsed = time.time() - start_time
 
     if not frames:
-        df = pd.DataFrame()
+        df = cached if cached is not None else pd.DataFrame()
         df.attrs["fetch_seconds"] = elapsed
         return df
 
     try:
-        df = pd.concat(frames, ignore_index=True)
-        df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="s")
-        df = df.sort_values("Timestamp")
-        # Preserve full OHLCV data so downstream consumers like the backtester
-        # can access Open prices and compute indicators that require High/Low.
-        df = df[["Timestamp", "Open", "High", "Low", "Close", "Volume"]]
+        df_new = pd.concat(frames, ignore_index=True)
+        df_new["Timestamp"] = pd.to_datetime(df_new["Timestamp"], unit="s")
+        df_new = df_new.sort_values("Timestamp")
+        df_new = df_new[["Timestamp", "Open", "High", "Low", "Close", "Volume"]]
+        if cached is not None:
+            df = pd.concat([cached, df_new])
+        else:
+            df = df_new
+        df = df.drop_duplicates("Timestamp").sort_values("Timestamp").tail(cache_limit)
         df.attrs["fetch_seconds"] = elapsed
+        save_ohlcv_cache(symbol, interval, df, cache_limit)
         return df
     except Exception as e:
         logger.error(f"❌ Coinbase fetch fail ({symbol}): {e}")
-        df = pd.DataFrame()
+        df = cached if cached is not None else pd.DataFrame()
         df.attrs["fetch_seconds"] = elapsed
         return df
 
