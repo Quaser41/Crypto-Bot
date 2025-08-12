@@ -292,6 +292,20 @@ class TradeManager:
             logger.warning(f"⚠️ No open position to close for {symbol}")
             return
 
+        pos = self.positions[symbol]
+        elapsed = time.time() - pos.get("entry_time", 0)
+        sl_tp_reasons = {
+            "Stop-Loss",
+            "Take-Profit",
+            "Trailing Stop",
+            "Take Profit Hit",
+        }
+        if elapsed < self.min_hold_time and reason in sl_tp_reasons:
+            logger.info(
+                f"⏱️ Minimum hold time not met for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s). Skipping close."
+            )
+            return
+
         pos = self.positions.pop(symbol)
         side = pos.get("side", "BUY")
 
@@ -420,35 +434,41 @@ class TradeManager:
 
                 # ✅ Hybrid profit protection
                 pnl_pct = (last_price - entry_price) / entry_price * 100
+                elapsed = time.time() - pos.get("entry_time", 0)
 
-                # Hard take-profit at 10–12%
-                if pnl_pct >= 10:
-                    logger.info(
-                        f"🎯 Take-profit hit: {symbol} is up {pnl_pct:.2f}% — closing trade."
+                if elapsed < self.min_hold_time:
+                    logger.debug(
+                        f"⏱️ Holding period active for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s)"
                     )
-                    self.close_trade(symbol, last_price, reason="Take Profit Hit")
-                    continue  # skip further checks on this trade
-
-                # Trailing stop trigger at 3% gain with 2% trail
-                elif pnl_pct >= 3:
-                    if not pos.get("trail_triggered"):
-                        pos["trail_triggered"] = True
-                        pos["trail_price"] = last_price * 0.98
+                else:
+                    # Hard take-profit at 10–12%
+                    if pnl_pct >= 10:
                         logger.info(
-                            f"📉 Trailing stop activated at {last_price:.4f} for {symbol}"
+                            f"🎯 Take-profit hit: {symbol} is up {pnl_pct:.2f}% — closing trade."
                         )
-                    elif last_price < pos.get("trail_price", 0):
-                        logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
-                        self.close_trade(symbol, last_price, reason="Trailing Stop")
-                        continue
-                    else:
-                        # Update trail upward if price climbs
-                        new_trail = last_price * 0.98
-                        if new_trail > pos["trail_price"]:
+                        self.close_trade(symbol, last_price, reason="Take Profit Hit")
+                        continue  # skip further checks on this trade
+
+                    # Trailing stop trigger at 3% gain with 2% trail
+                    elif pnl_pct >= 3:
+                        if not pos.get("trail_triggered"):
+                            pos["trail_triggered"] = True
+                            pos["trail_price"] = last_price * 0.98
                             logger.info(
-                                f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                f"📉 Trailing stop activated at {last_price:.4f} for {symbol}"
                             )
-                            pos["trail_price"] = new_trail
+                        elif last_price < pos.get("trail_price", 0):
+                            logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
+                            self.close_trade(symbol, last_price, reason="Trailing Stop")
+                            continue
+                        else:
+                            # Update trail upward if price climbs
+                            new_trail = last_price * 0.98
+                            if new_trail > pos["trail_price"]:
+                                logger.info(
+                                    f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                )
+                                pos["trail_price"] = new_trail
 
                 self.manage(symbol, last_price)
 
@@ -481,6 +501,14 @@ class TradeManager:
         else:
             if current_price < highest_price:
                 pos["highest_price"] = current_price
+
+        # Respect minimum holding period before evaluating exits
+        elapsed = time.time() - pos.get("entry_time", 0)
+        if elapsed < self.min_hold_time:
+            logger.debug(
+                f"⏱️ Holding period active for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s)"
+            )
+            return
 
         trail_stop = None
         atr = pos.get("atr")

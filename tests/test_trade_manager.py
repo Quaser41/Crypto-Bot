@@ -72,3 +72,43 @@ def test_slippage_applied_to_trade(monkeypatch):
     expected_pnl = (record['exit_price'] - pos['entry_price']) * pos['qty']
     assert record['pnl'] == pytest.approx(expected_pnl)
 
+
+def test_hold_period_delays_exits(monkeypatch):
+    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0)
+    pos = tm.positions['ABC']
+
+    # Price hits stop-loss immediately but hold period prevents closing
+    tm.manage('ABC', pos['stop_loss'] - 0.01)
+    assert tm.has_position('ABC')
+
+    # After hold period elapsed, manage should close on the same price
+    tm.positions['ABC']['entry_time'] -= 61
+    tm.manage('ABC', pos['stop_loss'] - 0.01)
+    assert not tm.has_position('ABC')
+
+
+def test_close_trade_respects_hold_period(monkeypatch):
+    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0)
+    tm.close_trade('ABC', 9.0, reason='Stop-Loss')
+    assert tm.has_position('ABC')
+
+    tm.positions['ABC']['entry_time'] -= 61
+    tm.close_trade('ABC', 9.0, reason='Stop-Loss')
+    assert not tm.has_position('ABC')
+
