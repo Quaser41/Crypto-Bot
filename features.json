@@ -13,8 +13,5 @@
   "Price_vs_SMA20",
   "Price_vs_SMA50",
   "Volatility_7d",
-  "MACD_Hist_norm",
-  "FearGreed_norm",
-  "TxVolume_norm",
-  "ActiveAddresses_norm"
+  "MACD_Hist_norm"
 ]
