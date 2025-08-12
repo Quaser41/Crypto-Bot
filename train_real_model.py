@@ -15,6 +15,36 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# === Feature configuration ===
+DEFAULT_FEATURES = [
+    "RSI", "MACD", "Signal", "Hist",
+    "SMA_20", "SMA_50",
+    "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
+    "Price_vs_SMA20", "Price_vs_SMA50",
+    "Volatility_7d", "MACD_Hist_norm"
+]
+
+
+def load_feature_list():
+    """Load feature column names from ``features.json`` if available.
+
+    Falls back to :data:`DEFAULT_FEATURES` when the file is missing or
+    malformed. This keeps the training pipeline in sync with the
+    inference pipeline, which also relies on ``features.json``.
+    """
+    try:
+        with open("features.json", "r") as f:
+            features = json.load(f)
+        if not isinstance(features, list) or not all(isinstance(f, str) for f in features):
+            raise ValueError("features.json is not a list of strings")
+        logger.info("📄 Loaded %d features from features.json", len(features))
+        return features
+    except FileNotFoundError:
+        logger.warning("⚠️ features.json not found; using default feature set")
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.warning("⚠️ Could not parse features.json (%s); using default feature set", e)
+    return DEFAULT_FEATURES
+
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r):
     if r <= -0.06:
@@ -49,16 +79,11 @@ def prepare_training_data(symbol, coin_id):
 
     df["Target"] = df["Return"].apply(return_bucket)
 
-    feature_cols = [
-        "RSI", "MACD", "Signal", "Hist",
-        "SMA_20", "SMA_50",
-        "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
-        "Price_vs_SMA20", "Price_vs_SMA50",
-        "Volatility_7d", "MACD_Hist_norm",
-        "FearGreed_norm", "TxVolume_norm", "ActiveAddresses_norm"
-    ]
-
-    X = df[feature_cols]
+    feature_cols = load_feature_list()
+    missing = [c for c in feature_cols if c not in df.columns]
+    if missing:
+        logger.warning("⚠️ Missing features in data: %s", missing)
+    X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
     return X, y
 
