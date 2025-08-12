@@ -148,7 +148,8 @@ def predict_signal(df, threshold, log_frequency=None):
             return "HOLD", confidence, predicted_class.value
 
         if predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN) and confidence >= 0.75:
-            logger.info("🔥 High Conviction BUY override active")
+            # Logging handled at caller layer to avoid duplicate messages
+            logger.debug("🔥 High Conviction BUY override active")
             return "BUY", confidence, predicted_class.value
 
         if predicted_class == PredictionClass.BIG_GAIN:
