@@ -13,6 +13,9 @@ logger = get_logger(__name__)
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
 
+_prediction_counter = 0
+_last_logged_class = None
+
 
 
 
@@ -105,11 +108,22 @@ def predict_signal(df, threshold):
             "🔍 Class probabilities: %s",
             dict(enumerate(np.round(class_probs, 3))),
         )
-        logger.info(
+        global _prediction_counter, _last_logged_class
+        _prediction_counter += 1
+
+        logger.debug(
             "📊 Predicted class: %d with confidence %.2f",
             predicted_class,
             confidence,
         )
+
+        if predicted_class != _last_logged_class or _prediction_counter % 100 == 0:
+            logger.info(
+                "📊 Predicted class: %d with confidence %.2f",
+                predicted_class,
+                confidence,
+            )
+            _last_logged_class = predicted_class
 
         # Logic overrides
         if predicted_class == 1 and confidence < threshold:
