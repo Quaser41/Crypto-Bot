@@ -35,6 +35,7 @@ def fetch_fear_greed_index(limit=30):
 
     try:
         df = pd.DataFrame(data["data"])
+        df["timestamp"] = pd.to_numeric(df["timestamp"], errors="coerce")
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
         df.rename(columns={"timestamp": "Timestamp", "value": "FearGreed"}, inplace=True)
         df["FearGreed"] = pd.to_numeric(df["FearGreed"], errors="coerce")
@@ -46,8 +47,15 @@ def fetch_fear_greed_index(limit=30):
 
 def fetch_onchain_metrics(days=30):
     """Fetch basic on-chain metrics like transaction volume and active addresses."""
-    tx_url = f"https://api.blockchain.info/charts/transaction-volume?timespan={days}days&format=json"
-    active_url = f"https://api.blockchain.info/charts/activeaddresses?timespan={days}days&format=json"
+    # Updated to use Blockchain.com's v3 API endpoints for on-chain charts.
+    # These endpoints return the same structure as the legacy `blockchain.info` charts
+    # API but are actively maintained.
+    tx_url = (
+        f"https://api.blockchain.com/charts/transaction-volume?timespan={days}days&format=json"
+    )
+    active_url = (
+        f"https://api.blockchain.com/charts/activeaddresses?timespan={days}days&format=json"
+    )
 
     # Only retry on server errors for these endpoints
     tx_data = safe_request(tx_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
@@ -56,12 +64,14 @@ def fetch_onchain_metrics(days=30):
     frames = []
     if tx_data and "values" in tx_data:
         df_tx = pd.DataFrame(tx_data["values"])
+        df_tx["x"] = pd.to_numeric(df_tx["x"], errors="coerce")
         df_tx["x"] = pd.to_datetime(df_tx["x"], unit="s")
         df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
         frames.append(df_tx)
 
     if active_data and "values" in active_data:
         df_active = pd.DataFrame(active_data["values"])
+        df_active["x"] = pd.to_numeric(df_active["x"], errors="coerce")
         df_active["x"] = pd.to_datetime(df_active["x"], unit="s")
         df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
         frames.append(df_active)
@@ -165,6 +175,11 @@ def safe_request(
         try:
             r = requests.get(url, params=params, timeout=timeout)
 
+
+            if r.status_code == 404:
+                logger.error(f"❌ 404 Not Found {url} (attempt {attempt})")
+                return None
+      
             # Special handling for rate limiting
             if r.status_code == 429:
                 if 429 in retry_statuses:
@@ -180,6 +195,7 @@ def safe_request(
                     continue
                 logger.error(f"❌ Failed (429) {url} attempt {attempt}")
                 return None
+
 
             if r.status_code in retry_statuses:
                 logger.error(f"❌ Failed ({r.status_code}) {url} attempt {attempt}")
