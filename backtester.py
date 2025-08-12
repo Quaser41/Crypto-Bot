@@ -1,4 +1,5 @@
 import argparse
+import time
 import numpy as np
 import pandas as pd
 
@@ -106,7 +107,10 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
 
 
 def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = 0.001):
+    start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
+    fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
+    logger.info("⏱️ Fetched %s in %.2f seconds", symbol, fetch_seconds)
     if df.empty:
         logger.error("❌ No data for %s", symbol)
         return None
