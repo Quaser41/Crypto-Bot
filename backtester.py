@@ -13,7 +13,8 @@ from threshold_utils import get_dynamic_threshold
 from config import MOMENTUM_TIER_THRESHOLD
 
 # === Constants mirrored from main.py ===
-CONFIDENCE_THRESHOLD = 0.65
+# Lower base confidence threshold slightly to allow more trades during backtests
+CONFIDENCE_THRESHOLD = 0.55
 FALLBACK_RSI_THRESHOLD = 55
 FALLBACK_RETURN_3D_THRESHOLD = 0.03
 FLAT_1D_THRESHOLD = 0.001
