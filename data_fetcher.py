@@ -52,7 +52,11 @@ def fetch_onchain_metrics(days=14):
     # on-chain statistics.  Using this domain keeps the API working reliably.
     # The default ``days`` parameter has been reduced so that requests stay
     # within the range the service supports and avoid ``404`` responses.
-    base = "https://api.blockchain.info/charts"
+    # Some environments have reported ``404`` errors when using the
+    # ``api.blockchain.info`` subdomain for chart data.  The same chart
+    # endpoints are available on the main ``blockchain.info`` domain, which
+    # resolves the issue and continues to serve anonymous JSON data.
+    base = "https://blockchain.info/charts"
     tx_url = f"{base}/transaction-volume?timespan={days}days&format=json"
     active_url = f"{base}/activeaddresses?timespan={days}days&format=json"
 
