@@ -80,4 +80,13 @@ EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
 # Baseline minimum model confidence required to consider a trade.
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
 
+# Minimum bars to wait after a trade before opening a new one in backtests.
+HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
+
+# Minimum seconds to wait after a trade before opening a new one in live trading.
+HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "0"))
+
+# Additional confidence required before reversing an open position.
+REVERSAL_CONF_DELTA = float(os.getenv("REVERSAL_CONF_DELTA", "0"))
+
 
