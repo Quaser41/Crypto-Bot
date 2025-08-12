@@ -3,10 +3,10 @@
 import pandas as pd
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.preprocessing import LabelEncoder
+from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.utils import resample
 from xgboost import XGBClassifier
 import json
 import numpy as np
@@ -95,7 +95,7 @@ def train_model(X, y):
     class_count = len(le.classes_)
     logger.info("✅ Model will use %d classes: %s", class_count, list(le.classes_))
 
-    logger.info("📊 Class distribution:")
+    logger.info("📊 Original class distribution:")
     class_dist = pd.Series(y_encoded).value_counts().sort_index()
     logger.info("%s", class_dist)
 
@@ -105,8 +105,26 @@ def train_model(X, y):
         keep_idx = ~pd.Series(y_encoded).isin(rare_classes).values
         X = X[keep_idx]
         y_encoded = y_encoded[keep_idx]
+        class_dist = pd.Series(y_encoded).value_counts().sort_index()
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+    # === Balance classes via upsampling ===
+    df_xy = X.copy()
+    df_xy["Target"] = y_encoded
+    max_size = df_xy["Target"].value_counts().max()
+    balanced_parts = []
+    for cls, part in df_xy.groupby("Target"):
+        balanced_parts.append(resample(part, replace=True, n_samples=max_size, random_state=42))
+    df_bal = pd.concat(balanced_parts).sample(frac=1, random_state=42)  # shuffle
+    X_bal = df_bal.drop(columns=["Target"])
+    y_bal = df_bal["Target"].astype(int)
+
+    logger.info("📊 Balanced class distribution:")
+    logger.info("%s", y_bal.value_counts().sort_index())
+
+    # === Time-based train/test split ===
+    split_idx = int(len(X_bal) * 0.8)
+    X_train, X_test = X_bal.iloc[:split_idx], X_bal.iloc[split_idx:]
+    y_train, y_test = y_bal.iloc[:split_idx], y_bal.iloc[split_idx:]
 
     present_classes = np.unique(y_train)
     if len(present_classes) < class_count:
@@ -117,10 +135,13 @@ def train_model(X, y):
         sample_weights = None
     else:
         sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
-        logger.info(
-            "⚖️ Class weights: %s",
-            dict(zip(present_classes, compute_sample_weight(class_weight='balanced', y=y_train))),
+        class_weights = (
+            pd.Series(sample_weights, index=y_train)
+            .groupby(level=0)
+            .mean()
+            .to_dict()
         )
+        logger.info("⚖️ Class weights: %s", class_weights)
 
     model = XGBClassifier(
         n_estimators=200,
@@ -139,6 +160,7 @@ def train_model(X, y):
 
     logger.info("\n📊 Classification Report:")
     logger.info("%s", classification_report(y_test, preds, digits=3))
+    logger.info("📊 Prediction distribution: %s", pd.Series(preds).value_counts().sort_index())
 
     return model
 
