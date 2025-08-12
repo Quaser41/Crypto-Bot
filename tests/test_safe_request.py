@@ -34,7 +34,12 @@ def test_safe_request_retries_on_429_with_backoff(monkeypatch):
 
     def fake_get(url, params=None, timeout=10):
         code = status_codes.pop(0)
-        resp = types.SimpleNamespace(status_code=code, json=lambda: {"ok": True})
+        resp = types.SimpleNamespace(
+            status_code=code,
+            json=lambda: {"ok": True},
+            headers={"content-type": "application/json"},
+            text="{\"ok\": true}",
+        )
         return resp
 
     sleep_calls = []

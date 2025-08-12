@@ -6,6 +6,7 @@ import requests
 import pandas as pd
 import yfinance as yf
 import asyncio
+import json
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
 from symbol_resolver import (
@@ -61,8 +62,19 @@ def fetch_onchain_metrics(days=14):
     active_url = f"{base}/activeaddresses?timespan={days}days&format=json"
 
     # Only retry on server errors for these endpoints
-    tx_data = safe_request(tx_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
-    active_data = safe_request(active_url, retry_statuses=SERVER_ERROR_CODES, backoff_on_429=False)
+    headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
+    tx_data = safe_request(
+        tx_url,
+        retry_statuses=SERVER_ERROR_CODES,
+        backoff_on_429=False,
+        headers=headers,
+    )
+    active_data = safe_request(
+        active_url,
+        retry_statuses=SERVER_ERROR_CODES,
+        backoff_on_429=False,
+        headers=headers,
+    )
 
     frames = []
     if tx_data and "values" in tx_data:
@@ -159,6 +171,7 @@ def safe_request(
     retry_delay=5,
     retry_statuses=None,
     backoff_on_429=True,
+    headers: dict | None = None,
 ):
     """Safe API request with configurable retry logic.
 
@@ -176,7 +189,10 @@ def safe_request(
         wait_for_slot(url)  # throttle
 
         try:
-            r = requests.get(url, params=params, timeout=timeout)
+            if headers is not None:
+                r = requests.get(url, params=params, timeout=timeout, headers=headers)
+            else:
+                r = requests.get(url, params=params, timeout=timeout)
 
 
             if r.status_code == 404:
@@ -211,7 +227,19 @@ def safe_request(
                 logger.error(f"❌ Failed ({r.status_code}) {url} (no retry)")
                 return None
 
-            return r.json()
+            content_type = getattr(r, "headers", {}).get("content-type", "")
+            if "application/json" not in content_type.lower():
+                snippet = r.text[:200].replace("\n", " ")
+                logger.error(
+                    f"❌ Non-JSON response ({r.status_code}) {url}: {snippet}"
+                )
+                return None
+
+            try:
+                return r.json()
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ JSON decode error for {url}: {e}")
+                return None
 
         except Exception as e:
             logger.error(f"❌ Exception on attempt {attempt} for {url}: {e}")
