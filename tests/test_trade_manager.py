@@ -8,6 +8,7 @@ def create_tm():
     tm = TradeManager(starting_balance=1000)
     tm.risk_per_trade = 0.1
     tm.min_trade_usd = 0
+    tm.slippage_pct = 0.0
     tm.trade_fee_pct = 0.0
     return tm
 

@@ -107,7 +107,7 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
-def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT, fee_pct: float = FEE_PCT):
+def backtest_symbol(symbol: str, days: int = 90, *, slippage_pct: float, fee_pct: float):
     """Backtest a single symbol using historical OHLCV data.
 
     Parameters
@@ -117,10 +117,16 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_
     days: int
         Number of days of history to fetch.
     slippage_pct: float
-        Percentage slippage deducted on each trade.
+        Percentage slippage deducted on each trade. A warning is logged if
+        this value is set to zero.
     fee_pct: float
-        Trading fee percentage applied when positions are opened or closed.
+        Trading fee percentage applied when positions are opened or closed. A
+        warning is logged if this value is zero.
     """
+    if slippage_pct == 0:
+        logger.warning("Slippage percentage is 0; results may be overly optimistic.")
+    if fee_pct == 0:
+        logger.warning("Fee percentage is 0; results may be overly optimistic.")
     start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
