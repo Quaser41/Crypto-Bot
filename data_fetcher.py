@@ -49,6 +49,15 @@ def fetch_fear_greed_index(limit=30):
 
 def fetch_onchain_metrics(days=14):
     """Fetch basic on-chain metrics like transaction volume and active addresses."""
+
+    cache_key = f"onchain:{days}"
+    cached = cached_fetch(cache_key, ttl=3600)
+    if cached is not None:
+        logger.info(f"📄 Using cached on-chain metrics for {days} days")
+        return cached
+
+    logger.info(f"🌐 Fetching on-chain metrics for {days} days")
+
     # ``blockchain.info`` exposes anonymous chart endpoints for a handful of
     # on-chain statistics.  Using this domain keeps the API working reliably.
     # The default ``days`` parameter has been reduced so that requests stay
@@ -98,7 +107,9 @@ def fetch_onchain_metrics(days=14):
     for f in frames[1:]:
         df = pd.merge(df, f, on="Timestamp", how="outer")
 
-    return df.sort_values("Timestamp")
+    df = df.sort_values("Timestamp")
+    update_cache(cache_key, df)
+    return df
 
 
 # =========================================================
