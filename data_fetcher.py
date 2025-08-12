@@ -51,6 +51,12 @@ def fetch_onchain_metrics(days=14):
     """Fetch basic on-chain metrics like transaction volume and active addresses."""
 
     cache_key = f"onchain:{days}"
+    placeholder_key = f"{cache_key}:placeholder"
+    placeholder = cached_fetch(placeholder_key, ttl=60)
+    if placeholder is not None:
+        logger.info("📄 Using cached empty on-chain metrics")
+        return placeholder
+
     cached = cached_fetch(cache_key, ttl=3600)
     if cached is not None:
         logger.info(f"📄 Using cached on-chain metrics for {days} days")
@@ -84,35 +90,35 @@ def fetch_onchain_metrics(days=14):
         headers=headers,
     )
 
-    frames = []
-    if tx_data and "values" in tx_data:
-        values = tx_data["values"]
-        if values and isinstance(values[0], (list, tuple)):
-            df_tx = pd.DataFrame(values, columns=["Timestamp", "TxVolume"])
-        else:
-            df_tx = pd.DataFrame(values)
-            df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
-        df_tx["Timestamp"] = pd.to_numeric(df_tx["Timestamp"], errors="coerce")
-        df_tx["Timestamp"] = pd.to_datetime(df_tx["Timestamp"], unit="s")
-        frames.append(df_tx)
+    if not (
+        tx_data
+        and "values" in tx_data
+        and active_data
+        and "values" in active_data
+    ):
+        empty_df = pd.DataFrame()
+        update_cache(placeholder_key, empty_df)
+        return empty_df
 
-    if active_data and "values" in active_data:
-        values = active_data["values"]
-        if values and isinstance(values[0], (list, tuple)):
-            df_active = pd.DataFrame(values, columns=["Timestamp", "ActiveAddresses"])
-        else:
-            df_active = pd.DataFrame(values)
-            df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
-        df_active["Timestamp"] = pd.to_numeric(df_active["Timestamp"], errors="coerce")
-        df_active["Timestamp"] = pd.to_datetime(df_active["Timestamp"], unit="s")
-        frames.append(df_active)
+    values = tx_data["values"]
+    if values and isinstance(values[0], (list, tuple)):
+        df_tx = pd.DataFrame(values, columns=["Timestamp", "TxVolume"])
+    else:
+        df_tx = pd.DataFrame(values)
+        df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
+    df_tx["Timestamp"] = pd.to_numeric(df_tx["Timestamp"], errors="coerce")
+    df_tx["Timestamp"] = pd.to_datetime(df_tx["Timestamp"], unit="s")
 
-    if not frames:
-        return pd.DataFrame()
+    values = active_data["values"]
+    if values and isinstance(values[0], (list, tuple)):
+        df_active = pd.DataFrame(values, columns=["Timestamp", "ActiveAddresses"])
+    else:
+        df_active = pd.DataFrame(values)
+        df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
+    df_active["Timestamp"] = pd.to_numeric(df_active["Timestamp"], errors="coerce")
+    df_active["Timestamp"] = pd.to_datetime(df_active["Timestamp"], unit="s")
 
-    df = frames[0]
-    for f in frames[1:]:
-        df = pd.merge(df, f, on="Timestamp", how="outer")
+    df = pd.merge(df_tx, df_active, on="Timestamp", how="outer")
 
     df = df.sort_values("Timestamp")
     update_cache(cache_key, df)
