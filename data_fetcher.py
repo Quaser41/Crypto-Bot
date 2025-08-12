@@ -448,8 +448,15 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
 
     frames = []
     window_start = start
+    chunk = 1
     while window_start < end:
         window_end = min(window_start + max_span, end)
+        logger.info(
+            "Fetching Coinbase chunk %s: %s → %s",
+            chunk,
+            window_start.isoformat(),
+            window_end.isoformat(),
+        )
         params = {
             "granularity": granularity,
             "start": window_start.isoformat(),
@@ -462,6 +469,7 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
 
         frames.append(pd.DataFrame(data, columns=["Timestamp", "Low", "High", "Open", "Close", "Volume"]))
         window_start = window_end
+        chunk += 1
 
     if not frames:
         return pd.DataFrame()
