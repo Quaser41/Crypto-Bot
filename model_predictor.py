@@ -101,7 +101,7 @@ def predict_signal(df, threshold):
         predicted_class = int(np.argmax(class_probs))
         confidence = class_probs[predicted_class]
 
-        logger.info(
+        logger.debug(
             "🔍 Class probabilities: %s",
             dict(enumerate(np.round(class_probs, 3))),
         )
