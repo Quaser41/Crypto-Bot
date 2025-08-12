@@ -72,5 +72,9 @@ source code by setting environment variables:
   `MOMENTUM_MACD_HIST_NORM_WEIGHT`: Weight applied when an indicator exceeds
   its threshold. All default to `1`.
 
+- `PREDICT_SIGNAL_LOG_FREQ`: How often `predict_signal` emits info-level logs
+  of the predicted class. Defaults to `100`. Set to `0` to silence per-iteration
+  logs during backtests.
+
 These options allow fine-tuning of momentum evaluation without code changes.
 
