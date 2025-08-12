@@ -1,5 +1,6 @@
 # model_predictor.py
 import json
+import os
 from functools import lru_cache
 
 import numpy as np
@@ -13,6 +14,11 @@ logger = get_logger(__name__)
 
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
+
+try:
+    DEFAULT_LOG_FREQUENCY = int(os.getenv("PREDICT_SIGNAL_LOG_FREQ", "100"))
+except ValueError:
+    DEFAULT_LOG_FREQUENCY = 100
 
 _prediction_counter = 0
 _last_logged_class = None
@@ -72,7 +78,7 @@ def reload_model():
 
 
 # === Predict signal from latest row ===
-def predict_signal(df, threshold):
+def predict_signal(df, threshold, log_frequency=None):
     """Predict the trading signal for the latest row in ``df``.
 
     Parameters
@@ -81,6 +87,10 @@ def predict_signal(df, threshold):
         Feature dataframe containing all expected model features.
     threshold : float
         Confidence threshold that the caller has already computed.
+    log_frequency : int | None, optional
+        How often to emit info-level prediction logs. ``None`` uses the value
+        from the ``PREDICT_SIGNAL_LOG_FREQ`` environment variable. ``0`` or a
+        negative value disables these logs entirely.
     """
 
     model, expected_features = load_model()
@@ -118,13 +128,20 @@ def predict_signal(df, threshold):
             confidence,
         )
 
-        if predicted_class != _last_logged_class or _prediction_counter % 100 == 0:
-            logger.info(
-                "📊 Predicted class: %d with confidence %.2f",
-                predicted_class.value,
-                confidence,
-            )
-            _last_logged_class = predicted_class
+        if log_frequency is None:
+            log_frequency = DEFAULT_LOG_FREQUENCY
+
+        if log_frequency and log_frequency > 0:
+            if (
+                predicted_class != _last_logged_class
+                or _prediction_counter % log_frequency == 0
+            ):
+                logger.info(
+                    "📊 Predicted class: %d with confidence %.2f",
+                    predicted_class.value,
+                    confidence,
+                )
+                _last_logged_class = predicted_class
 
         # Logic overrides
         if predicted_class == PredictionClass.SMALL_LOSS and confidence < threshold:
@@ -148,9 +165,20 @@ def predict_signal(df, threshold):
         return None, 0.0, None
 
 
-async def predict_signal_async(df, threshold):
-    """Asynchronous helper for :func:`predict_signal`."""
-    return await asyncio.to_thread(predict_signal, df, threshold)
+async def predict_signal_async(df, threshold, log_frequency=None):
+    """Asynchronous helper for :func:`predict_signal`.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Feature dataframe containing all expected model features.
+    threshold : float
+        Confidence threshold that the caller has already computed.
+    log_frequency : int | None, optional
+        Passed through to :func:`predict_signal`.
+    """
+
+    return await asyncio.to_thread(predict_signal, df, threshold, log_frequency)
 
 
 
