@@ -1,0 +1,1812 @@
+C:\Users\Brian\Downloads\Alpaca\GitHub\Crypto-Bot>python backtester.py --symbols BTC,ETH --days 90
+2025-08-12 03:49:36,311 - __main__ - INFO -
+=== Backtesting BTC ===
+2025-08-12 03:49:36,311 - data_fetcher - INFO - ⚡ Trying Coinbase for BTC
+2025-08-12 03:49:36,461 - data_fetcher - INFO - Fetching Coinbase chunk 1: 2025-05-14T08:49:36.461311 → 2025-05-16T10:49:36.461311
+2025-08-12 03:49:36,601 - data_fetcher - INFO - Fetching Coinbase chunk 2: 2025-05-16T10:49:36.461311 → 2025-05-18T12:49:36.461311
+2025-08-12 03:49:37,271 - data_fetcher - INFO - Fetching Coinbase chunk 3: 2025-05-18T12:49:36.461311 → 2025-05-20T14:49:36.461311
+2025-08-12 03:49:37,701 - data_fetcher - INFO - Fetching Coinbase chunk 4: 2025-05-20T14:49:36.461311 → 2025-05-22T16:49:36.461311
+2025-08-12 03:49:37,921 - data_fetcher - INFO - Fetching Coinbase chunk 5: 2025-05-22T16:49:36.461311 → 2025-05-24T18:49:36.461311
+2025-08-12 03:49:38,181 - data_fetcher - INFO - Fetching Coinbase chunk 6: 2025-05-24T18:49:36.461311 → 2025-05-26T20:49:36.461311
+2025-08-12 03:49:38,561 - data_fetcher - INFO - Fetching Coinbase chunk 7: 2025-05-26T20:49:36.461311 → 2025-05-28T22:49:36.461311
+2025-08-12 03:49:39,221 - data_fetcher - INFO - Fetching Coinbase chunk 8: 2025-05-28T22:49:36.461311 → 2025-05-31T00:49:36.461311
+2025-08-12 03:49:39,491 - data_fetcher - INFO - Fetching Coinbase chunk 9: 2025-05-31T00:49:36.461311 → 2025-06-02T02:49:36.461311
+2025-08-12 03:49:39,781 - data_fetcher - INFO - Fetching Coinbase chunk 10: 2025-06-02T02:49:36.461311 → 2025-06-04T04:49:36.461311
+2025-08-12 03:49:40,231 - data_fetcher - INFO - Fetching Coinbase chunk 11: 2025-06-04T04:49:36.461311 → 2025-06-06T06:49:36.461311
+2025-08-12 03:49:40,515 - data_fetcher - INFO - Fetching Coinbase chunk 12: 2025-06-06T06:49:36.461311 → 2025-06-08T08:49:36.461311
+2025-08-12 03:49:40,861 - data_fetcher - INFO - Fetching Coinbase chunk 13: 2025-06-08T08:49:36.461311 → 2025-06-10T10:49:36.461311
+2025-08-12 03:49:41,251 - data_fetcher - INFO - Fetching Coinbase chunk 14: 2025-06-10T10:49:36.461311 → 2025-06-12T12:49:36.461311
+2025-08-12 03:49:41,651 - data_fetcher - INFO - Fetching Coinbase chunk 15: 2025-06-12T12:49:36.461311 → 2025-06-14T14:49:36.461311
+2025-08-12 03:49:41,961 - data_fetcher - INFO - Fetching Coinbase chunk 16: 2025-06-14T14:49:36.461311 → 2025-06-16T16:49:36.461311
+2025-08-12 03:49:42,231 - data_fetcher - INFO - Fetching Coinbase chunk 17: 2025-06-16T16:49:36.461311 → 2025-06-18T18:49:36.461311
+2025-08-12 03:49:42,671 - data_fetcher - INFO - Fetching Coinbase chunk 18: 2025-06-18T18:49:36.461311 → 2025-06-20T20:49:36.461311
+2025-08-12 03:49:42,951 - data_fetcher - INFO - Fetching Coinbase chunk 19: 2025-06-20T20:49:36.461311 → 2025-06-22T22:49:36.461311
+2025-08-12 03:49:43,641 - data_fetcher - INFO - Fetching Coinbase chunk 20: 2025-06-22T22:49:36.461311 → 2025-06-25T00:49:36.461311
+2025-08-12 03:49:43,881 - data_fetcher - INFO - Fetching Coinbase chunk 21: 2025-06-25T00:49:36.461311 → 2025-06-27T02:49:36.461311
+2025-08-12 03:49:44,201 - data_fetcher - INFO - Fetching Coinbase chunk 22: 2025-06-27T02:49:36.461311 → 2025-06-29T04:49:36.461311
+2025-08-12 03:49:44,731 - data_fetcher - INFO - Fetching Coinbase chunk 23: 2025-06-29T04:49:36.461311 → 2025-07-01T06:49:36.461311
+2025-08-12 03:49:44,991 - data_fetcher - INFO - Fetching Coinbase chunk 24: 2025-07-01T06:49:36.461311 → 2025-07-03T08:49:36.461311
+2025-08-12 03:49:45,301 - data_fetcher - INFO - Fetching Coinbase chunk 25: 2025-07-03T08:49:36.461311 → 2025-07-05T10:49:36.461311
+2025-08-12 03:49:45,931 - data_fetcher - INFO - Fetching Coinbase chunk 26: 2025-07-05T10:49:36.461311 → 2025-07-07T12:49:36.461311
+2025-08-12 03:49:46,381 - data_fetcher - INFO - Fetching Coinbase chunk 27: 2025-07-07T12:49:36.461311 → 2025-07-09T14:49:36.461311
+2025-08-12 03:49:46,501 - data_fetcher - INFO - Fetching Coinbase chunk 28: 2025-07-09T14:49:36.461311 → 2025-07-11T16:49:36.461311
+2025-08-12 03:49:47,241 - data_fetcher - INFO - Fetching Coinbase chunk 29: 2025-07-11T16:49:36.461311 → 2025-07-13T18:49:36.461311
+2025-08-12 03:49:47,701 - data_fetcher - INFO - Fetching Coinbase chunk 30: 2025-07-13T18:49:36.461311 → 2025-07-15T20:49:36.461311
+2025-08-12 03:49:47,821 - data_fetcher - INFO - Fetching Coinbase chunk 31: 2025-07-15T20:49:36.461311 → 2025-07-17T22:49:36.461311
+2025-08-12 03:49:48,321 - data_fetcher - INFO - Fetching Coinbase chunk 32: 2025-07-17T22:49:36.461311 → 2025-07-20T00:49:36.461311
+2025-08-12 03:49:48,891 - data_fetcher - INFO - Fetching Coinbase chunk 33: 2025-07-20T00:49:36.461311 → 2025-07-22T02:49:36.461311
+2025-08-12 03:49:49,091 - data_fetcher - INFO - Fetching Coinbase chunk 34: 2025-07-22T02:49:36.461311 → 2025-07-24T04:49:36.461311
+2025-08-12 03:49:49,371 - data_fetcher - INFO - Fetching Coinbase chunk 35: 2025-07-24T04:49:36.461311 → 2025-07-26T06:49:36.461311
+2025-08-12 03:49:49,831 - data_fetcher - INFO - Fetching Coinbase chunk 36: 2025-07-26T06:49:36.461311 → 2025-07-28T08:49:36.461311
+2025-08-12 03:49:50,101 - data_fetcher - INFO - Fetching Coinbase chunk 37: 2025-07-28T08:49:36.461311 → 2025-07-30T10:49:36.461311
+2025-08-12 03:49:50,451 - data_fetcher - INFO - Fetching Coinbase chunk 38: 2025-07-30T10:49:36.461311 → 2025-08-01T12:49:36.461311
+2025-08-12 03:49:50,901 - data_fetcher - INFO - Fetching Coinbase chunk 39: 2025-08-01T12:49:36.461311 → 2025-08-03T14:49:36.461311
+2025-08-12 03:49:51,191 - data_fetcher - INFO - Fetching Coinbase chunk 40: 2025-08-03T14:49:36.461311 → 2025-08-05T16:49:36.461311
+2025-08-12 03:49:51,621 - data_fetcher - INFO - Fetching Coinbase chunk 41: 2025-08-05T16:49:36.461311 → 2025-08-07T18:49:36.461311
+2025-08-12 03:49:52,011 - data_fetcher - INFO - Fetching Coinbase chunk 42: 2025-08-07T18:49:36.461311 → 2025-08-09T20:49:36.461311
+2025-08-12 03:49:52,566 - data_fetcher - INFO - Fetching Coinbase chunk 43: 2025-08-09T20:49:36.461311 → 2025-08-11T22:49:36.461311
+2025-08-12 03:49:52,786 - data_fetcher - INFO - Fetching Coinbase chunk 44: 2025-08-11T22:49:36.461311 → 2025-08-12T08:49:36.461311
+2025-08-12 03:49:53,064 - __main__ - INFO - ⏱️ Fetched BTC in 16.60 seconds
+2025-08-12 03:49:53,851 - data_fetcher - ERROR - ❌ 404 Not Found https://api.blockchain.info/charts/transaction-volume?timespan=365days&format=json
+2025-08-12 03:49:55,381 - data_fetcher - ERROR - ❌ 404 Not Found https://api.blockchain.info/charts/activeaddresses?timespan=365days&format=json
+2025-08-12 03:49:55,571 - feature_engineer - INFO - ✅ Indicators added: 8591 rows remaining after dropna
+2025-08-12 03:49:55,786 - model_predictor - INFO - 🔄 Loaded ML model expecting 15 features: ['RSI', 'MACD', 'Signal', 'Hist', 'SMA_20', 'SMA_50', 'Return_1d', 'Return_2d', 'Return_3d', 'Return_5d', 'Return_7d', 'Price_vs_SMA20', 'Price_vs_SMA50', 'Volatility_7d', 'MACD_Hist_norm']
+2025-08-12 03:49:55,796 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:49:56,025 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:49:56,031 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 03:49:56,128 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:49:56,461 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:49:56,801 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:49:57,143 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.52
+2025-08-12 03:49:57,143 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:49:57,143 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.57
+2025-08-12 03:49:57,173 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:49:57,181 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 03:49:57,183 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 03:49:57,193 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 03:49:57,483 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:49:57,861 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:49:58,045 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:49:58,051 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.53
+2025-08-12 03:49:58,052 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.48
+2025-08-12 03:49:58,059 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:49:58,091 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:49:58,097 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:49:58,241 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:49:58,643 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:49:58,744 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:49:58,744 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:49:58,752 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:49:58,754 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:49:58,761 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:49:58,764 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:49:58,815 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:49:58,815 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:49:58,934 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:49:58,941 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:49:59,031 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:49:59,391 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:49:59,760 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:00,161 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:09,730 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:09,782 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:09,782 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 03:50:09,792 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 03:50:09,802 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:50:10,091 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:10,135 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:50:10,145 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:10,296 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:10,301 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:10,467 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:10,531 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:50:10,538 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:10,541 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:10,541 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:10,548 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:50:10,807 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:11,141 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:11,412 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:50:11,420 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 03:50:11,482 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:11,824 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:12,164 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:12,503 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:50:12,508 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 03:50:12,539 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:12,550 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:12,558 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:50:12,586 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 03:50:12,586 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:12,591 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:12,596 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:12,601 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:12,603 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:50:12,933 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:13,301 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:13,705 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:14,056 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:50:14,281 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:50:14,285 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:14,400 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:14,764 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:15,044 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 03:50:15,044 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,046 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,051 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:50:15,091 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:50:15,091 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,097 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,101 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,105 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,107 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:50:15,111 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,111 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:15,117 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:50:15,460 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:15,802 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:16,151 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:16,420 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:16,425 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:16,496 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:16,641 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:50:16,646 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:16,651 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:50:16,658 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:16,678 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:16,683 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:16,862 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:16,961 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:16,963 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:50:17,227 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:50:17,596 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:50:17,702 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:50:17,702 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:17,711 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:17,736 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:50:17,741 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:17,953 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:18,132 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:50:18,132 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:50:18,313 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:18,363 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:50:18,364 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:18,372 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:18,375 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:18,385 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:50:18,386 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 03:50:18,386 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:18,394 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.52
+2025-08-12 03:50:18,454 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:50:18,466 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:50:18,676 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:18,770 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 03:50:18,774 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:18,851 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:50:18,858 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.62
+2025-08-12 03:50:19,038 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:19,383 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:19,733 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:50:20,089 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:50:20,441 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:20,783 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:21,151 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:21,441 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:21,448 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:21,497 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:50:21,846 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:22,233 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:22,597 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:23,002 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:23,365 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:23,711 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:50:23,725 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:50:23,727 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:24,095 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:24,359 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:24,364 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:50:24,452 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:24,714 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:24,724 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 03:50:24,803 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:25,167 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:25,519 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:25,872 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:50:25,992 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:50:25,993 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:26,004 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:26,004 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:26,154 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 03:50:26,165 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:26,293 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:26,401 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:50:26,403 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:26,406 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:26,411 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 03:50:26,451 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:50:26,456 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:26,661 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:27,015 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:27,336 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:50:27,336 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:27,341 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:27,371 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:27,421 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:50:27,429 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:27,436 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:27,441 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:27,723 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:28,085 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:28,223 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:28,225 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:28,456 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:28,531 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:50:28,538 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:28,820 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:29,145 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:50:29,150 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:50:29,183 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:29,199 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:50:29,205 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:50:29,559 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:29,708 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:29,711 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:29,716 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:29,721 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:29,721 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 03:50:29,922 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:30,294 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:30,671 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:31,057 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:31,451 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:31,741 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:50:31,747 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:31,751 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:50:31,801 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:32,126 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:32,131 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:32,201 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:32,221 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:50:32,226 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:32,461 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:50:32,467 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:50:32,521 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:50:32,531 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:50:32,624 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:32,991 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:33,352 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:33,721 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:33,875 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:33,883 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 03:50:34,091 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:34,458 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:34,831 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:35,189 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:50:35,562 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:35,929 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:35,969 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:50:35,972 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 03:50:36,081 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:36,085 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:36,271 - __main__ - INFO - CAGR: 87.38%
+2025-08-12 03:50:36,271 - __main__ - INFO - Max Drawdown: -12.01%
+2025-08-12 03:50:36,274 - __main__ - INFO - Sharpe: 2.07
+2025-08-12 03:50:36,274 - __main__ - INFO - Total Return: 16.64%
+2025-08-12 03:50:36,274 - __main__ - INFO - Fees Paid: 0.00%
+2025-08-12 03:50:36,274 - __main__ - INFO -
+=== Backtesting ETH ===
+2025-08-12 03:50:36,274 - data_fetcher - INFO - ⚡ Trying Coinbase for ETH
+2025-08-12 03:50:36,274 - data_fetcher - INFO - Fetching Coinbase chunk 1: 2025-05-14T08:50:36.274623 → 2025-05-16T10:50:36.274623
+2025-08-12 03:50:36,381 - data_fetcher - INFO - Fetching Coinbase chunk 2: 2025-05-16T10:50:36.274623 → 2025-05-18T12:50:36.274623
+2025-08-12 03:50:36,740 - data_fetcher - INFO - Fetching Coinbase chunk 3: 2025-05-18T12:50:36.274623 → 2025-05-20T14:50:36.274623
+2025-08-12 03:50:37,241 - data_fetcher - INFO - Fetching Coinbase chunk 4: 2025-05-20T14:50:36.274623 → 2025-05-22T16:50:36.274623
+2025-08-12 03:50:37,486 - data_fetcher - INFO - Fetching Coinbase chunk 5: 2025-05-22T16:50:36.274623 → 2025-05-24T18:50:36.274623
+2025-08-12 03:50:37,851 - data_fetcher - INFO - Fetching Coinbase chunk 6: 2025-05-24T18:50:36.274623 → 2025-05-26T20:50:36.274623
+2025-08-12 03:50:38,201 - data_fetcher - INFO - Fetching Coinbase chunk 7: 2025-05-26T20:50:36.274623 → 2025-05-28T22:50:36.274623
+2025-08-12 03:50:38,571 - data_fetcher - INFO - Fetching Coinbase chunk 8: 2025-05-28T22:50:36.274623 → 2025-05-31T00:50:36.274623
+2025-08-12 03:50:39,283 - data_fetcher - INFO - Fetching Coinbase chunk 9: 2025-05-31T00:50:36.274623 → 2025-06-02T02:50:36.274623
+2025-08-12 03:50:39,421 - data_fetcher - INFO - Fetching Coinbase chunk 10: 2025-06-02T02:50:36.274623 → 2025-06-04T04:50:36.274623
+2025-08-12 03:50:39,891 - data_fetcher - INFO - Fetching Coinbase chunk 11: 2025-06-04T04:50:36.274623 → 2025-06-06T06:50:36.274623
+2025-08-12 03:50:40,126 - data_fetcher - INFO - Fetching Coinbase chunk 12: 2025-06-06T06:50:36.274623 → 2025-06-08T08:50:36.274623
+2025-08-12 03:50:40,492 - data_fetcher - INFO - Fetching Coinbase chunk 13: 2025-06-08T08:50:36.274623 → 2025-06-10T10:50:36.274623
+2025-08-12 03:50:40,981 - data_fetcher - INFO - Fetching Coinbase chunk 14: 2025-06-10T10:50:36.274623 → 2025-06-12T12:50:36.274623
+2025-08-12 03:50:41,501 - data_fetcher - INFO - Fetching Coinbase chunk 15: 2025-06-12T12:50:36.274623 → 2025-06-14T14:50:36.274623
+2025-08-12 03:50:41,651 - data_fetcher - INFO - Fetching Coinbase chunk 16: 2025-06-14T14:50:36.274623 → 2025-06-16T16:50:36.274623
+2025-08-12 03:50:42,271 - data_fetcher - INFO - Fetching Coinbase chunk 17: 2025-06-16T16:50:36.274623 → 2025-06-18T18:50:36.274623
+2025-08-12 03:50:42,483 - data_fetcher - INFO - Fetching Coinbase chunk 18: 2025-06-18T18:50:36.274623 → 2025-06-20T20:50:36.274623
+2025-08-12 03:50:43,075 - data_fetcher - INFO - Fetching Coinbase chunk 19: 2025-06-20T20:50:36.274623 → 2025-06-22T22:50:36.274623
+2025-08-12 03:50:43,278 - data_fetcher - INFO - Fetching Coinbase chunk 20: 2025-06-22T22:50:36.274623 → 2025-06-25T00:50:36.274623
+2025-08-12 03:50:43,644 - data_fetcher - INFO - Fetching Coinbase chunk 21: 2025-06-25T00:50:36.274623 → 2025-06-27T02:50:36.274623
+2025-08-12 03:50:43,900 - data_fetcher - INFO - Fetching Coinbase chunk 22: 2025-06-27T02:50:36.274623 → 2025-06-29T04:50:36.274623
+2025-08-12 03:50:44,241 - data_fetcher - INFO - Fetching Coinbase chunk 23: 2025-06-29T04:50:36.274623 → 2025-07-01T06:50:36.274623
+2025-08-12 03:50:44,732 - data_fetcher - INFO - Fetching Coinbase chunk 24: 2025-07-01T06:50:36.274623 → 2025-07-03T08:50:36.274623
+2025-08-12 03:50:45,331 - data_fetcher - INFO - Fetching Coinbase chunk 25: 2025-07-03T08:50:36.274623 → 2025-07-05T10:50:36.274623
+2025-08-12 03:50:45,551 - data_fetcher - INFO - Fetching Coinbase chunk 26: 2025-07-05T10:50:36.274623 → 2025-07-07T12:50:36.274623
+2025-08-12 03:50:45,821 - data_fetcher - INFO - Fetching Coinbase chunk 27: 2025-07-07T12:50:36.274623 → 2025-07-09T14:50:36.274623
+2025-08-12 03:50:46,511 - data_fetcher - INFO - Fetching Coinbase chunk 28: 2025-07-09T14:50:36.274623 → 2025-07-11T16:50:36.274623
+2025-08-12 03:50:46,721 - data_fetcher - INFO - Fetching Coinbase chunk 29: 2025-07-11T16:50:36.274623 → 2025-07-13T18:50:36.274623
+2025-08-12 03:50:47,001 - data_fetcher - INFO - Fetching Coinbase chunk 30: 2025-07-13T18:50:36.274623 → 2025-07-15T20:50:36.274623
+2025-08-12 03:50:47,621 - data_fetcher - INFO - Fetching Coinbase chunk 31: 2025-07-15T20:50:36.274623 → 2025-07-17T22:50:36.274623
+2025-08-12 03:50:48,101 - data_fetcher - INFO - Fetching Coinbase chunk 32: 2025-07-17T22:50:36.274623 → 2025-07-20T00:50:36.274623
+2025-08-12 03:50:48,211 - data_fetcher - INFO - Fetching Coinbase chunk 33: 2025-07-20T00:50:36.274623 → 2025-07-22T02:50:36.274623
+2025-08-12 03:50:48,591 - data_fetcher - INFO - Fetching Coinbase chunk 34: 2025-07-22T02:50:36.274623 → 2025-07-24T04:50:36.274623
+2025-08-12 03:50:49,254 - data_fetcher - INFO - Fetching Coinbase chunk 35: 2025-07-24T04:50:36.274623 → 2025-07-26T06:50:36.274623
+2025-08-12 03:50:49,372 - data_fetcher - INFO - Fetching Coinbase chunk 36: 2025-07-26T06:50:36.274623 → 2025-07-28T08:50:36.274623
+2025-08-12 03:50:49,737 - data_fetcher - INFO - Fetching Coinbase chunk 37: 2025-07-28T08:50:36.274623 → 2025-07-30T10:50:36.274623
+2025-08-12 03:50:50,392 - data_fetcher - INFO - Fetching Coinbase chunk 38: 2025-07-30T10:50:36.274623 → 2025-08-01T12:50:36.274623
+2025-08-12 03:50:50,641 - data_fetcher - INFO - Fetching Coinbase chunk 39: 2025-08-01T12:50:36.274623 → 2025-08-03T14:50:36.274623
+2025-08-12 03:50:50,871 - data_fetcher - INFO - Fetching Coinbase chunk 40: 2025-08-03T14:50:36.274623 → 2025-08-05T16:50:36.274623
+2025-08-12 03:50:51,372 - data_fetcher - INFO - Fetching Coinbase chunk 41: 2025-08-05T16:50:36.274623 → 2025-08-07T18:50:36.274623
+2025-08-12 03:50:51,917 - data_fetcher - INFO - Fetching Coinbase chunk 42: 2025-08-07T18:50:36.274623 → 2025-08-09T20:50:36.274623
+2025-08-12 03:50:52,049 - data_fetcher - INFO - Fetching Coinbase chunk 43: 2025-08-09T20:50:36.274623 → 2025-08-11T22:50:36.274623
+2025-08-12 03:50:52,394 - data_fetcher - INFO - Fetching Coinbase chunk 44: 2025-08-11T22:50:36.274623 → 2025-08-12T08:50:36.274623
+2025-08-12 03:50:52,827 - __main__ - INFO - ⏱️ Fetched ETH in 16.55 seconds
+2025-08-12 03:50:54,827 - feature_engineer - INFO - ✅ Indicators added: 8591 rows remaining after dropna
+2025-08-12 03:50:54,861 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:50:54,895 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 03:50:54,907 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:54,956 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 03:50:54,958 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:54,961 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:54,968 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 03:50:54,968 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:54,976 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:54,978 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:54,981 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:55,001 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:50:55,001 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,008 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:50:55,011 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 03:50:55,011 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,016 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:55,058 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:50:55,061 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,071 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,071 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 03:50:55,120 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:50:55,127 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:50:55,131 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 03:50:55,137 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 03:50:55,201 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:55,523 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:50:55,523 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:50:55,533 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:50:55,533 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,533 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:55,553 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:50:55,553 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,553 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,561 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,563 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,563 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,571 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 03:50:55,573 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 03:50:55,573 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:55,581 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:55,634 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:50:55,637 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:50:55,743 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:50:55,745 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.56
+2025-08-12 03:50:55,786 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:50:55,786 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:50:55,864 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:50:55,866 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:55,871 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:50:55,874 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:50:55,921 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:56,151 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.64
+2025-08-12 03:50:56,157 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 03:50:56,161 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:50:56,169 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 03:50:56,171 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:50:56,176 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,179 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,181 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.70
+2025-08-12 03:50:56,236 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:50:56,236 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,241 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,241 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,248 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:50:56,251 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:50:56,251 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,260 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,266 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,270 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:50:56,271 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 03:50:56,271 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,276 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 03:50:56,296 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 03:50:56,301 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:50:56,321 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:50:56,328 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:50:56,471 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 03:50:56,476 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.48
+2025-08-12 03:50:56,619 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:50:56,726 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:50:56,742 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:50:56,812 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 03:50:56,812 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,812 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,822 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:50:56,822 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 03:50:56,961 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.61
+2025-08-12 03:50:57,134 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:50:57,144 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:50:57,295 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:09,146 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:09,201 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:09,201 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:09,211 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.51
+2025-08-12 03:51:09,211 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:51:09,221 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:09,221 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:51:09,329 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 03:51:09,331 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:09,339 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:09,341 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:09,347 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:09,367 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:09,371 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:09,491 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:51:09,716 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:51:09,726 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:09,739 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:09,842 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:51:09,846 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:09,862 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:10,245 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:10,335 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:10,345 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:10,454 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.89
+2025-08-12 03:51:10,454 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:10,456 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:10,461 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:10,591 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:10,791 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:51:10,951 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:11,086 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 03:51:11,186 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 03:51:11,191 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,191 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:11,291 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:11,296 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.62
+2025-08-12 03:51:11,426 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.82
+2025-08-12 03:51:11,426 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,436 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:11,441 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:11,441 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:51:11,441 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,451 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,456 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,462 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:11,521 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:11,526 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:11,572 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:51:11,583 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,591 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 03:51:11,601 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 03:51:11,613 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,613 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:11,683 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 03:51:11,691 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:11,759 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:11,760 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,769 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:11,793 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:51:11,798 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 03:51:11,810 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:11,839 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 03:51:11,845 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,848 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,853 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,857 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,861 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,865 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:11,939 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 03:51:11,940 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,947 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,951 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,954 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,958 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,961 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 03:51:11,987 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.82
+2025-08-12 03:51:11,987 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:11,991 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:12,194 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:12,558 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:51:12,761 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:51:12,766 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:12,776 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 03:51:12,886 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:51:12,892 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:12,897 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:12,971 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:12,976 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:13,026 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:13,397 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:13,446 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:51:13,450 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:51:13,743 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 03:51:14,017 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:14,026 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:14,031 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:14,035 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 03:51:14,059 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:14,064 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 03:51:14,109 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:14,113 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:14,125 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 03:51:14,132 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 03:51:14,143 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 03:51:14,175 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:14,182 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:14,206 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:14,211 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:14,481 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:14,835 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:15,184 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:15,521 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:15,678 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:51:15,681 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:15,686 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.45
+2025-08-12 03:51:15,690 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:15,696 - model_predictor - INFO - 📊 Predicted class: 4 with confidence 0.43
+2025-08-12 03:51:15,701 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:15,863 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:16,150 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:16,150 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,156 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,161 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,167 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 03:51:16,221 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:16,295 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 03:51:16,299 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:51:16,356 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:16,360 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:16,414 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:51:16,430 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:16,460 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:16,472 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:16,479 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:51:16,482 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,486 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,498 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,506 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,509 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.73
+2025-08-12 03:51:16,540 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.64
+2025-08-12 03:51:16,561 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,566 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,569 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:16,573 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:51:16,576 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:51:16,580 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 03:51:16,591 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:16,662 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:16,672 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:51:16,948 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:17,316 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:17,536 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 03:51:17,536 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:17,541 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:17,541 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:17,671 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 03:51:17,911 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.87
+2025-08-12 03:51:17,911 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:17,923 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 03:51:17,926 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:17,930 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:18,039 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:18,155 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:18,155 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,164 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,164 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,171 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,175 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,176 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.66
+2025-08-12 03:51:18,181 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 03:51:18,185 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.61
+2025-08-12 03:51:18,243 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:18,248 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 03:51:18,272 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:18,276 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:18,416 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:18,449 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:51:18,453 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 03:51:18,481 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:18,484 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:18,487 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:18,536 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:18,542 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:18,763 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:19,109 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:19,176 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:19,176 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,176 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,183 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 03:51:19,205 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:51:19,213 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 03:51:19,215 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 03:51:19,215 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,215 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,223 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,225 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:19,281 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:19,286 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,286 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,291 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:19,467 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:19,551 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:19,556 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:19,601 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:51:19,611 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 03:51:19,611 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:51:19,621 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 03:51:19,631 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 03:51:19,638 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:19,669 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:19,676 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,680 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,683 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:51:19,690 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:51:19,693 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:19,749 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:19,751 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:19,785 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:19,785 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,789 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:51:19,793 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 03:51:19,796 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:19,826 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:19,837 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:19,839 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 03:51:19,841 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:51:19,859 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:19,931 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:51:19,931 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:19,941 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:20,195 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:51:20,223 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:51:20,223 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:51:20,243 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:20,243 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:20,303 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:51:20,308 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 03:51:20,333 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 03:51:20,336 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:20,561 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:20,821 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 03:51:20,828 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:20,891 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 03:51:20,891 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.57
+2025-08-12 03:51:20,909 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:21,284 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:21,352 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:21,352 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,362 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,366 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 03:51:21,703 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 03:51:21,703 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,705 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,713 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,715 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,721 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:21,725 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:22,146 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:22,484 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:22,759 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:22,763 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 03:51:22,837 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:22,969 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:22,980 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:23,108 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:23,121 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:23,171 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:23,176 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:23,186 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:23,189 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:23,211 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:23,571 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:23,931 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:24,155 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:24,155 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:24,165 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:24,188 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 03:51:24,188 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:24,198 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:24,312 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:24,671 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:24,953 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:24,953 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 03:51:25,025 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:25,201 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:51:25,206 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:25,356 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:25,363 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:25,385 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:25,731 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:26,093 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 03:51:26,495 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.77
+2025-08-12 03:51:26,633 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:26,633 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:26,640 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:26,643 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:26,718 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:26,721 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:26,729 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:51:26,729 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:26,737 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:51:26,857 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 03:51:26,931 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:26,941 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:26,971 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:26,976 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:27,051 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:27,056 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:27,221 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:27,410 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:51:27,415 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:27,575 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:27,670 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:27,674 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:27,802 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:27,811 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:51:27,835 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:27,839 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:27,938 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:28,041 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 03:51:28,041 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 03:51:28,123 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 03:51:28,132 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.53
+2025-08-12 03:51:28,891 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 03:51:28,959 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.47
+2025-08-12 03:51:28,961 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:51:28,979 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 03:51:28,981 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 03:51:29,171 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:29,176 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 03:51:29,243 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 03:51:29,353 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:29,353 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,361 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,363 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.70
+2025-08-12 03:51:29,373 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 03:51:29,384 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 03:51:29,392 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:51:29,394 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:29,603 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:29,615 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:29,615 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:29,623 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:51:29,633 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,635 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:51:29,684 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:29,684 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,686 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 03:51:29,691 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:29,691 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,704 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:29,711 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 03:51:29,749 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 03:51:29,753 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:29,961 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:29,969 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:29,972 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:30,321 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:30,671 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.57
+2025-08-12 03:51:30,676 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:51:30,681 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:30,711 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 03:51:30,721 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 03:51:30,796 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 03:51:30,799 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,801 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:30,829 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 03:51:30,836 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,841 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:51:30,846 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:30,852 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,856 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 03:51:30,862 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:51:30,866 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:30,902 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 03:51:30,902 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,902 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,910 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,912 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,912 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,921 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 03:51:30,983 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 03:51:30,993 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:30,993 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:31,041 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:31,265 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 03:51:31,271 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,275 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:31,321 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:31,321 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,325 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,325 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,331 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:31,336 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 03:51:31,336 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:31,366 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:51:31,371 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,376 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,376 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:31,394 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:31,421 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:51:31,424 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:31,434 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:51:31,434 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,436 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:31,551 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:31,557 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,565 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 03:51:31,567 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 03:51:31,571 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:31,621 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:31,626 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 03:51:31,693 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.48
+2025-08-12 03:51:31,697 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.51
+2025-08-12 03:51:31,701 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.47
+2025-08-12 03:51:31,708 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:31,716 - model_predictor - INFO - 📊 Predicted class: 4 with confidence 0.36
+2025-08-12 03:51:31,718 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:31,756 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:31,829 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 03:51:31,831 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,831 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,837 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.77
+2025-08-12 03:51:31,859 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:31,861 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 03:51:31,867 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.88
+2025-08-12 03:51:31,867 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,871 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,871 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:31,879 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 03:51:31,967 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:31,971 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.59
+2025-08-12 03:51:32,038 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:32,041 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 03:51:32,046 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:32,046 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:32,051 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:32,121 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 03:51:32,471 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:32,836 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 03:51:33,061 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:51:33,066 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 03:51:33,068 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 03:51:33,076 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,081 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,081 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,091 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:33,131 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 03:51:33,136 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 03:51:33,211 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:33,256 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:51:33,261 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:33,429 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:51:33,436 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,441 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,441 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,446 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,451 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:51:33,570 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 03:51:33,734 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 03:51:33,739 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:33,844 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 03:51:33,844 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,851 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:33,854 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 03:51:33,935 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.77
+2025-08-12 03:51:34,126 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 03:51:34,134 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 03:51:34,181 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:51:34,187 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:34,217 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 03:51:34,217 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,217 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 03:51:34,251 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 03:51:34,261 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 03:51:34,275 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 03:51:34,275 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,277 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 03:51:34,281 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 03:51:34,286 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:34,290 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:34,290 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,294 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:34,314 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:34,341 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 03:51:34,346 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 03:51:34,368 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:34,371 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 03:51:34,381 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 03:51:34,387 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:34,391 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:34,391 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,397 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 03:51:34,477 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 03:51:34,477 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,481 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,486 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:51:34,527 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 03:51:34,531 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,536 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,539 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 03:51:34,561 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 03:51:34,561 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,566 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,571 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,578 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:34,601 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 03:51:34,601 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,606 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,611 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,611 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,618 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,621 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.73
+2025-08-12 03:51:34,681 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:34,718 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:51:34,722 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,722 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,731 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,731 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,738 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 03:51:34,891 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 03:51:34,899 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,901 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,906 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,911 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,911 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 03:51:34,976 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 03:51:34,976 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:34,981 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:35,052 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:35,413 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:35,548 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 03:51:35,553 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.59
+2025-08-12 03:51:35,772 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 03:51:35,793 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.85
+2025-08-12 03:51:35,793 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,797 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,800 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,805 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 03:51:35,869 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 03:51:35,876 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 03:51:35,892 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 03:51:35,896 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,901 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,902 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,906 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:35,912 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 03:51:36,052 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 03:51:36,062 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:36,154 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 03:51:36,511 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 03:51:36,871 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 03:51:37,262 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 03:51:37,262 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 03:51:37,321 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 03:51:37,565 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 03:51:37,575 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 03:51:37,686 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 03:51:38,031 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:51:38,037 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:38,041 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:38,047 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:38,051 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:38,058 - model_predictor - INFO - 🔥 High Conviction BUY override active
+2025-08-12 03:51:38,061 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 03:51:38,221 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 03:51:38,229 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 03:51:38,381 - __main__ - INFO - CAGR: 706.22%
+2025-08-12 03:51:38,381 - __main__ - INFO - Max Drawdown: -25.72%
+2025-08-12 03:51:38,381 - __main__ - INFO - Sharpe: 3.59
+2025-08-12 03:51:38,381 - __main__ - INFO - Total Return: 66.80%
+2025-08-12 03:51:38,381 - __main__ - INFO - Fees Paid: 0.00%
+
+C:\Users\Brian\Downloads\Alpaca\GitHub\Crypto-Bot>python backtester.py --symbols BTC,ETH --days 90 --slippage 0.001
+2025-08-12 04:04:50,781 - __main__ - INFO -
+=== Backtesting BTC ===
+2025-08-12 04:04:50,781 - data_fetcher - INFO - ⚡ Trying Coinbase for BTC
+2025-08-12 04:04:50,883 - data_fetcher - INFO - Fetching Coinbase chunk 1: 2025-05-14T09:04:50.883493 → 2025-05-16T11:04:50.883493
+2025-08-12 04:04:51,381 - data_fetcher - INFO - Fetching Coinbase chunk 2: 2025-05-16T11:04:50.883493 → 2025-05-18T13:04:50.883493
+2025-08-12 04:04:51,592 - data_fetcher - INFO - Fetching Coinbase chunk 3: 2025-05-18T13:04:50.883493 → 2025-05-20T15:04:50.883493
+2025-08-12 04:04:51,955 - data_fetcher - INFO - Fetching Coinbase chunk 4: 2025-05-20T15:04:50.883493 → 2025-05-22T17:04:50.883493
+2025-08-12 04:04:52,552 - data_fetcher - INFO - Fetching Coinbase chunk 5: 2025-05-22T17:04:50.883493 → 2025-05-24T19:04:50.883493
+2025-08-12 04:04:52,823 - data_fetcher - INFO - Fetching Coinbase chunk 6: 2025-05-24T19:04:50.883493 → 2025-05-26T21:04:50.883493
+2025-08-12 04:04:53,119 - data_fetcher - INFO - Fetching Coinbase chunk 7: 2025-05-26T21:04:50.883493 → 2025-05-28T23:04:50.883493
+2025-08-12 04:04:53,771 - data_fetcher - INFO - Fetching Coinbase chunk 8: 2025-05-28T23:04:50.883493 → 2025-05-31T01:04:50.883493
+2025-08-12 04:04:53,968 - data_fetcher - INFO - Fetching Coinbase chunk 9: 2025-05-31T01:04:50.883493 → 2025-06-02T03:04:50.883493
+2025-08-12 04:04:54,573 - data_fetcher - INFO - Fetching Coinbase chunk 10: 2025-06-02T03:04:50.883493 → 2025-06-04T05:04:50.883493
+2025-08-12 04:04:55,039 - data_fetcher - INFO - Fetching Coinbase chunk 11: 2025-06-04T05:04:50.883493 → 2025-06-06T07:04:50.883493
+2025-08-12 04:04:55,169 - data_fetcher - INFO - Fetching Coinbase chunk 12: 2025-06-06T07:04:50.883493 → 2025-06-08T09:04:50.883493
+2025-08-12 04:04:55,612 - data_fetcher - INFO - Fetching Coinbase chunk 13: 2025-06-08T09:04:50.883493 → 2025-06-10T11:04:50.883493
+2025-08-12 04:04:55,867 - data_fetcher - INFO - Fetching Coinbase chunk 14: 2025-06-10T11:04:50.883493 → 2025-06-12T13:04:50.883493
+2025-08-12 04:04:56,415 - data_fetcher - INFO - Fetching Coinbase chunk 15: 2025-06-12T13:04:50.883493 → 2025-06-14T15:04:50.883493
+2025-08-12 04:04:56,907 - data_fetcher - INFO - Fetching Coinbase chunk 16: 2025-06-14T15:04:50.883493 → 2025-06-16T17:04:50.883493
+2025-08-12 04:04:57,024 - data_fetcher - INFO - Fetching Coinbase chunk 17: 2025-06-16T17:04:50.883493 → 2025-06-18T19:04:50.883493
+2025-08-12 04:04:57,682 - data_fetcher - INFO - Fetching Coinbase chunk 18: 2025-06-18T19:04:50.883493 → 2025-06-20T21:04:50.883493
+2025-08-12 04:04:57,896 - data_fetcher - INFO - Fetching Coinbase chunk 19: 2025-06-20T21:04:50.883493 → 2025-06-22T23:04:50.883493
+2025-08-12 04:04:58,452 - data_fetcher - INFO - Fetching Coinbase chunk 20: 2025-06-22T23:04:50.883493 → 2025-06-25T01:04:50.883493
+2025-08-12 04:04:58,890 - data_fetcher - INFO - Fetching Coinbase chunk 21: 2025-06-25T01:04:50.883493 → 2025-06-27T03:04:50.883493
+2025-08-12 04:04:59,007 - data_fetcher - INFO - Fetching Coinbase chunk 22: 2025-06-27T03:04:50.883493 → 2025-06-29T05:04:50.883493
+2025-08-12 04:04:59,661 - data_fetcher - INFO - Fetching Coinbase chunk 23: 2025-06-29T05:04:50.883493 → 2025-07-01T07:04:50.883493
+2025-08-12 04:04:59,780 - data_fetcher - INFO - Fetching Coinbase chunk 24: 2025-07-01T07:04:50.883493 → 2025-07-03T09:04:50.883493
+2025-08-12 04:05:00,144 - data_fetcher - INFO - Fetching Coinbase chunk 25: 2025-07-03T09:04:50.883493 → 2025-07-05T11:04:50.883493
+2025-08-12 04:05:00,814 - data_fetcher - INFO - Fetching Coinbase chunk 26: 2025-07-05T11:04:50.883493 → 2025-07-07T13:04:50.883493
+2025-08-12 04:05:01,088 - data_fetcher - INFO - Fetching Coinbase chunk 27: 2025-07-07T13:04:50.883493 → 2025-07-09T15:04:50.883493
+2025-08-12 04:05:01,288 - data_fetcher - INFO - Fetching Coinbase chunk 28: 2025-07-09T15:04:50.883493 → 2025-07-11T17:04:50.883493
+2025-08-12 04:05:01,919 - data_fetcher - INFO - Fetching Coinbase chunk 29: 2025-07-11T17:04:50.883493 → 2025-07-13T19:04:50.883493
+2025-08-12 04:05:02,365 - data_fetcher - INFO - Fetching Coinbase chunk 30: 2025-07-13T19:04:50.883493 → 2025-07-15T21:04:50.883493
+2025-08-12 04:05:02,598 - data_fetcher - INFO - Fetching Coinbase chunk 31: 2025-07-15T21:04:50.883493 → 2025-07-17T23:04:50.883493
+2025-08-12 04:05:02,850 - data_fetcher - INFO - Fetching Coinbase chunk 32: 2025-07-17T23:04:50.883493 → 2025-07-20T01:04:50.883493
+2025-08-12 04:05:03,208 - data_fetcher - INFO - Fetching Coinbase chunk 33: 2025-07-20T01:04:50.883493 → 2025-07-22T03:04:50.883493
+2025-08-12 04:05:03,858 - data_fetcher - INFO - Fetching Coinbase chunk 34: 2025-07-22T03:04:50.883493 → 2025-07-24T05:04:50.883493
+2025-08-12 04:05:03,965 - data_fetcher - INFO - Fetching Coinbase chunk 35: 2025-07-24T05:04:50.883493 → 2025-07-26T07:04:50.883493
+2025-08-12 04:05:04,631 - data_fetcher - INFO - Fetching Coinbase chunk 36: 2025-07-26T07:04:50.883493 → 2025-07-28T09:04:50.883493
+2025-08-12 04:05:04,835 - data_fetcher - INFO - Fetching Coinbase chunk 37: 2025-07-28T09:04:50.883493 → 2025-07-30T11:04:50.883493
+2025-08-12 04:05:05,254 - data_fetcher - INFO - Fetching Coinbase chunk 38: 2025-07-30T11:04:50.883493 → 2025-08-01T13:04:50.883493
+2025-08-12 04:05:05,766 - data_fetcher - INFO - Fetching Coinbase chunk 39: 2025-08-01T13:04:50.883493 → 2025-08-03T15:04:50.883493
+2025-08-12 04:05:06,230 - data_fetcher - INFO - Fetching Coinbase chunk 40: 2025-08-03T15:04:50.883493 → 2025-08-05T17:04:50.883493
+2025-08-12 04:05:06,440 - data_fetcher - INFO - Fetching Coinbase chunk 41: 2025-08-05T17:04:50.883493 → 2025-08-07T19:04:50.883493
+2025-08-12 04:05:06,985 - data_fetcher - INFO - Fetching Coinbase chunk 42: 2025-08-07T19:04:50.883493 → 2025-08-09T21:04:50.883493
+2025-08-12 04:05:07,435 - data_fetcher - INFO - Fetching Coinbase chunk 43: 2025-08-09T21:04:50.883493 → 2025-08-11T23:04:50.883493
+2025-08-12 04:05:07,862 - data_fetcher - INFO - Fetching Coinbase chunk 44: 2025-08-11T23:04:50.883493 → 2025-08-12T09:04:50.883493
+2025-08-12 04:05:07,992 - __main__ - INFO - ⏱️ Fetched BTC in 17.10 seconds
+2025-08-12 04:05:08,742 - data_fetcher - ERROR - ❌ 404 Not Found https://api.blockchain.info/charts/transaction-volume?timespan=14days&format=json
+2025-08-12 04:05:10,334 - data_fetcher - ERROR - ❌ 404 Not Found https://api.blockchain.info/charts/activeaddresses?timespan=14days&format=json
+2025-08-12 04:05:10,527 - feature_engineer - INFO - ✅ Indicators added: 8591 rows remaining after dropna
+2025-08-12 04:05:10,705 - model_predictor - INFO - 🔄 Loaded ML model expecting 15 features: ['RSI', 'MACD', 'Signal', 'Hist', 'SMA_20', 'SMA_50', 'Return_1d', 'Return_2d', 'Return_3d', 'Return_5d', 'Return_7d', 'Price_vs_SMA20', 'Price_vs_SMA50', 'Volatility_7d', 'MACD_Hist_norm']
+2025-08-12 04:05:10,710 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:10,936 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:05:10,940 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 04:05:11,038 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:11,361 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:11,683 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:12,022 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:05:12,026 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.57
+2025-08-12 04:05:12,053 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:05:12,056 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 04:05:12,060 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 04:05:12,070 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 04:05:12,347 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:12,669 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:12,828 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:05:12,832 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.53
+2025-08-12 04:05:12,835 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.48
+2025-08-12 04:05:12,839 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:05:12,869 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:05:12,872 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:05:12,998 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:05:13,321 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:05:13,411 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:05:13,429 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 04:05:13,471 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:13,475 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:05:13,571 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:13,578 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:05:13,666 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:05:14,023 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:05:14,349 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:21,426 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:21,749 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:21,798 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:21,803 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 04:05:21,811 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 04:05:21,824 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:05:22,083 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:22,122 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:05:22,129 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:22,262 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:05:22,265 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:05:22,413 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:22,464 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:05:22,481 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:05:22,739 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:23,091 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:23,359 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:05:23,366 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 04:05:23,448 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:23,790 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:24,193 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:24,482 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:05:24,486 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 04:05:24,524 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:24,536 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:05:24,547 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:24,571 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 04:05:24,587 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:05:24,878 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:25,212 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:25,580 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:25,922 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:05:26,139 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:05:26,143 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:26,257 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:26,611 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:26,878 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 04:05:26,886 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:05:26,925 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:05:26,941 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:05:26,944 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 04:05:27,296 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:27,640 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:27,996 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:28,257 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:28,261 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:05:28,341 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:05:28,480 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:05:28,484 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:28,488 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:05:28,491 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:28,501 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:28,505 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:28,681 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:28,785 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:28,790 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:05:29,032 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:29,373 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.66
+2025-08-12 04:05:29,462 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:05:29,469 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:29,495 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:05:29,504 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:29,715 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:29,882 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:05:29,886 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:05:30,049 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:30,090 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:05:30,110 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:05:30,113 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 04:05:30,117 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.52
+2025-08-12 04:05:30,180 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:05:30,184 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 04:05:30,391 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:30,465 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 04:05:30,469 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:30,548 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:05:30,555 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.62
+2025-08-12 04:05:30,735 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:31,077 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:31,417 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:31,761 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:32,194 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:32,941 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:33,282 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:33,557 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:05:33,564 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:05:33,615 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:05:33,949 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:34,282 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:05:34,797 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:35,135 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:35,482 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:35,827 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:05:35,834 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:05:35,838 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:05:36,179 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:36,429 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:36,433 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:05:36,529 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:36,785 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:36,793 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 04:05:36,866 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:37,212 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:37,587 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:37,955 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:05:38,083 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:05:38,100 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:38,248 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 04:05:38,253 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:38,338 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:38,436 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:05:38,449 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:05:38,493 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:05:38,493 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:38,727 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:39,103 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:39,474 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 04:05:39,481 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:39,516 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:39,560 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:05:39,567 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:39,576 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:39,580 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:39,900 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:40,265 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:40,392 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:05:40,396 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:40,625 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:40,705 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:05:40,710 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:05:40,980 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:41,291 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:05:41,295 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:05:41,330 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:05:41,341 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:05:41,344 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:05:41,669 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:41,811 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:41,825 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 04:05:42,020 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:42,365 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:42,715 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:43,059 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:05:43,412 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:43,707 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:05:43,721 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:05:43,775 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:44,066 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:05:44,070 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:05:44,128 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:05:44,139 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:05:44,142 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:44,322 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:05:44,326 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:05:44,380 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:05:44,391 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:05:44,494 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:44,866 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:45,381 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:45,741 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:45,892 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:05:45,896 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 04:05:46,098 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:46,442 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:46,800 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:05:47,171 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:05:47,563 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:47,918 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:05:47,950 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:05:47,954 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 04:05:48,061 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:05:48,065 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:05:48,251 - __main__ - INFO - CAGR: 86.18%
+2025-08-12 04:05:48,251 - __main__ - INFO - Max Drawdown: -12.01%
+2025-08-12 04:05:48,252 - __main__ - INFO - Sharpe: 2.05
+2025-08-12 04:05:48,252 - __main__ - INFO - Total Return: 16.46%
+2025-08-12 04:05:48,252 - __main__ - INFO - Fees Paid: 0.00%
+2025-08-12 04:05:48,252 - __main__ - INFO -
+=== Backtesting ETH ===
+2025-08-12 04:05:48,252 - data_fetcher - INFO - ⚡ Trying Coinbase for ETH
+2025-08-12 04:05:48,252 - data_fetcher - INFO - Fetching Coinbase chunk 1: 2025-05-14T09:05:48.252815 → 2025-05-16T11:05:48.252815
+2025-08-12 04:05:48,493 - data_fetcher - INFO - Fetching Coinbase chunk 2: 2025-05-16T11:05:48.252815 → 2025-05-18T13:05:48.252815
+2025-08-12 04:05:49,031 - data_fetcher - INFO - Fetching Coinbase chunk 3: 2025-05-18T13:05:48.252815 → 2025-05-20T15:05:48.252815
+2025-08-12 04:05:49,270 - data_fetcher - INFO - Fetching Coinbase chunk 4: 2025-05-20T15:05:48.252815 → 2025-05-22T17:05:48.252815
+2025-08-12 04:05:49,614 - data_fetcher - INFO - Fetching Coinbase chunk 5: 2025-05-22T17:05:48.252815 → 2025-05-24T19:05:48.252815
+2025-08-12 04:05:50,013 - data_fetcher - INFO - Fetching Coinbase chunk 6: 2025-05-24T19:05:48.252815 → 2025-05-26T21:05:48.252815
+2025-08-12 04:05:50,556 - data_fetcher - INFO - Fetching Coinbase chunk 7: 2025-05-26T21:05:48.252815 → 2025-05-28T23:05:48.252815
+2025-08-12 04:05:50,828 - data_fetcher - INFO - Fetching Coinbase chunk 8: 2025-05-28T23:05:48.252815 → 2025-05-31T01:05:48.252815
+2025-08-12 04:05:51,122 - data_fetcher - INFO - Fetching Coinbase chunk 9: 2025-05-31T01:05:48.252815 → 2025-06-02T03:05:48.252815
+2025-08-12 04:05:51,670 - data_fetcher - INFO - Fetching Coinbase chunk 10: 2025-06-02T03:05:48.252815 → 2025-06-04T05:05:48.252815
+2025-08-12 04:05:51,929 - data_fetcher - INFO - Fetching Coinbase chunk 11: 2025-06-04T05:05:48.252815 → 2025-06-06T07:05:48.252815
+2025-08-12 04:05:52,239 - data_fetcher - INFO - Fetching Coinbase chunk 12: 2025-06-06T07:05:48.252815 → 2025-06-08T09:05:48.252815
+2025-08-12 04:05:52,595 - data_fetcher - INFO - Fetching Coinbase chunk 13: 2025-06-08T09:05:48.252815 → 2025-06-10T11:05:48.252815
+2025-08-12 04:05:52,984 - data_fetcher - INFO - Fetching Coinbase chunk 14: 2025-06-10T11:05:48.252815 → 2025-06-12T13:05:48.252815
+2025-08-12 04:05:53,488 - data_fetcher - INFO - Fetching Coinbase chunk 15: 2025-06-12T13:05:48.252815 → 2025-06-14T15:05:48.252815
+2025-08-12 04:05:53,705 - data_fetcher - INFO - Fetching Coinbase chunk 16: 2025-06-14T15:05:48.252815 → 2025-06-16T17:05:48.252815
+2025-08-12 04:05:54,255 - data_fetcher - INFO - Fetching Coinbase chunk 17: 2025-06-16T17:05:48.252815 → 2025-06-18T19:05:48.252815
+2025-08-12 04:05:54,732 - data_fetcher - INFO - Fetching Coinbase chunk 18: 2025-06-18T19:05:48.252815 → 2025-06-20T21:05:48.252815
+2025-08-12 04:05:54,931 - data_fetcher - INFO - Fetching Coinbase chunk 19: 2025-06-20T21:05:48.252815 → 2025-06-22T23:05:48.252815
+2025-08-12 04:05:55,503 - data_fetcher - INFO - Fetching Coinbase chunk 20: 2025-06-22T23:05:48.252815 → 2025-06-25T01:05:48.252815
+2025-08-12 04:05:55,762 - data_fetcher - INFO - Fetching Coinbase chunk 21: 2025-06-25T01:05:48.252815 → 2025-06-27T03:05:48.252815
+2025-08-12 04:05:55,971 - data_fetcher - INFO - Fetching Coinbase chunk 22: 2025-06-27T03:05:48.252815 → 2025-06-29T05:05:48.252815
+2025-08-12 04:05:56,370 - data_fetcher - INFO - Fetching Coinbase chunk 23: 2025-06-29T05:05:48.252815 → 2025-07-01T07:05:48.252815
+2025-08-12 04:05:56,729 - data_fetcher - INFO - Fetching Coinbase chunk 24: 2025-07-01T07:05:48.252815 → 2025-07-03T09:05:48.252815
+2025-08-12 04:06:05,896 - data_fetcher - INFO - Fetching Coinbase chunk 25: 2025-07-03T09:05:48.252815 → 2025-07-05T11:05:48.252815
+2025-08-12 04:06:06,255 - data_fetcher - INFO - Fetching Coinbase chunk 26: 2025-07-05T11:05:48.252815 → 2025-07-07T13:05:48.252815
+2025-08-12 04:06:06,738 - data_fetcher - INFO - Fetching Coinbase chunk 27: 2025-07-07T13:05:48.252815 → 2025-07-09T15:05:48.252815
+2025-08-12 04:06:07,128 - data_fetcher - INFO - Fetching Coinbase chunk 28: 2025-07-09T15:05:48.252815 → 2025-07-11T17:05:48.252815
+2025-08-12 04:06:07,342 - data_fetcher - INFO - Fetching Coinbase chunk 29: 2025-07-11T17:05:48.252815 → 2025-07-13T19:05:48.252815
+2025-08-12 04:06:07,689 - data_fetcher - INFO - Fetching Coinbase chunk 30: 2025-07-13T19:05:48.252815 → 2025-07-15T21:05:48.252815
+2025-08-12 04:06:08,284 - data_fetcher - INFO - Fetching Coinbase chunk 31: 2025-07-15T21:05:48.252815 → 2025-07-17T23:05:48.252815
+2025-08-12 04:06:08,691 - data_fetcher - INFO - Fetching Coinbase chunk 32: 2025-07-17T23:05:48.252815 → 2025-07-20T01:05:48.252815
+2025-08-12 04:06:08,926 - data_fetcher - INFO - Fetching Coinbase chunk 33: 2025-07-20T01:05:48.252815 → 2025-07-22T03:05:48.252815
+2025-08-12 04:06:09,168 - data_fetcher - INFO - Fetching Coinbase chunk 34: 2025-07-22T03:05:48.252815 → 2025-07-24T05:05:48.252815
+2025-08-12 04:06:09,833 - data_fetcher - INFO - Fetching Coinbase chunk 35: 2025-07-24T05:05:48.252815 → 2025-07-26T07:05:48.252815
+2025-08-12 04:06:09,958 - data_fetcher - INFO - Fetching Coinbase chunk 36: 2025-07-26T07:05:48.252815 → 2025-07-28T09:05:48.252815
+2025-08-12 04:06:10,348 - data_fetcher - INFO - Fetching Coinbase chunk 37: 2025-07-28T09:05:48.252815 → 2025-07-30T11:05:48.252815
+2025-08-12 04:06:11,004 - data_fetcher - INFO - Fetching Coinbase chunk 38: 2025-07-30T11:05:48.252815 → 2025-08-01T13:05:48.252815
+2025-08-12 04:06:11,218 - data_fetcher - INFO - Fetching Coinbase chunk 39: 2025-08-01T13:05:48.252815 → 2025-08-03T15:05:48.252815
+2025-08-12 04:06:11,604 - data_fetcher - INFO - Fetching Coinbase chunk 40: 2025-08-03T15:05:48.252815 → 2025-08-05T17:05:48.252815
+2025-08-12 04:06:11,932 - data_fetcher - INFO - Fetching Coinbase chunk 41: 2025-08-05T17:05:48.252815 → 2025-08-07T19:05:48.252815
+2025-08-12 04:06:12,523 - data_fetcher - INFO - Fetching Coinbase chunk 42: 2025-08-07T19:05:48.252815 → 2025-08-09T21:05:48.252815
+2025-08-12 04:06:12,636 - data_fetcher - INFO - Fetching Coinbase chunk 43: 2025-08-09T21:05:48.252815 → 2025-08-11T23:05:48.252815
+2025-08-12 04:06:13,083 - data_fetcher - INFO - Fetching Coinbase chunk 44: 2025-08-11T23:05:48.252815 → 2025-08-12T09:05:48.252815
+2025-08-12 04:06:13,360 - __main__ - INFO - ⏱️ Fetched ETH in 25.10 seconds
+2025-08-12 04:06:15,814 - feature_engineer - INFO - ✅ Indicators added: 8591 rows remaining after dropna
+2025-08-12 04:06:15,854 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:15,888 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:15,898 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:15,948 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 04:06:15,951 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:15,959 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 04:06:15,972 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:15,996 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:06:15,999 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:16,003 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 04:06:16,007 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:16,048 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:16,065 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 04:06:16,111 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:06:16,119 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 04:06:16,124 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 04:06:16,130 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:06:16,201 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:16,494 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:06:16,498 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:16,502 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:06:16,506 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:16,523 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:16,540 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 04:06:16,544 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 04:06:16,551 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:16,601 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:16,605 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:06:16,713 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:16,716 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.56
+2025-08-12 04:06:16,755 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:16,759 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:16,833 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:06:16,837 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:16,841 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:06:16,844 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:16,895 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:17,114 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.64
+2025-08-12 04:06:17,117 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:17,121 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:17,128 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 04:06:17,131 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:17,142 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.70
+2025-08-12 04:06:17,196 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 04:06:17,208 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:06:17,211 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:17,228 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:17,231 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.81
+2025-08-12 04:06:17,234 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 04:06:17,257 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 04:06:17,261 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:17,277 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:17,281 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:17,432 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 04:06:17,436 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.48
+2025-08-12 04:06:17,582 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:17,692 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:17,705 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:17,774 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 04:06:17,784 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 04:06:17,924 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.56
+2025-08-12 04:06:18,090 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:18,097 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:18,264 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:18,650 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:18,702 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:18,709 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.51
+2025-08-12 04:06:18,712 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:18,723 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:18,832 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 04:06:18,845 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:18,849 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:18,853 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:18,875 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:18,882 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:19,004 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:19,222 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:06:19,238 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:19,332 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:19,336 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:19,357 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:19,697 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:19,782 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:19,790 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:19,903 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.89
+2025-08-12 04:06:19,910 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:20,064 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:20,283 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:06:20,289 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:20,446 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:20,552 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 04:06:20,561 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:20,664 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:20,667 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.62
+2025-08-12 04:06:20,791 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.82
+2025-08-12 04:06:20,797 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:20,800 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:20,808 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.64
+2025-08-12 04:06:20,822 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:20,882 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:20,891 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:20,946 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:06:20,957 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 04:06:20,968 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 04:06:20,984 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:21,049 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 04:06:21,058 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:21,128 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:21,135 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:21,153 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:06:21,157 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.63
+2025-08-12 04:06:21,167 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:21,191 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 04:06:21,213 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:21,274 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 04:06:21,295 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:21,323 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.82
+2025-08-12 04:06:21,327 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:21,528 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:21,880 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:06:22,031 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 04:06:22,042 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 04:06:22,123 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:06:22,130 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:22,199 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:22,203 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:22,248 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:22,596 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:22,637 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:06:22,641 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:22,940 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:23,199 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:23,213 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 04:06:23,234 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:23,239 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 04:06:23,279 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:23,293 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 04:06:23,297 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.53
+2025-08-12 04:06:23,300 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 04:06:23,311 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 04:06:23,342 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:23,349 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:23,374 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:23,378 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:23,641 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:23,990 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:24,347 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:24,695 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.70
+2025-08-12 04:06:24,872 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:24,876 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:06:24,880 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.45
+2025-08-12 04:06:24,883 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:24,891 - model_predictor - INFO - 📊 Predicted class: 4 with confidence 0.43
+2025-08-12 04:06:24,895 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:25,062 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:25,347 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:25,361 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:06:25,413 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:25,482 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 04:06:25,485 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:06:25,542 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:25,546 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:25,595 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:06:25,605 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:25,633 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:25,644 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:25,651 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:25,678 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.73
+2025-08-12 04:06:25,710 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.64
+2025-08-12 04:06:25,741 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 04:06:25,744 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:25,747 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 04:06:25,762 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:06:25,844 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:25,848 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:06:26,123 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:26,470 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:26,683 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 04:06:26,692 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:26,830 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:06:27,060 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.87
+2025-08-12 04:06:27,070 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:27,074 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:27,078 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:27,183 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:27,284 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:27,304 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.66
+2025-08-12 04:06:27,308 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.67
+2025-08-12 04:06:27,315 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.61
+2025-08-12 04:06:27,365 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:27,370 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 04:06:27,395 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:27,399 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:27,535 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:27,565 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:27,569 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 04:06:27,598 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:27,605 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:27,654 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:27,661 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:27,890 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:28,243 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:28,307 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:28,314 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 04:06:28,340 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:06:28,344 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 04:06:28,347 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 04:06:28,358 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:28,415 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:28,428 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:28,610 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:28,693 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:28,697 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:28,745 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:06:28,752 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 04:06:28,757 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:06:28,767 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 04:06:28,774 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 04:06:28,781 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:28,809 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:28,823 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:28,830 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:28,834 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:28,892 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:28,896 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:28,925 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:28,928 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:06:28,932 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 04:06:28,936 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:28,968 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:28,975 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:28,979 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.47
+2025-08-12 04:06:28,984 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:29,000 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:29,076 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 04:06:29,083 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:29,325 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:29,345 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:29,349 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:29,367 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:29,370 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:29,426 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:29,430 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 04:06:29,451 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 04:06:29,455 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:06:29,691 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:29,955 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 04:06:29,959 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:30,022 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.74
+2025-08-12 04:06:30,026 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.57
+2025-08-12 04:06:30,044 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:30,393 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:30,459 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:30,469 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 04:06:30,737 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 04:06:30,741 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 04:06:30,755 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:31,092 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:31,440 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:31,736 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:31,740 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 04:06:31,820 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:31,940 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:31,950 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:32,081 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:32,090 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:32,136 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:32,141 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:32,151 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:32,155 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:32,180 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:32,530 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:32,880 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:33,079 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:33,086 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:33,108 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 04:06:33,118 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:33,230 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:33,588 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:33,882 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:33,887 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.58
+2025-08-12 04:06:33,950 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:34,119 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:34,126 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:34,270 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:34,277 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:34,302 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:34,655 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:35,006 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 04:06:35,359 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:35,485 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:35,492 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:35,569 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:35,573 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:35,580 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:06:35,588 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:06:35,715 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:35,790 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:35,797 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:35,826 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:35,829 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:35,901 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:35,904 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:36,071 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:36,262 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:36,265 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:36,424 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 04:06:36,513 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:36,516 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:36,642 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:36,650 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:06:36,678 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:36,682 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:36,784 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:36,881 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 04:06:36,885 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.64
+2025-08-12 04:06:36,963 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 04:06:36,967 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.53
+2025-08-12 04:06:37,153 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:37,339 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.47
+2025-08-12 04:06:37,343 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 04:06:37,358 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.46
+2025-08-12 04:06:37,362 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 04:06:37,552 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:37,561 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 04:06:37,640 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.98
+2025-08-12 04:06:37,748 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:37,756 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.70
+2025-08-12 04:06:37,766 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.60
+2025-08-12 04:06:37,775 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.72
+2025-08-12 04:06:37,782 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:37,786 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:38,000 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:38,008 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:38,011 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:06:38,015 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:06:38,029 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 04:06:38,076 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:38,080 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.83
+2025-08-12 04:06:38,084 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:38,105 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:38,140 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.71
+2025-08-12 04:06:38,144 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:38,358 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:38,362 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:38,720 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.77
+2025-08-12 04:06:39,117 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:06:39,122 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:39,159 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.53
+2025-08-12 04:06:39,168 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 04:06:39,255 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.75
+2025-08-12 04:06:39,259 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:39,285 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.63
+2025-08-12 04:06:39,300 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 04:06:39,305 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:39,316 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.68
+2025-08-12 04:06:39,321 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:06:39,325 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:39,363 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 04:06:39,381 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:39,447 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.62
+2025-08-12 04:06:39,458 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:39,506 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.56
+2025-08-12 04:06:39,742 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.76
+2025-08-12 04:06:39,747 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:39,798 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:39,809 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:39,813 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.58
+2025-08-12 04:06:39,816 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:39,846 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:06:39,857 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:39,876 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:39,899 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:06:39,903 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:39,914 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:06:39,918 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:40,031 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:40,044 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.82
+2025-08-12 04:06:40,048 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.69
+2025-08-12 04:06:40,051 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:40,103 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:40,107 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.69
+2025-08-12 04:06:40,175 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.48
+2025-08-12 04:06:40,179 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.51
+2025-08-12 04:06:40,182 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.47
+2025-08-12 04:06:40,190 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:40,197 - model_predictor - INFO - 📊 Predicted class: 4 with confidence 0.36
+2025-08-12 04:06:40,201 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:40,244 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:40,316 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.77
+2025-08-12 04:06:40,324 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.77
+2025-08-12 04:06:40,345 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:40,349 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 04:06:40,353 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.88
+2025-08-12 04:06:40,364 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.71
+2025-08-12 04:06:40,454 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:40,458 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.59
+2025-08-12 04:06:40,523 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:40,527 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 04:06:40,531 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:40,534 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.86
+2025-08-12 04:06:40,606 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:40,972 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.96
+2025-08-12 04:06:41,351 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:41,612 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:41,617 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 04:06:41,621 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.51
+2025-08-12 04:06:41,643 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:41,692 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.50
+2025-08-12 04:06:41,697 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.78
+2025-08-12 04:06:41,807 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:41,857 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:06:41,865 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:42,045 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:06:42,072 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.75
+2025-08-12 04:06:42,206 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:42,373 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.73
+2025-08-12 04:06:42,375 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:42,487 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.86
+2025-08-12 04:06:42,496 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.50
+2025-08-12 04:06:42,587 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.81
+2025-08-12 04:06:42,772 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 04:06:42,780 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:42,831 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:06:42,837 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:42,871 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.84
+2025-08-12 04:06:42,875 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.87
+2025-08-12 04:06:42,912 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.66
+2025-08-12 04:06:42,920 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.74
+2025-08-12 04:06:42,935 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 04:06:42,938 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 04:06:42,942 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.72
+2025-08-12 04:06:42,948 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:42,951 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:42,955 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:42,977 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.65
+2025-08-12 04:06:43,004 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.70
+2025-08-12 04:06:43,008 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.54
+2025-08-12 04:06:43,032 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:43,035 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.67
+2025-08-12 04:06:43,048 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.59
+2025-08-12 04:06:43,052 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:43,059 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:43,064 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.55
+2025-08-12 04:06:43,161 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.83
+2025-08-12 04:06:43,171 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.85
+2025-08-12 04:06:43,215 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.54
+2025-08-12 04:06:43,227 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.79
+2025-08-12 04:06:43,250 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.78
+2025-08-12 04:06:43,265 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:43,287 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.80
+2025-08-12 04:06:43,305 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.73
+2025-08-12 04:06:43,375 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:43,406 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:06:43,427 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.91
+2025-08-12 04:06:43,654 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.52
+2025-08-12 04:06:43,677 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.89
+2025-08-12 04:06:43,735 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.79
+2025-08-12 04:06:43,740 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:43,814 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:44,177 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.97
+2025-08-12 04:06:44,306 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.57
+2025-08-12 04:06:44,310 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.59
+2025-08-12 04:06:44,543 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.90
+2025-08-12 04:06:44,555 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.85
+2025-08-12 04:06:44,566 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.88
+2025-08-12 04:06:44,630 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.68
+2025-08-12 04:06:44,638 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.49
+2025-08-12 04:06:44,652 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.55
+2025-08-12 04:06:44,672 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:44,822 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.65
+2025-08-12 04:06:44,826 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.92
+2025-08-12 04:06:44,943 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:45,319 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:45,734 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:46,082 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.49
+2025-08-12 04:06:46,087 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.60
+2025-08-12 04:06:46,160 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.93
+2025-08-12 04:06:46,429 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.61
+2025-08-12 04:06:46,433 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.84
+2025-08-12 04:06:46,556 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.76
+2025-08-12 04:06:46,910 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:06:46,932 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.80
+2025-08-12 04:06:46,937 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.95
+2025-08-12 04:06:47,080 - model_predictor - INFO - 📊 Predicted class: 3 with confidence 0.56
+2025-08-12 04:06:47,084 - model_predictor - INFO - 📊 Predicted class: 2 with confidence 0.94
+2025-08-12 04:06:47,255 - __main__ - INFO - CAGR: 695.03%
+2025-08-12 04:06:47,256 - __main__ - INFO - Max Drawdown: -25.72%
+2025-08-12 04:06:47,256 - __main__ - INFO - Sharpe: 3.57
+2025-08-12 04:06:47,256 - __main__ - INFO - Total Return: 66.23%
+2025-08-12 04:06:47,256 - __main__ - INFO - Fees Paid: 0.00%
+
+C:\Users\Brian\Downloads\Alpaca\GitHub\Crypto-Bot>
