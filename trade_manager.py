@@ -291,8 +291,10 @@ class TradeManager:
 
         self.trade_history.append(trade_record)
 
-       logger.info(f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exec_price)} | "
-            f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}")
+        logger.info(
+            f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exec_price)} | "
+            f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}"
+        )
         self.save_state()
 
 

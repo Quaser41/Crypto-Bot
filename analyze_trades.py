@@ -2,10 +2,14 @@ import argparse
 import csv
 import os
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def analyze(file_path: str) -> None:
     if not os.path.exists(file_path):
-        print(f"No trade stats found at {file_path}.")
+        logger.warning("No trade stats found at %s.", file_path)
         return
 
     with open(file_path, 'r', newline='') as f:
@@ -13,7 +17,7 @@ def analyze(file_path: str) -> None:
         rows = list(reader)
 
     if not rows:
-        print("Trade stats file is empty.")
+        logger.warning("Trade stats file is empty.")
         return
 
     for r in rows:
@@ -26,11 +30,25 @@ def analyze(file_path: str) -> None:
     best = max(rows, key=lambda r: r['avg_pnl'])
     worst = min(rows, key=lambda r: r['avg_pnl'])
 
-    print("Best performer:")
-    print(f"  {best['symbol']} [{best['duration_bucket']}] | Avg PnL ${best['avg_pnl']:.2f} | Win {best['win_rate']:.1f}% | Fee/PnL {best['fee_ratio']:.2f}")
+    logger.info("Best performer:")
+    logger.info(
+        "  %s [%s] | Avg PnL $%.2f | Win %.1f%% | Fee/PnL %.2f",
+        best['symbol'],
+        best['duration_bucket'],
+        best['avg_pnl'],
+        best['win_rate'],
+        best['fee_ratio'],
+    )
 
-    print("\nWorst performer:")
-    print(f"  {worst['symbol']} [{worst['duration_bucket']}] | Avg PnL ${worst['avg_pnl']:.2f} | Win {worst['win_rate']:.1f}% | Fee/PnL {worst['fee_ratio']:.2f}")
+    logger.info("\nWorst performer:")
+    logger.info(
+        "  %s [%s] | Avg PnL $%.2f | Win %.1f%% | Fee/PnL %.2f",
+        worst['symbol'],
+        worst['duration_bucket'],
+        worst['avg_pnl'],
+        worst['win_rate'],
+        worst['fee_ratio'],
+    )
 
 
 if __name__ == "__main__":

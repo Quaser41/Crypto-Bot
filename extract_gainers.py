@@ -10,6 +10,10 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import WebDriverException
 from webdriver_manager.chrome import ChromeDriverManager
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 @contextmanager
 def suppress_stderr():
@@ -59,12 +63,12 @@ def extract_gainers():
             driver = webdriver.Chrome(service=service, options=chrome_options)
             driver.get(url)
 
-        print("⏳ Waiting for page to fully load...")
+        logger.info("⏳ Waiting for page to fully load...")
         time.sleep(5)
 
         tables = driver.find_elements(By.TAG_NAME, "table")
         if not tables:
-            print("❌ No tables found.")
+            logger.warning("❌ No tables found.")
             return []
 
         gainers = []
@@ -103,9 +107,9 @@ def extract_gainers():
         return gainers
 
     except WebDriverException as e:
-        print(
-            f"❌ Unable to start Chrome WebDriver: {e}. "
-            "Ensure Google Chrome or Chromium is installed."
+        logger.error(
+            "❌ Unable to start Chrome WebDriver: %s. Ensure Google Chrome or Chromium is installed.",
+            e,
         )
         return []
     finally:
@@ -122,6 +126,6 @@ def extract_gainers():
 if __name__ == "__main__":
     gainers = extract_gainers()
 
-    print("\n📈 Top 10 Gainers:")
+    logger.info("\n📈 Top 10 Gainers:")
     for g in gainers[:10]:   # ✅ Limit to top 10
-        print(g)
+        logger.info("%s", g)

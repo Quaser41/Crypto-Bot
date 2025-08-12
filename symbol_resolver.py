@@ -1,5 +1,9 @@
 import requests
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 BINANCE_GLOBAL_SYMBOLS = {}
 BINANCE_US_SYMBOLS = {}
 COINBASE_SYMBOLS = {}
@@ -13,7 +17,7 @@ def load_binance_global_symbols():
     try:
         r = requests.get(url, timeout=10)
         if r.status_code == 451:
-            print("⚠️ Binance Global blocked (451) – skipping global symbols.")
+            logger.warning("⚠️ Binance Global blocked (451) – skipping global symbols.")
             return
         r.raise_for_status()
         data = r.json()
@@ -21,7 +25,7 @@ def load_binance_global_symbols():
             if sym["status"] == "TRADING" and sym["quoteAsset"] == "USDT":
                 BINANCE_GLOBAL_SYMBOLS[sym["baseAsset"]] = sym["symbol"]
     except Exception as e:
-        print(f"❌ Failed to load Binance Global symbols: {type(e).__name__} - {e}")
+        logger.error("❌ Failed to load Binance Global symbols: %s - %s", type(e).__name__, e)
 
 def load_binance_us_symbols():
     global BINANCE_US_SYMBOLS
@@ -37,7 +41,7 @@ def load_binance_us_symbols():
             if sym["status"] == "TRADING" and sym["quoteAsset"] == "USDT":
                 BINANCE_US_SYMBOLS[sym["baseAsset"]] = sym["symbol"]
     except Exception as e:
-        print(f"❌ Failed to load Binance.US symbols: {type(e).__name__} - {e}")
+        logger.error("❌ Failed to load Binance.US symbols: %s - %s", type(e).__name__, e)
 
 
 def resolve_symbol_binance_us(base_asset):
@@ -70,7 +74,7 @@ def load_coinbase_symbols():
                 if base not in COINBASE_SYMBOLS or quote == "USD":
                     COINBASE_SYMBOLS[base] = prod.get("id")
     except Exception as e:
-        print(f"❌ Failed to load Coinbase symbols: {type(e).__name__} - {e}")
+        logger.error("❌ Failed to load Coinbase symbols: %s - %s", type(e).__name__, e)
 
 
 def resolve_symbol_coinbase(base_asset):

@@ -5,6 +5,10 @@ from model_predictor import predict_signal
 from data_fetcher import fetch_ohlcv_smart
 from threshold_utils import get_dynamic_threshold
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 def backtest_thresholds(coin_id, thresholds=None, slippage_pct: float = 0.001):
     if thresholds is None:
         thresholds = np.arange(0.5, 0.75, 0.05)  # test 0.50 to 0.70
@@ -13,7 +17,7 @@ def backtest_thresholds(coin_id, thresholds=None, slippage_pct: float = 0.001):
     df = fetch_ohlcv_smart(coin_id)
     df = add_indicators(df)
     df = df.reset_index(drop=True)
-    print(f"Backtesting on {len(df)} rows")
+    logger.info("Backtesting on %d rows", len(df))
 
     results = []
 
@@ -75,9 +79,9 @@ def backtest_thresholds(coin_id, thresholds=None, slippage_pct: float = 0.001):
 
     # Convert to DataFrame for easy analysis
     results_df = pd.DataFrame(results)
-    print(results_df)
+    logger.info("\n%s", results_df)
     best = results_df.loc[results_df["total_return"].idxmax()]
-    print(f"\nBest threshold: {best['threshold']} with total return {best['total_return']:.2f}")
+    logger.info("\nBest threshold: %s with total return %.2f", best['threshold'], best['total_return'])
     return results_df
 
 if __name__ == "__main__":
