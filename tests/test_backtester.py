@@ -124,3 +124,39 @@ def test_backtest_symbol_applies_fee(monkeypatch):
 
     metrics = backtester.backtest_symbol('TEST', days=5, slippage_pct=0.0, fee_pct=0.01)
     assert metrics['Fees Paid'] == pytest.approx(0.0208, rel=1e-3)
+
+
+def test_run_stress_tests_aggregates(monkeypatch):
+    close_prices = pd.Series([100, 110, 120, 130, 140, 150])
+    df = pd.DataFrame({
+        'Timestamp': pd.date_range('2020-01-01', periods=6, freq='D'),
+        'Close': close_prices,
+        'Return_1d': close_prices.pct_change().fillna(0),
+        'Return_3d': close_prices.pct_change(3).fillna(0),
+        'RSI': [60] * 6,
+        'MACD': [1] * 6,
+        'Signal': [0.5] * 6,
+        'Hist': [0.5] * 6,
+        'SMA_20': [95] * 6,
+        'SMA_50': [90] * 6,
+        'Volatility_7d': [0.05] * 6,
+        'Momentum_Tier': ['Tier 1'] * 6,
+    })
+
+    monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Close']])
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
+    monkeypatch.setattr(backtester, 'predict_signal', lambda window, threshold: ('HOLD', 0.6, PredictionClass.SMALL_LOSS.value))
+
+    windows = [
+        {'start': pd.Timestamp('2020-01-01'), 'days': 3},
+        {'start': pd.Timestamp('2020-01-04'), 'days': 3},
+    ]
+    params = [
+        {'slippage_pct': 0.0, 'fee_pct': 0.0},
+        {'slippage_pct': 0.01, 'fee_pct': 0.01},
+    ]
+
+    results = backtester.run_stress_tests('TEST', windows, params)
+    assert len(results) == 4
+    assert {'start', 'duration', 'slippage_pct', 'fee_pct'}.issubset(results.columns)
