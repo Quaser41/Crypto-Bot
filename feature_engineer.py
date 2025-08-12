@@ -100,7 +100,10 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     else:
         df["FearGreed_norm"] = 0.0
 
-    onchain = fetch_onchain_metrics(days=365)
+    # Fetch a manageable span of on-chain data.  Using the default
+    # lookback avoids requests outside the provider's supported range
+    # which previously resulted in 404 responses.
+    onchain = fetch_onchain_metrics()
     if not onchain.empty:
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")

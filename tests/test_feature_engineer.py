@@ -25,7 +25,7 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
     })
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
-    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda days=365: onchain)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
 
     result = add_indicators(df, min_rows=20)
     assert 'Momentum_Tier' in result.columns
