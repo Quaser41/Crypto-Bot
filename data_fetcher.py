@@ -58,28 +58,27 @@ def fetch_onchain_metrics(days=14):
 
     logger.info(f"🌐 Fetching on-chain metrics for {days} days")
 
-    # ``blockchain.info`` exposes anonymous chart endpoints for a handful of
-    # on-chain statistics.  Using this domain keeps the API working reliably.
-    # The default ``days`` parameter has been reduced so that requests stay
-    # within the range the service supports and avoid ``404`` responses.
-    # Some environments have reported ``404`` errors when using the
-    # ``api.blockchain.info`` subdomain for chart data.  The same chart
-    # endpoints are available on the main ``blockchain.info`` domain, which
-    # resolves the issue and continues to serve anonymous JSON data.
-    base = "https://blockchain.info/charts"
-    tx_url = f"{base}/transaction-volume?timespan={days}days&format=json"
-    active_url = f"{base}/activeaddresses?timespan={days}days&format=json"
+    # ``api.blockchain.info`` exposes anonymous chart endpoints for a handful
+    # of on-chain statistics.  The parameters ``timespan``, ``format`` and
+    # ``cors`` are added explicitly to ensure JSON responses and to avoid
+    # cross-origin issues.
+    base = "https://api.blockchain.info/charts"
+    params = {"timespan": f"{days}days", "format": "json", "cors": "true"}
+    tx_url = f"{base}/transaction-volume"
+    active_url = f"{base}/activeaddresses"
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
     tx_data = safe_request(
         tx_url,
+        params=params,
         retry_statuses=SERVER_ERROR_CODES,
         backoff_on_429=False,
         headers=headers,
     )
     active_data = safe_request(
         active_url,
+        params=params,
         retry_statuses=SERVER_ERROR_CODES,
         backoff_on_429=False,
         headers=headers,
@@ -87,17 +86,25 @@ def fetch_onchain_metrics(days=14):
 
     frames = []
     if tx_data and "values" in tx_data:
-        df_tx = pd.DataFrame(tx_data["values"])
-        df_tx["x"] = pd.to_numeric(df_tx["x"], errors="coerce")
-        df_tx["x"] = pd.to_datetime(df_tx["x"], unit="s")
-        df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
+        values = tx_data["values"]
+        if values and isinstance(values[0], (list, tuple)):
+            df_tx = pd.DataFrame(values, columns=["Timestamp", "TxVolume"])
+        else:
+            df_tx = pd.DataFrame(values)
+            df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
+        df_tx["Timestamp"] = pd.to_numeric(df_tx["Timestamp"], errors="coerce")
+        df_tx["Timestamp"] = pd.to_datetime(df_tx["Timestamp"], unit="s")
         frames.append(df_tx)
 
     if active_data and "values" in active_data:
-        df_active = pd.DataFrame(active_data["values"])
-        df_active["x"] = pd.to_numeric(df_active["x"], errors="coerce")
-        df_active["x"] = pd.to_datetime(df_active["x"], unit="s")
-        df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
+        values = active_data["values"]
+        if values and isinstance(values[0], (list, tuple)):
+            df_active = pd.DataFrame(values, columns=["Timestamp", "ActiveAddresses"])
+        else:
+            df_active = pd.DataFrame(values)
+            df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
+        df_active["Timestamp"] = pd.to_numeric(df_active["Timestamp"], errors="coerce")
+        df_active["Timestamp"] = pd.to_datetime(df_active["Timestamp"], unit="s")
         frames.append(df_active)
 
     if not frames:
