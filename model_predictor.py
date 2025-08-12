@@ -7,6 +7,7 @@ import xgboost as xgb
 import asyncio
 
 from utils.logging import get_logger
+from utils.prediction_class import PredictionClass
 
 logger = get_logger(__name__)
 
@@ -101,8 +102,8 @@ def predict_signal(df, threshold):
     try:
         dmatrix = xgb.DMatrix(X)
         class_probs = model.predict(dmatrix)[0]
-        predicted_class = int(np.argmax(class_probs))
-        confidence = class_probs[predicted_class]
+        predicted_class = PredictionClass(int(np.argmax(class_probs)))
+        confidence = class_probs[predicted_class.value]
 
         logger.debug(
             "🔍 Class probabilities: %s",
@@ -113,34 +114,34 @@ def predict_signal(df, threshold):
 
         logger.debug(
             "📊 Predicted class: %d with confidence %.2f",
-            predicted_class,
+            predicted_class.value,
             confidence,
         )
 
         if predicted_class != _last_logged_class or _prediction_counter % 100 == 0:
             logger.info(
                 "📊 Predicted class: %d with confidence %.2f",
-                predicted_class,
+                predicted_class.value,
                 confidence,
             )
             _last_logged_class = predicted_class
 
         # Logic overrides
-        if predicted_class == 1 and confidence < threshold:
-            return "HOLD", confidence, predicted_class
+        if predicted_class == PredictionClass.SMALL_LOSS and confidence < threshold:
+            return "HOLD", confidence, predicted_class.value
 
-        if predicted_class in [3, 4] and confidence >= 0.75:
+        if predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN) and confidence >= 0.75:
             logger.info("🔥 High Conviction BUY override active")
-            return "BUY", confidence, predicted_class
+            return "BUY", confidence, predicted_class.value
 
-        if predicted_class == 4:
-            return "BUY", confidence, predicted_class
-        elif predicted_class == 3 and confidence >= threshold:
-            return "BUY", confidence, predicted_class
-        elif predicted_class in [0, 1] and confidence >= threshold:
-            return "SELL", confidence, predicted_class
+        if predicted_class == PredictionClass.BIG_GAIN:
+            return "BUY", confidence, predicted_class.value
+        elif predicted_class == PredictionClass.SMALL_GAIN and confidence >= threshold:
+            return "BUY", confidence, predicted_class.value
+        elif predicted_class in (PredictionClass.BIG_LOSS, PredictionClass.SMALL_LOSS) and confidence >= threshold:
+            return "SELL", confidence, predicted_class.value
         else:
-            return "HOLD", confidence, predicted_class
+            return "HOLD", confidence, predicted_class.value
 
     except Exception as e:
         logger.error("❌ ML prediction failed: %s", e)

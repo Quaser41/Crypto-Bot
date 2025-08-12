@@ -6,6 +6,7 @@ import time
 import numpy as np
 
 from data_fetcher import fetch_live_price
+from utils.prediction_class import PredictionClass
 
 from config import ATR_MULT_SL, ATR_MULT_TP
 
@@ -148,9 +149,9 @@ class TradeManager:
             logger.warning(f"⚠️ Trade qty too small for {symbol}, skipping")
             return
 
-        if label == 0 and side == "BUY":
+        if label == PredictionClass.BIG_LOSS.value and side == "BUY":
             logger.warning(
-                f"⚠️ Model predicts loss for {symbol} (label 0), skipping long trade."
+                f"⚠️ Model predicts loss for {symbol} (label {PredictionClass.BIG_LOSS.value}), skipping long trade."
             )
             return
 

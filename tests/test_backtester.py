@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 import backtester
+from utils.prediction_class import PredictionClass
 
 
 def test_compute_metrics_cagr_and_sharpe():
@@ -46,7 +47,7 @@ def test_generate_signal_triggers_buy_when_confidence_exceeds_threshold(monkeypa
 
     def fake_predict_signal(df, threshold):
         assert pytest.approx(threshold, rel=1e-3) == 0.55
-        return 'BUY', 0.60, 3
+        return 'BUY', 0.60, PredictionClass.SMALL_GAIN.value
 
     monkeypatch.setattr(backtester, 'predict_signal', fake_predict_signal)
     signal, confidence, label = backtester.generate_signal(window)
@@ -79,8 +80,8 @@ def test_backtest_symbol_generates_positive_return(monkeypatch):
     def fake_predict_signal(window, threshold):
         call_state['n'] += 1
         if call_state['n'] == 1:
-            return 'BUY', 0.60, 3
-        return 'HOLD', 0.60, 1
+            return 'BUY', 0.60, PredictionClass.SMALL_GAIN.value
+        return 'HOLD', 0.60, PredictionClass.SMALL_LOSS.value
 
     monkeypatch.setattr(backtester, 'predict_signal', fake_predict_signal)
 
