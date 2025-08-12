@@ -74,10 +74,17 @@ def generate_signal(window: pd.DataFrame):
     return signal, confidence, label
 
 
+MIN_DURATION_YEARS = 0.1  # ~36 days
+MIN_PERIODS_PER_YEAR = 50
+
+
 def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.Series):
     total_return = equity_curve.iloc[-1]
     duration_years = (timestamps.iloc[-1] - timestamps.iloc[0]).total_seconds() / (365 * 24 * 3600)
-    cagr = total_return ** (1 / duration_years) - 1 if duration_years > 0 else np.nan
+    if duration_years >= MIN_DURATION_YEARS:
+        cagr = total_return ** (1 / duration_years) - 1
+    else:
+        cagr = np.nan
 
     running_max = equity_curve.cummax()
     drawdown = (equity_curve / running_max) - 1
@@ -85,7 +92,10 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
 
     period_seconds = np.median(np.diff(timestamps.values).astype('timedelta64[s]').astype(float))
     periods_per_year = (365 * 24 * 3600) / period_seconds if period_seconds else np.nan
-    sharpe = returns.mean() / returns.std() * np.sqrt(periods_per_year) if returns.std() > 0 else np.nan
+    if returns.std() > 0 and not np.isnan(periods_per_year) and periods_per_year >= MIN_PERIODS_PER_YEAR:
+        sharpe = returns.mean() / returns.std() * np.sqrt(periods_per_year)
+    else:
+        sharpe = np.nan
 
     return {
         "CAGR": cagr,

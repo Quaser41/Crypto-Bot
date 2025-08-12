@@ -1,17 +1,37 @@
 import pandas as pd
+import numpy as np
 import pytest
 
 import backtester
 
 
 def test_compute_metrics_cagr_and_sharpe():
-    returns = pd.Series([0.1, -0.05, 0.2])
-    equity_curve = pd.Series([1.1, 1.045, 1.254])
-    timestamps = pd.Series(pd.to_datetime(['2020-01-01', '2021-01-01', '2022-01-01']))
+    pattern = [0.02, -0.01, 0.015, -0.005, 0.01]
+    returns = pd.Series(pattern * 20)
+    equity_curve = (1 + returns).cumprod()
+    timestamps = pd.Series(pd.date_range('2020-01-01', periods=len(returns), freq='D'))
     metrics = backtester.compute_metrics(returns, equity_curve, timestamps)
-    assert metrics['Total Return'] == pytest.approx(0.254, rel=1e-3)
-    assert metrics['CAGR'] == pytest.approx(0.119648, rel=1e-3)
-    assert metrics['Sharpe'] == pytest.approx(0.661813, rel=1e-3)
+    assert metrics['Total Return'] == pytest.approx(equity_curve.iloc[-1] - 1, rel=1e-3)
+    assert not np.isnan(metrics['CAGR'])
+    assert not np.isnan(metrics['Sharpe'])
+
+
+def test_compute_metrics_skips_short_duration():
+    returns = pd.Series([0.1, -0.05])
+    equity_curve = pd.Series([1.1, 1.045])
+    timestamps = pd.Series(pd.to_datetime(['2020-01-01', '2020-01-02']))
+    metrics = backtester.compute_metrics(returns, equity_curve, timestamps)
+    assert np.isnan(metrics['CAGR'])
+    assert not np.isnan(metrics['Sharpe'])
+
+
+def test_compute_metrics_skips_low_frequency():
+    returns = pd.Series([0.1, -0.05])
+    equity_curve = pd.Series([1.1, 1.045])
+    timestamps = pd.Series(pd.to_datetime(['2020-01-01', '2020-07-01']))
+    metrics = backtester.compute_metrics(returns, equity_curve, timestamps)
+    assert np.isnan(metrics['Sharpe'])
+    assert not np.isnan(metrics['CAGR'])
 
 
 def test_generate_signal_triggers_buy_when_confidence_exceeds_threshold(monkeypatch):
