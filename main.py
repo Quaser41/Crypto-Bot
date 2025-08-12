@@ -14,7 +14,8 @@ from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from utils.prediction_class import PredictionClass
 from trade_manager import TradeManager
-from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD
+from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD, TRADING_MODE
+from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
 from utils.logging import get_logger
 
@@ -54,7 +55,17 @@ def record_rotation_audit(current, candidate):
         ROTATION_AUDIT_LOG.pop(0)
 
 # ✅ TradeManager instance
-tm = TradeManager()
+if TRADING_MODE == "paper":
+    try:
+        exchange = BinancePaperTradeAdapter()
+        logger.info("📈 Paper trading mode enabled (Binance testnet)")
+    except Exception as e:
+        logger.warning(f"Paper adapter unavailable, reverting to simulation: {e}")
+        exchange = None
+else:
+    exchange = None
+
+tm = TradeManager(exchange=exchange)
 tm.load_state()
 
 # ✅ Background thread for monitoring existing trades
