@@ -12,7 +12,7 @@ from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from utils.prediction_class import PredictionClass
 from threshold_utils import get_dynamic_threshold
-from config import MOMENTUM_TIER_THRESHOLD, SLIPPAGE_PCT
+from config import MOMENTUM_TIER_THRESHOLD, SLIPPAGE_PCT, FEE_PCT
 
 # === Constants mirrored from main.py ===
 # Lower base confidence threshold slightly to allow more trades during backtests
@@ -107,7 +107,20 @@ def compute_metrics(returns: pd.Series, equity_curve: pd.Series, timestamps: pd.
     }
 
 
-def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT):
+def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_PCT, fee_pct: float = FEE_PCT):
+    """Backtest a single symbol using historical OHLCV data.
+
+    Parameters
+    ----------
+    symbol: str
+        Ticker to backtest.
+    days: int
+        Number of days of history to fetch.
+    slippage_pct: float
+        Percentage slippage deducted on each trade.
+    fee_pct: float
+        Trading fee percentage applied when positions are opened or closed.
+    """
     start = time.time()
     df = fetch_ohlcv_smart(symbol, days=days, limit=200)
     fetch_seconds = df.attrs.get("fetch_seconds", time.time() - start)
@@ -127,6 +140,7 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_
 
     position = 0
     equity = 1.0
+    fees_paid = 0.0
     equity_curve = [equity]
     returns = []
     timestamps = df["Timestamp"].iloc[1:].reset_index(drop=True)
@@ -141,10 +155,12 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_
         period_return = ret if position == 1 else 0
 
         if signal == "BUY" and position == 0:
-            period_return -= slippage_pct
+            period_return -= slippage_pct + fee_pct
+            fees_paid += equity * fee_pct
             position = 1
         elif signal == "SELL" and position == 1:
-            period_return -= slippage_pct
+            period_return -= slippage_pct + fee_pct
+            fees_paid += equity * fee_pct
             position = 0
 
         equity *= (1 + period_return)
@@ -154,6 +170,7 @@ def backtest_symbol(symbol: str, days: int = 90, slippage_pct: float = SLIPPAGE_
     returns = pd.Series(returns)
     equity_curve = pd.Series(equity_curve[1:], index=timestamps)
     metrics = compute_metrics(returns, equity_curve, timestamps)
+    metrics["Fees Paid"] = fees_paid
     return metrics
 
 
@@ -162,12 +179,13 @@ def main():
     parser.add_argument("--symbols", required=True, help="Comma-separated list e.g. BTC,ETH")
     parser.add_argument("--days", type=int, default=90, help="Days of history to fetch")
     parser.add_argument("--slippage", type=float, default=SLIPPAGE_PCT, help="Slippage percentage per trade")
+    parser.add_argument("--fee", type=float, default=FEE_PCT, help="Trading fee percentage per trade")
     args = parser.parse_args()
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     for sym in symbols:
         logger.info("\n=== Backtesting %s ===", sym)
-        stats = backtest_symbol(sym, days=args.days, slippage_pct=args.slippage)
+        stats = backtest_symbol(sym, days=args.days, slippage_pct=args.slippage, fee_pct=args.fee)
         if stats:
             for k, v in stats.items():
                 logger.info("%s: %.2f%s", k, v * 100 if k != "Sharpe" else v, "%" if k != "Sharpe" else "")
