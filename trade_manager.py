@@ -17,6 +17,7 @@ from config import (
     FEE_PCT,
     HOLDING_PERIOD_SECONDS,
     REVERSAL_CONF_DELTA,
+    MIN_PROFIT_FEE_RATIO,
 )
 
 from utils.logging import get_logger
@@ -49,6 +50,7 @@ class TradeManager:
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
                  reverse_conf_delta=REVERSAL_CONF_DELTA,
+                 min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,
                  exchange=None):
         self.starting_balance = starting_balance
         self.balance = starting_balance
@@ -60,6 +62,7 @@ class TradeManager:
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
         self.slippage_pct = slippage_pct
+        self.min_profit_fee_ratio = min_profit_fee_ratio
 
         # Holding period and reversal requirements
         self.min_hold_time = hold_period_sec
@@ -179,6 +182,74 @@ class TradeManager:
             )
             return
 
+        atr_val = atr
+        if atr_val is None:
+            try:
+                from data_fetcher import fetch_ohlcv_smart
+                from feature_engineer import add_indicators
+
+                df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
+                df = add_indicators(df)
+                if "ATR" in df.columns and not df["ATR"].dropna().empty:
+                    atr_val = float(df["ATR"].iloc[-1])
+            except Exception as e:
+                logger.warning(f"⚠️ Could not compute ATR for {symbol}: {e}")
+
+        entry_fee_est = allocation * self.trade_fee_pct
+        net_alloc_est = allocation - entry_fee_est
+        if side == "BUY":
+            est_exec_price = price * (1 + self.slippage_pct)
+        else:
+            est_exec_price = price * (1 - self.slippage_pct)
+        est_qty = net_alloc_est / est_exec_price
+
+        if atr_val and atr_val > 0:
+            tp_offset = self.atr_mult_tp * atr_val
+            if side == "SELL":
+                est_take_profit = (
+                    est_exec_price - tp_offset
+                ) * (1 - self.trade_fee_pct)
+            else:
+                est_take_profit = (
+                    est_exec_price + tp_offset
+                ) * (1 + self.trade_fee_pct)
+        else:
+            tp_pct = self.take_profit_pct
+            if side == "SELL":
+                est_take_profit = (
+                    est_exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+                )
+            else:
+                est_take_profit = (
+                    est_exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+                )
+
+        est_exit_fee = est_take_profit * est_qty * self.trade_fee_pct
+        total_est_fees = entry_fee_est + est_exit_fee
+        if side == "SELL":
+            expected_profit = (est_exec_price - est_take_profit) * est_qty
+        else:
+            expected_profit = (est_take_profit - est_exec_price) * est_qty
+
+        if expected_profit <= 0:
+            logger.info(
+                "📉 Skipping %s: non-positive expected profit ($%.2f)",
+                symbol,
+                expected_profit,
+            )
+            return
+
+        if total_est_fees > 0 and expected_profit / total_est_fees < self.min_profit_fee_ratio:
+            logger.info(
+                "💰 Skipping %s: expected profit $%.2f vs fees $%.2f (ratio %.2f < %.2f)",
+                symbol,
+                expected_profit,
+                total_est_fees,
+                expected_profit / total_est_fees,
+                self.min_profit_fee_ratio,
+            )
+            return
+
         order = None
         try:
             if self.exchange:
@@ -222,19 +293,6 @@ class TradeManager:
 
         self.balance -= allocation
         self.total_fees += entry_fee
-
-        atr_val = atr
-        if atr_val is None:
-            try:
-                from data_fetcher import fetch_ohlcv_smart
-                from feature_engineer import add_indicators
-                df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
-                df = add_indicators(df)
-                if "ATR" in df.columns and not df["ATR"].dropna().empty:
-                    atr_val = float(df["ATR"].iloc[-1])
-            except Exception as e:
-                logger.warning(f"⚠️ Could not compute ATR for {symbol}: {e}")
-
 
         if atr_val and atr_val > 0:
             sl_offset = self.atr_mult_sl * atr_val
