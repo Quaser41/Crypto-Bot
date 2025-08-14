@@ -112,3 +112,17 @@ def test_close_trade_respects_hold_period(monkeypatch):
     tm.close_trade('ABC', 9.0, reason='Stop-Loss')
     assert not tm.has_position('ABC')
 
+
+def test_skips_trade_when_profit_insufficient(monkeypatch):
+    tm = create_tm()
+    tm.risk_per_trade = 1.0
+    tm.trade_fee_pct = 0.01
+    tm.min_profit_fee_ratio = 2.0
+
+    df = pd.DataFrame({'ATR': [0.01]})
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0)
+    assert 'ABC' not in tm.positions
+
