@@ -1,5 +1,5 @@
 {
-  "balance": 1000.0928150247702,
+  "balance": 999.4448057555278,
   "positions": {},
   "trade_history": [
     {
@@ -310,15 +310,128 @@
       },
       "order_id": null,
       "exit_order_id": null
+    },
+    {
+      "symbol": "AERO",
+      "entry_price": 1.3620206599999998,
+      "exit_price": 1.3560625800000001,
+      "qty": 12.279880186066395,
+      "pnl": -0.10655898861761415,
+      "reason": "Rotated to better candidate",
+      "entry_fee": 0.016742194071412086,
+      "exit_fee": 0.016652286007208077,
+      "confidence": 0.8370319604873657,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 12009.17,
+      "exit_momentum": {
+        "return_1d": 0.0018303393508198873,
+        "return_3d": -0.003933136676499527,
+        "rsi": 48.01029069979697,
+        "macd_hist": 0.0009183985767172382
+      },
+      "order_id": null,
+      "exit_order_id": null,
+      "rotation_exit_price": 1.35742
+    },
+    {
+      "symbol": "ARB",
+      "entry_price": 0.548548,
+      "exit_price": 0.5436558,
+      "qty": 33.59920337024249,
+      "pnl": -0.20108964955088737,
+      "reason": "Trailing Stop",
+      "entry_fee": 0.018449225035375154,
+      "exit_fee": 0.01826640178761188,
+      "confidence": 0.9224739074707031,
+      "label": 3,
+      "trail_triggered": true,
+      "duration": 7332.81,
+      "exit_momentum": {
+        "return_1d": -0.015047135605511186,
+        "return_3d": -0.00803359503377754,
+        "rsi": 38.92913198976558,
+        "macd_hist": -0.0005605490918505658
+      },
+      "order_id": null,
+      "exit_order_id": null
+    },
+    {
+      "symbol": "OP",
+      "entry_price": 0.8248239999999999,
+      "exit_price": 0.825174,
+      "qty": 20.59018689268712,
+      "pnl": -0.026784202060710527,
+      "reason": "Rotated to better candidate",
+      "entry_fee": 0.01700028059416793,
+      "exit_fee": 0.016990486878986202,
+      "confidence": 0.8501966595649719,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 2707.99,
+      "exit_momentum": {
+        "return_1d": 0.0024271844660195274,
+        "return_3d": 0.0024271844660195274,
+        "rsi": 34.44485887717724,
+        "macd_hist": -0.0018882268049603048
+      },
+      "order_id": null,
+      "exit_order_id": null,
+      "rotation_exit_price": 0.826
+    },
+    {
+      "symbol": "SEI",
+      "entry_price": 0.34734699999999996,
+      "exit_price": 0.3465531,
+      "qty": 51.115084406069165,
+      "pnl": -0.07606680013452305,
+      "reason": "Rotated to better candidate",
+      "entry_fee": 0.017772443666861766,
+      "exit_fee": 0.017714090957684926,
+      "confidence": 0.8888369202613831,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 739.32,
+      "exit_momentum": {
+        "return_1d": -0.0002881844380403509,
+        "return_3d": -0.007155123068116831,
+        "rsi": 32.24794317002858,
+        "macd_hist": -0.0008901056441268389
+      },
+      "order_id": null,
+      "exit_order_id": null,
+      "rotation_exit_price": 0.3469
+    },
+    {
+      "symbol": "AERO",
+      "entry_price": 1.3277163899999997,
+      "exit_price": 1.313685,
+      "qty": 14.245686151957875,
+      "pnl": -0.23753428658315556,
+      "reason": "Trailing Stop",
+      "entry_fee": 0.018933164154905403,
+      "exit_fee": 0.01871434421253478,
+      "confidence": 0.9469590187072754,
+      "label": 3,
+      "trail_triggered": true,
+      "duration": 2802.73,
+      "exit_momentum": {
+        "return_1d": -0.003917505501901952,
+        "return_3d": -0.007011512451088997,
+        "rsi": 33.66102126810797,
+        "macd_hist": -0.002528557182094198
+      },
+      "order_id": null,
+      "exit_order_id": null
     }
   ],
-  "total_fees": 0.7230244319622936,
+  "total_fees": 0.9002593210431389,
   "peak_equity": 1000.494392721223,
-  "drawdown_pct": 0.0004013792574694758,
-  "current_day": "2025-08-13",
-  "daily_start_balance": 1000.271955620738,
-  "daily_loss_pct": 0.00017909189092148666,
-  "last_trade_time": 1755130379.6143107,
+  "drawdown_pct": 0.0010490683139567122,
+  "current_day": "2025-08-14",
+  "daily_start_balance": 983.3506469726562,
+  "daily_loss_pct": 0.0,
+  "last_trade_time": 1755162158.9348645,
   "last_trade_side": "BUY",
-  "last_trade_confidence": 0.8495641946792603
+  "last_trade_confidence": 0.9469590187072754
 }
