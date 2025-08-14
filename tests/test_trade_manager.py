@@ -232,3 +232,14 @@ def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
 
     tm.close_trade('ABC', 105.0, reason='Take-Profit')
     assert not tm.has_position('ABC')
+
+
+def test_state_persists_trade_fee_pct(tmp_path):
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01)
+    tm.STATE_FILE = str(tmp_path / "state.json")
+    tm.save_state()
+
+    tm_loaded = TradeManager(starting_balance=1000, trade_fee_pct=0.0)
+    tm_loaded.STATE_FILE = tm.STATE_FILE
+    tm_loaded.load_state()
+    assert tm_loaded.trade_fee_pct == pytest.approx(0.01)

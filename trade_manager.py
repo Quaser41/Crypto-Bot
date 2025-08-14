@@ -867,6 +867,7 @@ class TradeManager:
             "positions": self.positions,
             "trade_history": self.trade_history,
             "total_fees": self.total_fees,
+            "trade_fee_pct": self.trade_fee_pct,
             "peak_equity": self.peak_equity,
             "drawdown_pct": self.drawdown_pct,
             "current_day": self.current_day,
@@ -892,6 +893,7 @@ class TradeManager:
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
             self.total_fees = state.get("total_fees", 0.0)
+            self.trade_fee_pct = state.get("trade_fee_pct", self.trade_fee_pct)
             self.peak_equity = state.get("peak_equity", self.balance)
             self.drawdown_pct = state.get("drawdown_pct", 0.0)
             self.current_day = state.get("current_day", time.strftime("%Y-%m-%d"))
