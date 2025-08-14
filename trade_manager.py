@@ -598,6 +598,15 @@ class TradeManager:
                             unrealized = 0
                             total_fees = pos.get("entry_fee", 0)
 
+                        if side == "BUY" and unrealized >= total_fees:
+                            current_sl = pos.get("stop_loss", 0)
+                            if current_sl < entry_price:
+                                pos["stop_loss"] = entry_price
+                                logger.info(
+                                    f"🛡️ Fees covered for {symbol}; moved stop loss to entry {self.fmt_price(entry_price)}"
+                                )
+                                self.save_state()
+
                         threshold = self.trail_profit_fee_ratio * total_fees
                         if total_fees > 0 and unrealized < threshold:
                             logger.debug(
