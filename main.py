@@ -42,7 +42,8 @@ except Exception as e:
 
 # ✅ Global thresholds
 # CONFIDENCE_THRESHOLD imported from config
-ROTATE_CONF_THRESHOLD = 0.03        # new trade must have +3% higher confidence to rotate
+ROTATE_CONF_THRESHOLD = 0.05        # new trade must have +5% higher confidence to rotate
+MOMENTUM_ADV_THRESHOLD = 0.5        # candidate must exceed current momentum score by 0.5
 STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
@@ -64,11 +65,13 @@ def log_rotation_decision(current, candidate):
     logger.info(f" - Current: {current['symbol']} | Conf {current['confidence']:.2f} | Label {current['label']} | Entry ${current['entry_price']:.4f} | Movement {current['movement']:.2%}")
     logger.info(f" - Candidate: {candidate['symbol']} | Conf {candidate['confidence']:.2f} | Label {candidate['label']} | Price ${candidate['price']:.4f}")
 
-def record_rotation_audit(current, candidate):
+def record_rotation_audit(current, candidate, pnl_before, pnl_after=None):
     ROTATION_AUDIT_LOG.append({
         "timestamp": time.time(),
         "current": current,
-        "candidate": candidate
+        "candidate": candidate,
+        "pnl_before": pnl_before,
+        "pnl_after": pnl_after,
     })
     if len(ROTATION_AUDIT_LOG) > ROTATION_LOG_LIMIT:
         ROTATION_AUDIT_LOG.pop(0)
@@ -242,7 +245,7 @@ def scan_for_breakouts():
                     f"❌ Skipping {symbol}: confidence {confidence:.2f} below threshold {CONFIDENCE_THRESHOLD}"
                 )
                 continue
-            candidates.append((symbol, last_price, confidence, coin_id, signal, label))
+            candidates.append((symbol, last_price, confidence, coin_id, signal, label, momentum_score))
         else:
             logger.error(
                 f"❌ Skipping {symbol}: signal={signal}, label={label}, conf={confidence:.2f}"
@@ -257,7 +260,7 @@ def scan_for_breakouts():
 
     # ✅ Select best BUY candidate
     best = max(candidates, key=lambda x: x[2])
-    best_symbol, best_price, best_conf, best_coin_id, _, best_label = best
+    best_symbol, best_price, best_conf, best_coin_id, _, best_label, best_mom_score = best
     logger.info(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
 
     if not tm.positions:
@@ -282,6 +285,7 @@ def scan_for_breakouts():
         current_price = df_open["Close"].iloc[-1]
         movement = abs(current_price - entry_price) / entry_price
         is_stagnant = movement < STAGNATION_THRESHOLD
+        open_momentum_score = df_open["Momentum_Score"].iloc[-1]
 
         if is_stagnant:
             recent_return = df_open["Return_3d"].iloc[-1]
@@ -297,56 +301,87 @@ def scan_for_breakouts():
     else:
         current_price = entry_price
         is_stagnant = True
+        open_momentum_score = 0
+        movement = 0
 
     logger.info(f"ℹ️ Open trade: {open_symbol} conf={open_conf:.2f}, stagnant={is_stagnant}")
 
+    rotate_conf_gap = best_conf > open_conf + ROTATE_CONF_THRESHOLD
+    rotate_mom_adv = best_mom_score > open_momentum_score + MOMENTUM_ADV_THRESHOLD
+
     if (
-        best_symbol != open_symbol and
-        best_conf > open_conf + ROTATE_CONF_THRESHOLD and
-        is_stagnant
+        best_symbol != open_symbol
+        and is_stagnant
+        and (rotate_conf_gap or rotate_mom_adv)
     ):
-        if ENABLE_ROTATION_AUDIT:
-            log_rotation_decision(
-                current={
-                    "symbol": open_symbol,
-                    "confidence": open_conf,
-                    "label": open_pos.get("label"),
-                    "entry_price": entry_price,
-                    "movement": movement
-                },
-                candidate={
-                    "symbol": best_symbol,
-                    "confidence": best_conf,
-                    "label": best_label,
-                    "price": best_price
-                }
-            )
+        qty = open_pos.get("qty", 0)
+        entry_fee = open_pos.get("entry_fee", 0)
+        exit_fee_est = current_price * qty * tm.trade_fee_pct
+        gross_unrealized = (current_price - entry_price) * qty
+        net_unrealized = gross_unrealized - entry_fee - exit_fee_est
+        total_fees = entry_fee + exit_fee_est
 
-            # ✅ ADD THIS HERE
-            record_rotation_audit(
-                current={
-                    "symbol": open_symbol,
-                    "confidence": open_conf,
-                    "label": open_pos.get("label"),
-                    "entry_price": entry_price,
-                    "movement": movement
-                },
-                candidate={
-                    "symbol": best_symbol,
-                    "confidence": best_conf,
-                    "label": best_label,
-                    "price": best_price
-                }
+        if net_unrealized <= 0:
+            logger.info(
+                f"🚫 Rotation blocked: unrealized PnL ${net_unrealized:.2f} does not cover fees ${total_fees:.2f}"
             )
+            logger.info(
+                f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - insufficient profit for rotation."
+            )
+        else:
+            if ENABLE_ROTATION_AUDIT:
+                log_rotation_decision(
+                    current={
+                        "symbol": open_symbol,
+                        "confidence": open_conf,
+                        "label": open_pos.get("label"),
+                        "entry_price": entry_price,
+                        "movement": movement,
+                    },
+                    candidate={
+                        "symbol": best_symbol,
+                        "confidence": best_conf,
+                        "label": best_label,
+                        "price": best_price,
+                    },
+                )
 
-        logger.info(f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}")
-        logger.info(f"🔄 Rotating {open_symbol} → {best_symbol}")
-        tm.close_trade(open_symbol, current_price, reason="Rotated to better candidate")
-        tm.open_trade(best_symbol, best_price, coin_id=best_coin_id, confidence=best_conf, label=best_label, side="BUY")
-        tm.save_state()
-        tm.summary()
+                record_rotation_audit(
+                    current={
+                        "symbol": open_symbol,
+                        "confidence": open_conf,
+                        "label": open_pos.get("label"),
+                        "entry_price": entry_price,
+                        "movement": movement,
+                    },
+                    candidate={
+                        "symbol": best_symbol,
+                        "confidence": best_conf,
+                        "label": best_label,
+                        "price": best_price,
+                    },
+                    pnl_before=net_unrealized,
+                )
+
+            logger.info(
+                f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}"
+            )
+            logger.info(f"🔄 Rotating {open_symbol} → {best_symbol}")
+            tm.close_trade(open_symbol, current_price, reason="Rotated to better candidate")
+            tm.open_trade(
+                best_symbol,
+                best_price,
+                coin_id=best_coin_id,
+                confidence=best_conf,
+                label=best_label,
+                side="BUY",
+            )
+            tm.save_state()
+            tm.summary()
     else:
-        logger.info(f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - no better candidate yet.")
+        logger.info(
+            f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - no better candidate yet."
+        )
 
     logger.info("✅ Scan cycle complete\n" + "="*40)
 
