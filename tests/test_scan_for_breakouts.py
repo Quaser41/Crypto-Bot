@@ -92,7 +92,8 @@ def test_scan_for_breakouts_skips_low_performance(monkeypatch):
 
     # Configure performance data to fail thresholds
     main.SYMBOL_PERFORMANCE = {"BAD": {"avg_pnl": -0.1, "win_rate": 10}}
-    main.MIN_SYMBOL_WIN_RATE = 50
+    main.MIN_SYMBOL_WIN_RATE = 60
+    main.MIN_SYMBOL_AVG_PNL = 0.05
 
     monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "BAD", "Bad", 10.0)])
 

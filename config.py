@@ -89,14 +89,14 @@ EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
 
 # Minimum historical win rate (%) required for symbols to be considered.
-# Default to 50% so underperforming assets are filtered out unless
+# Default to 60% so underperforming assets are filtered out unless
 # explicitly overridden via the ``MIN_SYMBOL_WIN_RATE`` environment variable.
-MIN_SYMBOL_WIN_RATE = float(os.getenv("MIN_SYMBOL_WIN_RATE", "50"))
+MIN_SYMBOL_WIN_RATE = float(os.getenv("MIN_SYMBOL_WIN_RATE", "60"))
 
 # Minimum average PnL required for symbols to be considered.
-# Any symbol with non-positive average returns will be skipped unless this
-# threshold is lowered through ``MIN_SYMBOL_AVG_PNL``.
-MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0.01"))
+# Any symbol with average returns at or below this threshold will be skipped
+# unless ``MIN_SYMBOL_AVG_PNL`` is overridden via environment variables.
+MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0.05"))
 
 # Minimum bars to wait after a trade before opening a new one in backtests.
 HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
