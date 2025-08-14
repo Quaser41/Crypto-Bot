@@ -75,7 +75,7 @@ FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 
 # Minimum acceptable ratio of expected profit to total fees for a trade.
 # Trades falling below this profit-to-fee threshold will be skipped.
-MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "1.5"))
+MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "2.0"))
 
 # Number of bars to delay trade execution in backtests to model latency.
 EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
