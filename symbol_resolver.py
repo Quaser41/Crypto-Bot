@@ -1,6 +1,7 @@
 import requests
 
 from utils.logging import get_logger
+from config import MIN_SYMBOL_WIN_RATE, MIN_SYMBOL_AVG_PNL
 
 logger = get_logger(__name__)
 
@@ -80,3 +81,46 @@ def load_coinbase_symbols():
 def resolve_symbol_coinbase(base_asset):
     load_coinbase_symbols()
     return COINBASE_SYMBOLS.get(base_asset.upper())
+
+
+def filter_candidates(movers, open_symbols, performance):
+    """Filter mover list using historical performance thresholds.
+
+    Parameters
+    ----------
+    movers : iterable
+        Sequence of tuples ``(coin_id, symbol, name, change)``.
+    open_symbols : iterable
+        Symbols that already have open positions and should be skipped.
+    performance : dict
+        Mapping of symbol -> {"avg_pnl": float, "win_rate": float}.
+
+    Returns
+    -------
+    list
+        Filtered list of tuples ``(coin_id, symbol, name)`` for further
+        processing.
+    """
+
+    candidates = []
+    for coin_id, symbol, name, _ in movers:
+        if symbol in open_symbols:
+            logger.info(f"⏭️ Skipping {symbol} (already open trade)")
+            continue
+
+        perf = performance.get(symbol)
+        if perf:
+            if perf.get("avg_pnl", 0) <= MIN_SYMBOL_AVG_PNL:
+                logger.info(
+                    f"⏭️ Skipping {symbol}: avg PnL {perf['avg_pnl']:.2f} below {MIN_SYMBOL_AVG_PNL}"
+                )
+                continue
+            if perf.get("win_rate", 0) < MIN_SYMBOL_WIN_RATE:
+                logger.info(
+                    f"⏭️ Skipping {symbol}: win rate {perf['win_rate']:.2f}% below {MIN_SYMBOL_WIN_RATE}%"
+                )
+                continue
+
+        candidates.append((coin_id, symbol, name))
+
+    return candidates

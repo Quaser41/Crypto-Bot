@@ -25,6 +25,7 @@ from config import (
 from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
 from utils.logging import get_logger
+from symbol_resolver import filter_candidates
 
 logger = get_logger(__name__)
 
@@ -120,24 +121,7 @@ def scan_for_breakouts():
     open_symbols = list(tm.positions.keys())
     suppressed, fallbacks = 0, 0
 
-    fetch_meta = []
-    for coin_id, symbol, name, _ in movers:
-        if symbol in open_symbols:
-            logger.info(f"⏭️ Skipping {symbol} (already open trade)")
-            continue
-        perf = SYMBOL_PERFORMANCE.get(symbol)
-        if perf:
-            if perf.get("avg_pnl", 0) < MIN_SYMBOL_AVG_PNL:
-                logger.info(
-                    f"⏭️ Skipping {symbol}: avg PnL {perf['avg_pnl']:.2f} below {MIN_SYMBOL_AVG_PNL}"
-                )
-                continue
-            if perf.get("win_rate", 0) < MIN_SYMBOL_WIN_RATE:
-                logger.info(
-                    f"⏭️ Skipping {symbol}: win rate {perf['win_rate']:.2f}% below {MIN_SYMBOL_WIN_RATE}%"
-                )
-                continue
-        fetch_meta.append((coin_id, symbol, name))
+    fetch_meta = filter_candidates(movers, open_symbols, SYMBOL_PERFORMANCE)
 
     logger.info("📡 Fetching OHLCV data for candidates...")
     ohlcvs = [
