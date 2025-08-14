@@ -86,7 +86,7 @@ EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
 EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
 
 # Baseline minimum model confidence required to consider a trade.
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
 
 # Minimum historical win rate (%) required for symbols to be considered.
 # Default to 50% so underperforming assets are filtered out unless
@@ -102,7 +102,7 @@ MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0.01"))
 HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
 
 # Minimum seconds to wait after a trade before opening a new one in live trading.
-HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "0"))
+HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "300"))
 
 # Additional confidence required before reversing an open position.
 REVERSAL_CONF_DELTA = float(os.getenv("REVERSAL_CONF_DELTA", "0"))

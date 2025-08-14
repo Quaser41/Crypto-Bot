@@ -6,7 +6,7 @@ from trade_manager import TradeManager
 
 
 def create_tm():
-    tm = TradeManager(starting_balance=1000)
+    tm = TradeManager(starting_balance=1000, hold_period_sec=0)
     tm.risk_per_trade = 0.1
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -37,7 +37,7 @@ def test_open_trade_uses_atr_for_stops(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
     price = 10.0
-    tm.open_trade('ABC', price)
+    tm.open_trade('ABC', price, confidence=1.0)
     pos = tm.positions['ABC']
     assert pos['atr'] == pytest.approx(1.0)
     assert pos['stop_loss'] == pytest.approx(price - tm.atr_mult_sl * 1.0)
@@ -50,7 +50,7 @@ def test_close_trade_records_rotation_price(monkeypatch):
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
-    tm.open_trade('ABC', 10.0)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.close_trade('ABC', 12.0, reason='Rotated to better candidate')
     record = tm.trade_history[-1]
     assert record['rotation_exit_price'] == pytest.approx(12.0)
@@ -83,7 +83,7 @@ def test_hold_period_delays_exits(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
-    tm.open_trade('ABC', 10.0)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
     pos = tm.positions['ABC']
 
     # Price hits stop-loss immediately but hold period prevents closing
@@ -105,7 +105,7 @@ def test_close_trade_respects_hold_period(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
-    tm.open_trade('ABC', 10.0)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.close_trade('ABC', 9.0, reason='Stop-Loss')
     assert tm.has_position('ABC')
 
@@ -124,8 +124,41 @@ def test_skips_trade_when_profit_insufficient(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
-    tm.open_trade('ABC', 10.0)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
     assert 'ABC' not in tm.positions
+
+
+def test_open_trade_respects_confidence_threshold(monkeypatch):
+    tm = create_tm()
+    tm.risk_per_trade = 1.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=0.6)
+    assert 'ABC' not in tm.positions
+
+    tm.open_trade('ABC', 10.0, confidence=0.8)
+    assert 'ABC' in tm.positions
+
+
+def test_open_trade_enforces_hold_period(monkeypatch):
+    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+    tm.risk_per_trade = 0.5
+    tm.min_trade_usd = 0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+    tm.open_trade('DEF', 5.0, confidence=1.0)
+    assert 'DEF' not in tm.positions
+
+    tm.last_trade_time -= 61
+    tm.open_trade('DEF', 5.0, confidence=1.0)
+    assert 'DEF' in tm.positions
 
 
 def test_compute_trail_offset_uses_volatility():
