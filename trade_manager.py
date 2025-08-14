@@ -43,7 +43,8 @@ class TradeManager:
 
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=FEE_PCT,
-                 trail_pct=0.03, atr_mult_sl=ATR_MULT_SL,
+                 trail_pct=0.03, trail_atr_mult=None,
+                 atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
                  max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
                  slippage_pct=SLIPPAGE_PCT,
@@ -57,6 +58,7 @@ class TradeManager:
         self.take_profit_pct = tp_pct
         self.trade_fee_pct = trade_fee_pct
         self.trail_pct = trail_pct
+        self.trail_atr_mult = trail_atr_mult
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
         self.slippage_pct = slippage_pct
@@ -136,6 +138,18 @@ class TradeManager:
         if self.daily_loss_pct >= self.max_daily_loss_pct:
             return False
         return True
+
+    def _compute_trail_offset(self, pos, current_price):
+        """Return trailing stop distance based on ATR or recent volatility."""
+        if self.trail_atr_mult:
+            atr_val = pos.get("atr")
+            if not atr_val:
+                prices = pos.get("recent_prices", [])
+                if len(prices) >= 2:
+                    atr_val = float(np.std(prices))
+            if atr_val and atr_val > 0:
+                return atr_val * self.trail_atr_mult
+        return current_price * self.trail_pct
 
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5,
                    label=None, side="BUY", atr=None):
@@ -429,6 +443,11 @@ class TradeManager:
                     )
                     continue
 
+                recent = pos.setdefault("recent_prices", [])
+                recent.append(last_price)
+                if len(recent) > 20:
+                    recent.pop(0)
+
                 price_change = abs(last_price - entry_price) / entry_price
                 if price_change >= 0.005:
                     pos["last_movement_time"] = time.time()
@@ -450,26 +469,44 @@ class TradeManager:
                         self.close_trade(symbol, last_price, reason="Take Profit Hit")
                         continue  # skip further checks on this trade
 
-                    # Trailing stop trigger at 3% gain with 2% trail
+                    # Trailing stop trigger at 3% gain with ATR/volatility sizing
                     elif pnl_pct >= 3:
+                        side = pos.get("side", "BUY")
                         if not pos.get("trail_triggered"):
                             pos["trail_triggered"] = True
-                            pos["trail_price"] = last_price * 0.98
+                            offset = self._compute_trail_offset(pos, last_price)
+                            if side == "BUY":
+                                pos["trail_price"] = last_price - offset
+                            else:
+                                pos["trail_price"] = last_price + offset
                             logger.info(
                                 f"📉 Trailing stop activated at {last_price:.4f} for {symbol}"
                             )
-                        elif last_price < pos.get("trail_price", 0):
-                            logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
-                            self.close_trade(symbol, last_price, reason="Trailing Stop")
-                            continue
                         else:
-                            # Update trail upward if price climbs
-                            new_trail = last_price * 0.98
-                            if new_trail > pos["trail_price"]:
-                                logger.info(
-                                    f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
-                                )
-                                pos["trail_price"] = new_trail
+                            hit = (
+                                last_price < pos.get("trail_price", 0)
+                                if side == "BUY"
+                                else last_price > pos.get("trail_price", 0)
+                            )
+                            if hit:
+                                logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
+                                self.close_trade(symbol, last_price, reason="Trailing Stop")
+                                continue
+                            offset = self._compute_trail_offset(pos, last_price)
+                            if side == "BUY":
+                                new_trail = last_price - offset
+                                if new_trail > pos["trail_price"]:
+                                    logger.info(
+                                        f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                    )
+                                    pos["trail_price"] = new_trail
+                            else:
+                                new_trail = last_price + offset
+                                if new_trail < pos["trail_price"]:
+                                    logger.info(
+                                        f"🔽 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                    )
+                                    pos["trail_price"] = new_trail
 
                 self.manage(symbol, last_price)
 
@@ -697,6 +734,8 @@ class TradeManager:
             "last_trade_time": self.last_trade_time,
             "last_trade_side": self.last_trade_side,
             "last_trade_confidence": self.last_trade_confidence,
+            "trail_pct": self.trail_pct,
+            "trail_atr_mult": self.trail_atr_mult,
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -720,6 +759,8 @@ class TradeManager:
             self.last_trade_time = state.get("last_trade_time", 0.0)
             self.last_trade_side = state.get("last_trade_side")
             self.last_trade_confidence = state.get("last_trade_confidence")
+            self.trail_pct = state.get("trail_pct", self.trail_pct)
+            self.trail_atr_mult = state.get("trail_atr_mult", self.trail_atr_mult)
             logger.info("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
