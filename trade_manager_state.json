@@ -1,6 +1,23 @@
 {
-  "balance": 999.4448057555278,
-  "positions": {},
+  "balance": 980.7531426776944,
+  "positions": {
+    "ARB": {
+      "coin_id": "osmosis-allarb",
+      "entry_price": 0.5203198,
+      "qty": 31.15991086914422,
+      "stop_loss": 0.5116975076570599,
+      "take_profit": 0.5370765052163825,
+      "entry_fee": 0.016229347939390338,
+      "highest_price": 0.5203198,
+      "confidence": 0.8139234185218811,
+      "label": 3,
+      "side": "BUY",
+      "entry_time": 1755177340.565025,
+      "last_movement_time": 1755177529.7920635,
+      "atr": 0.0054067217503771465,
+      "order_id": null
+    }
+  },
   "trade_history": [
     {
       "symbol": "ETH",
@@ -423,15 +440,125 @@
       },
       "order_id": null,
       "exit_order_id": null
+    },
+    {
+      "symbol": "NEAR",
+      "entry_price": 2.9459429999999998,
+      "exit_price": 2.888109,
+      "qty": 6.315835864102914,
+      "pnl": -0.40213559299848356,
+      "reason": "Stop-Loss",
+      "entry_fee": 0.018624719232320786,
+      "exit_fee": 0.018240822401638403,
+      "confidence": 0.9317532181739807,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 6264.82,
+      "exit_momentum": {
+        "return_1d": -0.007211538461538436,
+        "return_3d": -0.011285909712722253,
+        "rsi": 28.940907768359665,
+        "macd_hist": -0.00751609992341238
+      },
+      "order_id": null,
+      "exit_order_id": null
+    },
+    {
+      "symbol": "NEAR",
+      "entry_price": 2.8938909999999995,
+      "exit_price": 2.800197,
+      "qty": 6.198646969366651,
+      "pnl": -0.6160896266371871,
+      "reason": "Stop-Loss",
+      "entry_fee": 0.017956164841669096,
+      "exit_fee": 0.01735743264767959,
+      "confidence": 0.8986685276031494,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 64.1,
+      "exit_momentum": {
+        "return_1d": -0.007211538461538436,
+        "return_3d": -0.011285909712722253,
+        "rsi": 28.940907768359665,
+        "macd_hist": -0.00751609992341238
+      },
+      "order_id": null,
+      "exit_order_id": null
+    },
+    {
+      "symbol": "NEAR",
+      "entry_price": 2.8938909999999995,
+      "exit_price": 2.805192,
+      "qty": 6.1948243879544025,
+      "pnl": -0.5847974918361736,
+      "reason": "Stop-Loss",
+      "entry_fee": 0.017945091634516266,
+      "exit_fee": 0.017377671814494587,
+      "confidence": 0.8986685276031494,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 75.12,
+      "exit_momentum": {
+        "return_1d": -0.007211538461538436,
+        "return_3d": -0.011285909712722253,
+        "rsi": 28.940907768359665,
+        "macd_hist": -0.00751609992341238
+      },
+      "order_id": null,
+      "exit_order_id": null
+    },
+    {
+      "symbol": "ARB",
+      "entry_price": 0.5223218,
+      "exit_price": 0.5135859,
+      "qty": 32.27525761405504,
+      "pnl": -0.31540448581809954,
+      "reason": "Stop-Loss",
+      "entry_fee": 0.016874945598034968,
+      "exit_fee": 0.016576117229446314,
+      "confidence": 0.8455721735954285,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 473.19,
+      "exit_momentum": {
+        "return_1d": -0.02576549663928296,
+        "return_3d": -0.028486315397505124,
+        "rsi": 24.38991768870656,
+        "macd_hist": -0.0009311746899061894
+      },
+      "order_id": null,
+      "exit_order_id": null
+    },
+    {
+      "symbol": "ARB",
+      "entry_price": 0.5223218,
+      "exit_price": 0.506493,
+      "qty": 32.26505583578814,
+      "pnl": -0.5439287523918601,
+      "reason": "Stop-Loss",
+      "entry_fee": 0.016869611652902267,
+      "exit_fee": 0.01634202492543584,
+      "confidence": 0.8455721735954285,
+      "label": 3,
+      "trail_triggered": false,
+      "duration": 43.64,
+      "exit_momentum": {
+        "return_1d": -0.02576549663928296,
+        "return_3d": -0.028486315397505124,
+        "rsi": 24.38991768870656,
+        "macd_hist": -0.0009311746899061894
+      },
+      "order_id": null,
+      "exit_order_id": null
     }
   ],
-  "total_fees": 0.9002593210431389,
+  "total_fees": 1.0906532696103786,
   "peak_equity": 1000.494392721223,
-  "drawdown_pct": 0.0010490683139567122,
+  "drawdown_pct": 0.003510166703269868,
   "current_day": "2025-08-14",
   "daily_start_balance": 983.3506469726562,
   "daily_loss_pct": 0.0,
-  "last_trade_time": 1755162158.9348645,
+  "last_trade_time": 1755177339.0798588,
   "last_trade_side": "BUY",
-  "last_trade_confidence": 0.9469590187072754
+  "last_trade_confidence": 0.8139234185218811
 }
