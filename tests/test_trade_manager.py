@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+import numpy as np
 
 from trade_manager import TradeManager
 
@@ -125,4 +126,47 @@ def test_skips_trade_when_profit_insufficient(monkeypatch):
 
     tm.open_trade('ABC', 10.0)
     assert 'ABC' not in tm.positions
+
+
+def test_compute_trail_offset_uses_volatility():
+    tm = create_tm()
+    tm.trail_pct = 0.02
+    pos = {"recent_prices": [100, 102, 98, 101]}
+    offset = tm._compute_trail_offset(pos, 100)
+    # std of recent_prices ≈ 1.479 -> volatility pct ≈ 0.01479
+    expected = 100 * 0.02 * (1 + np.std(pos["recent_prices"]) / 100)
+    assert offset == pytest.approx(expected)
+
+
+def test_trailing_stop_respects_profit_threshold(monkeypatch):
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01, trail_pct=0.03)
+    tm.positions['ABC'] = {
+        'coin_id': 'abc',
+        'entry_price': 100.0,
+        'qty': 1.0,
+        'stop_loss': 90.0,
+        'take_profit': 110.0,
+        'entry_fee': 1.0,
+        'highest_price': 100.0,
+        'confidence': 1.0,
+        'label': None,
+        'side': 'BUY',
+        'entry_time': 0.0,
+        'last_movement_time': 0.0,
+        'atr': None,
+    }
+
+    prices = [104.0, 105.0]
+
+    def mock_price(symbol, coin_id=None):
+        return prices.pop(0)
+
+    monkeypatch.setattr('trade_manager.fetch_live_price', mock_price)
+
+    tm.monitor_open_trades(single_run=True)
+    assert 'trail_triggered' not in tm.positions['ABC']
+
+    tm.monitor_open_trades(single_run=True)
+    assert tm.positions['ABC'].get('trail_triggered') is True
+    assert 'trail_price' in tm.positions['ABC']
 
