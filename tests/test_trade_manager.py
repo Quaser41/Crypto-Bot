@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 
 from trade_manager import TradeManager
+from config import ATR_MULT_SL
 
 
 def create_tm():
@@ -39,8 +40,9 @@ def test_open_trade_uses_atr_for_stops(monkeypatch):
     price = 10.0
     tm.open_trade('ABC', price, confidence=1.0)
     pos = tm.positions['ABC']
+    assert tm.atr_mult_sl == ATR_MULT_SL
     assert pos['atr'] == pytest.approx(1.0)
-    assert pos['stop_loss'] == pytest.approx(price - tm.atr_mult_sl * 1.0)
+    assert pos['stop_loss'] == pytest.approx(price - ATR_MULT_SL * 1.0)
     assert pos['take_profit'] == pytest.approx(price + tm.atr_mult_tp * 1.0)
 
 
