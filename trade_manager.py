@@ -18,6 +18,7 @@ from config import (
     HOLDING_PERIOD_SECONDS,
     REVERSAL_CONF_DELTA,
     MIN_PROFIT_FEE_RATIO,
+    CONFIDENCE_THRESHOLD,
 )
 
 from utils.logging import get_logger
@@ -183,6 +184,16 @@ class TradeManager:
             remaining = self.min_hold_time - (now - self.last_trade_time)
             logger.info(
                 f"⏳ Holding period active — skipping trade for {symbol} ({remaining:.0f}s remaining)"
+            )
+            return
+
+        if confidence is None or confidence < CONFIDENCE_THRESHOLD:
+            conf_val = confidence if confidence is not None else float("nan")
+            logger.info(
+                "🔮 Skipping %s: confidence %.2f below threshold %.2f",
+                symbol,
+                conf_val,
+                CONFIDENCE_THRESHOLD,
             )
             return
 
