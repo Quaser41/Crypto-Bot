@@ -14,12 +14,30 @@ from feature_engineer import add_indicators, momentum_signal
 from model_predictor import predict_signal
 from utils.prediction_class import PredictionClass
 from trade_manager import TradeManager
-from config import MOMENTUM_TIER_THRESHOLD, ERROR_DELAY, CONFIDENCE_THRESHOLD, TRADING_MODE
+from config import (
+    MOMENTUM_TIER_THRESHOLD,
+    ERROR_DELAY,
+    CONFIDENCE_THRESHOLD,
+    TRADING_MODE,
+    MIN_SYMBOL_WIN_RATE,
+    MIN_SYMBOL_AVG_PNL,
+)
 from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Load symbol performance statistics
+try:
+    _stats_df = pd.read_csv("analytics/trade_stats.csv")
+    SYMBOL_PERFORMANCE = (
+        _stats_df.groupby("symbol")[['avg_pnl', 'win_rate']].mean().to_dict("index")
+    )
+    logger.info(f"Loaded trade stats for {len(SYMBOL_PERFORMANCE)} symbols")
+except Exception as e:
+    logger.warning(f"Could not load trade stats: {e}")
+    SYMBOL_PERFORMANCE = {}
 
 # ✅ Global thresholds
 # CONFIDENCE_THRESHOLD imported from config
@@ -107,6 +125,18 @@ def scan_for_breakouts():
         if symbol in open_symbols:
             logger.info(f"⏭️ Skipping {symbol} (already open trade)")
             continue
+        perf = SYMBOL_PERFORMANCE.get(symbol)
+        if perf:
+            if perf.get("avg_pnl", 0) < MIN_SYMBOL_AVG_PNL:
+                logger.info(
+                    f"⏭️ Skipping {symbol}: avg PnL {perf['avg_pnl']:.2f} below {MIN_SYMBOL_AVG_PNL}"
+                )
+                continue
+            if perf.get("win_rate", 0) < MIN_SYMBOL_WIN_RATE:
+                logger.info(
+                    f"⏭️ Skipping {symbol}: win rate {perf['win_rate']:.2f}% below {MIN_SYMBOL_WIN_RATE}%"
+                )
+                continue
         fetch_meta.append((coin_id, symbol, name))
 
     logger.info("📡 Fetching OHLCV data for candidates...")
