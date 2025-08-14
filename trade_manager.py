@@ -284,7 +284,7 @@ class TradeManager:
 
         if total_est_fees > 0 and expected_profit / total_est_fees < self.min_profit_fee_ratio:
             logger.info(
-                "💰 Skipping %s: expected profit $%.2f vs fees $%.2f (ratio %.2f < %.2f)",
+                "💰 Trade rejected for %s: expected profit $%.2f vs fees $%.2f (ratio %.2f < %.2f)",
                 symbol,
                 expected_profit,
                 total_est_fees,
@@ -405,6 +405,33 @@ class TradeManager:
         if elapsed < self.min_hold_time and reason in sl_tp_reasons:
             logger.info(
                 f"⏱️ Minimum hold time not met for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s). Skipping close."
+            )
+            return
+
+        # Verify profitability before closing
+        qty = pos.get("qty", 0)
+        entry_price = pos["entry_price"]
+        side = pos.get("side", "BUY")
+        entry_fee = pos.get("entry_fee", 0)
+        exit_fee_est = current_price * qty * self.trade_fee_pct
+        if side == "BUY":
+            expected_profit = (current_price - entry_price) * qty
+        else:
+            expected_profit = (entry_price - current_price) * qty
+        total_fees = entry_fee + exit_fee_est
+        if (
+            expected_profit > 0
+            and total_fees > 0
+            and expected_profit / total_fees < self.min_profit_fee_ratio
+            and reason != "Stop-Loss"
+        ):
+            logger.info(
+                "💰 Exit for %s rejected: expected profit $%.2f vs fees $%.2f (ratio %.2f < %.2f)",
+                symbol,
+                expected_profit,
+                total_fees,
+                expected_profit / total_fees,
+                self.min_profit_fee_ratio,
             )
             return
 

@@ -203,3 +203,30 @@ def test_trailing_stop_respects_profit_threshold(monkeypatch):
     assert tm.positions['ABC'].get('trail_triggered') is True
     assert 'trail_price' in tm.positions['ABC']
 
+
+
+def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01, min_profit_fee_ratio=2.0, hold_period_sec=0)
+    tm.positions['ABC'] = {
+        'coin_id': 'abc',
+        'entry_price': 100.0,
+        'qty': 1.0,
+        'stop_loss': 90.0,
+        'take_profit': 110.0,
+        'entry_fee': 1.0,
+        'highest_price': 100.0,
+        'confidence': 1.0,
+        'label': None,
+        'side': 'BUY',
+        'entry_time': 0.0,
+        'last_movement_time': 0.0,
+        'atr': None,
+    }
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: mock_indicator_df())
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.close_trade('ABC', 100.5, reason='Take-Profit')
+    assert tm.has_position('ABC')
+
+    tm.close_trade('ABC', 105.0, reason='Take-Profit')
+    assert not tm.has_position('ABC')
