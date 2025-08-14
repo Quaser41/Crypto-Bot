@@ -78,3 +78,28 @@ def test_scan_for_breakouts_respects_risk_limits(monkeypatch):
     main.scan_for_breakouts()
 
     assert not tm.open_trade.called
+
+
+def test_scan_for_breakouts_skips_low_performance(monkeypatch):
+    main = _reload_main(monkeypatch)
+
+    tm = types.SimpleNamespace(
+        positions={},
+        can_trade=MagicMock(return_value=True),
+        open_trade=MagicMock(),
+    )
+    monkeypatch.setattr(main, "tm", tm)
+
+    # Configure performance data to fail thresholds
+    main.SYMBOL_PERFORMANCE = {"BAD": {"avg_pnl": -0.1, "win_rate": 10}}
+    main.MIN_SYMBOL_WIN_RATE = 50
+
+    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "BAD", "Bad", 10.0)])
+
+    fetch_mock = MagicMock(side_effect=lambda *a, **k: _mock_df())
+    monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch_mock)
+
+    main.scan_for_breakouts()
+
+    fetch_mock.assert_not_called()
+    assert not tm.open_trade.called

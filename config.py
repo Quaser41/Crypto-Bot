@@ -84,6 +84,12 @@ EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
 # Baseline minimum model confidence required to consider a trade.
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
 
+# Minimum historical win rate (%) required for symbols to be considered.
+MIN_SYMBOL_WIN_RATE = float(os.getenv("MIN_SYMBOL_WIN_RATE", "0"))
+
+# Minimum average PnL required for symbols to be considered.
+MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0"))
+
 # Minimum bars to wait after a trade before opening a new one in backtests.
 HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
 
