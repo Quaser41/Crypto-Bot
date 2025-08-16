@@ -217,6 +217,39 @@ def test_trailing_stop_respects_profit_threshold(monkeypatch):
 
 
 
+def test_losing_position_does_not_trigger_trailing_stop(monkeypatch):
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.02, trail_pct=0.03, trail_profit_fee_ratio=0.0)
+    tm.positions['ABC'] = {
+        'coin_id': 'abc',
+        'entry_price': 100.0,
+        'qty': 1.0,
+        'stop_loss': 90.0,
+        'take_profit': 110.0,
+        'entry_fee': 2.0,
+        'highest_price': 100.0,
+        'confidence': 1.0,
+        'label': None,
+        'side': 'BUY',
+        'entry_time': 0.0,
+        'last_movement_time': 0.0,
+        'atr': None,
+    }
+
+    prices = [103.0]
+
+    def mock_price(symbol, coin_id=None):
+        return prices.pop(0)
+
+    monkeypatch.setattr('trade_manager.fetch_live_price', mock_price)
+
+    tm.monitor_open_trades(single_run=True)
+    pos = tm.positions['ABC']
+    assert 'trail_triggered' not in pos
+    assert 'trail_price' not in pos
+    assert pos['stop_loss'] == pytest.approx(90.0)
+
+
+
 def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
     tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01, min_profit_fee_ratio=2.0, hold_period_sec=0)
     tm.positions['ABC'] = {

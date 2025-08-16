@@ -152,6 +152,11 @@ class TradeManager:
     def _compute_trail_offset(self, pos, current_price):
         """Return trailing stop distance using ATR or volatility scaling.
 
+        Trailing stops should only activate on trades that are net profitable
+        after accounting for fees.  If the current unrealized PnL does not
+        exceed the estimated entry+exit fees, ``None`` is returned to signal
+        that a trailing stop should not yet be applied.
+
         If ``trail_atr_mult`` is set and an ATR value is available, the
         distance is ``ATR * trail_atr_mult``.  Otherwise fall back to the
         percentage-based distance ``current_price * trail_pct`` but adjust it
@@ -159,6 +164,20 @@ class TradeManager:
         This allows the trailing stop to widen during volatile periods and
         tighten when price action is quiet.
         """
+
+        entry = pos.get("entry_price")
+        qty = pos.get("qty", 0)
+        side = pos.get("side", "BUY")
+        if entry is not None and qty > 0:
+            if side == "BUY":
+                unrealized = (current_price - entry) * qty
+            else:
+                unrealized = (entry - current_price) * qty
+            est_exit_fee = current_price * qty * self.trade_fee_pct
+            total_fees = pos.get("entry_fee", 0) + est_exit_fee
+            if unrealized <= total_fees:
+                return None
+
         if self.trail_atr_mult:
             atr_val = pos.get("atr")
             if not atr_val:
@@ -623,9 +642,23 @@ class TradeManager:
                             unrealized = 0
                             total_fees = pos.get("entry_fee", 0)
 
-                        if side == "BUY" and unrealized >= total_fees:
+                        if unrealized <= total_fees:
+                            logger.debug(
+                                f"📉 PnL ${unrealized:.2f} has not covered fees ${total_fees:.2f} for {symbol}"
+                            )
+                            continue
+
+                        if side == "BUY":
                             current_sl = pos.get("stop_loss", 0)
                             if current_sl < entry_price:
+                                pos["stop_loss"] = entry_price
+                                logger.info(
+                                    f"🛡️ Fees covered for {symbol}; moved stop loss to entry {self.fmt_price(entry_price)}"
+                                )
+                                self.save_state()
+                        else:
+                            current_sl = pos.get("stop_loss", 0)
+                            if current_sl > entry_price:
                                 pos["stop_loss"] = entry_price
                                 logger.info(
                                     f"🛡️ Fees covered for {symbol}; moved stop loss to entry {self.fmt_price(entry_price)}"
@@ -637,42 +670,47 @@ class TradeManager:
                             logger.debug(
                                 f"📉 PnL ${unrealized:.2f} below trailing threshold ${threshold:.2f} for {symbol}"
                             )
-                        else:
-                            if not pos.get("trail_triggered"):
-                                pos["trail_triggered"] = True
-                                offset = self._compute_trail_offset(pos, last_price)
-                                if side == "BUY":
-                                    pos["trail_price"] = last_price - offset
-                                else:
-                                    pos["trail_price"] = last_price + offset
-                                logger.info(
-                                    f"📉 Trailing stop activated at {last_price:.4f} for {symbol}"
-                                )
+                            continue
+
+                        if not pos.get("trail_triggered"):
+                            offset = self._compute_trail_offset(pos, last_price)
+                            if offset is None:
+                                continue
+                            pos["trail_triggered"] = True
+                            if side == "BUY":
+                                pos["trail_price"] = last_price - offset
                             else:
-                                hit = (
-                                    last_price < pos.get("trail_price", 0)
-                                    if side == "BUY"
-                                    else last_price > pos.get("trail_price", 0)
-                                )
-                                if hit:
-                                    logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
-                                    self.close_trade(symbol, last_price, reason="Trailing Stop")
-                                    continue
-                                offset = self._compute_trail_offset(pos, last_price)
-                                if side == "BUY":
-                                    new_trail = last_price - offset
-                                    if new_trail > pos["trail_price"]:
-                                        logger.info(
-                                            f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
-                                        )
-                                        pos["trail_price"] = new_trail
-                                else:
-                                    new_trail = last_price + offset
-                                    if new_trail < pos["trail_price"]:
-                                        logger.info(
-                                            f"🔽 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
-                                        )
-                                        pos["trail_price"] = new_trail
+                                pos["trail_price"] = last_price + offset
+                            logger.info(
+                                f"📉 Trailing stop activated for {symbol} at {self.fmt_price(last_price)} (PnL ${unrealized:.2f} vs fees ${total_fees:.2f})"
+                            )
+                        else:
+                            hit = (
+                                last_price < pos.get("trail_price", 0)
+                                if side == "BUY"
+                                else last_price > pos.get("trail_price", 0)
+                            )
+                            if hit:
+                                logger.info(f"🔻 Trailing stop hit for {symbol} — closing trade.")
+                                self.close_trade(symbol, last_price, reason="Trailing Stop")
+                                continue
+                            offset = self._compute_trail_offset(pos, last_price)
+                            if offset is None:
+                                continue
+                            if side == "BUY":
+                                new_trail = last_price - offset
+                                if new_trail > pos["trail_price"]:
+                                    logger.info(
+                                        f"🔼 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                    )
+                                    pos["trail_price"] = new_trail
+                            else:
+                                new_trail = last_price + offset
+                                if new_trail < pos["trail_price"]:
+                                    logger.info(
+                                        f"🔽 Updating trail stop for {symbol}: {pos['trail_price']:.4f} → {new_trail:.4f}"
+                                    )
+                                    pos["trail_price"] = new_trail
 
                 self.manage(symbol, last_price)
 
