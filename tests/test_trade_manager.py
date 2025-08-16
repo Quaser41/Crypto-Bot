@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 import numpy as np
+import logging
 
 from trade_manager import TradeManager
 from config import ATR_MULT_SL
@@ -128,6 +129,15 @@ def test_skips_trade_when_profit_insufficient(monkeypatch):
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     assert 'ABC' not in tm.positions
+
+
+def test_open_trade_skips_on_insufficient_margin(caplog):
+    tm = create_tm()
+    tm.risk_per_trade = 2.0  # forces allocation greater than balance
+    with caplog.at_level(logging.WARNING):
+        tm.open_trade('ABC', 10.0, confidence=1.0)
+    assert 'ABC' not in tm.positions
+    assert any('insufficient margin' in msg.lower() for msg in caplog.messages)
 
 
 def test_open_trade_respects_confidence_threshold(monkeypatch):

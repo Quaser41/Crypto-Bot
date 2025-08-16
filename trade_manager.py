@@ -218,6 +218,12 @@ class TradeManager:
             return
 
         allocation = self.calculate_allocation(confidence)
+        if allocation > self.balance:
+            logger.warning(
+                f"⚠️ Insufficient margin for {symbol}: required ${allocation:.2f} but only ${self.balance:.2f} available, skipping",
+            )
+            return
+
         if allocation < self.min_trade_usd:
 
             logger.warning(
@@ -282,13 +288,16 @@ class TradeManager:
             )
             return
 
-        if total_est_fees > 0 and expected_profit / total_est_fees < self.min_profit_fee_ratio:
+        profit_fee_ratio = (
+            expected_profit / total_est_fees if total_est_fees > 0 else float("inf")
+        )
+        if profit_fee_ratio < self.min_profit_fee_ratio:
             logger.info(
                 "💰 Trade rejected for %s: expected profit $%.2f vs fees $%.2f (ratio %.2f < %.2f)",
                 symbol,
                 expected_profit,
                 total_est_fees,
-                expected_profit / total_est_fees,
+                profit_fee_ratio,
                 self.min_profit_fee_ratio,
             )
             return
@@ -419,10 +428,13 @@ class TradeManager:
         else:
             expected_profit = (entry_price - current_price) * qty
         total_fees = entry_fee + exit_fee_est
+        profit_fee_ratio = (
+            expected_profit / total_fees if total_fees > 0 else float("inf")
+        )
         if (
             expected_profit > 0
             and total_fees > 0
-            and expected_profit / total_fees < self.min_profit_fee_ratio
+            and profit_fee_ratio < self.min_profit_fee_ratio
             and reason != "Stop-Loss"
         ):
             logger.info(
@@ -430,7 +442,7 @@ class TradeManager:
                 symbol,
                 expected_profit,
                 total_fees,
-                expected_profit / total_fees,
+                profit_fee_ratio,
                 self.min_profit_fee_ratio,
             )
             return
