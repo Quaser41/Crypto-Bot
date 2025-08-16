@@ -118,6 +118,35 @@ class TradeManager:
             base *= confidence
         return base
 
+    def _estimate_rotation_gain(self, price, confidence, side="BUY", balance_override=None):
+        """Estimate net profit of a prospective trade for rotation decisions."""
+        base_balance = balance_override if balance_override is not None else self.balance
+        allocation = base_balance * self.risk_per_trade
+        if confidence is not None:
+            allocation *= confidence
+        if allocation <= 0:
+            return 0.0
+        entry_fee_est = allocation * self.trade_fee_pct
+        net_alloc_est = allocation - entry_fee_est
+        if side == "BUY":
+            est_exec_price = price * (1 + self.slippage_pct)
+            est_qty = net_alloc_est / est_exec_price
+            est_take_profit = (
+                est_exec_price * (1 + self.take_profit_pct) * (1 + self.trade_fee_pct)
+            )
+            est_exit_fee = est_take_profit * est_qty * self.trade_fee_pct
+            expected_profit = (est_take_profit - est_exec_price) * est_qty
+        else:
+            est_exec_price = price * (1 - self.slippage_pct)
+            est_qty = net_alloc_est / est_exec_price
+            est_take_profit = (
+                est_exec_price * (1 - self.take_profit_pct) * (1 - self.trade_fee_pct)
+            )
+            est_exit_fee = est_take_profit * est_qty * self.trade_fee_pct
+            expected_profit = (est_exec_price - est_take_profit) * est_qty
+        total_est_fees = entry_fee_est + est_exit_fee
+        return expected_profit - total_est_fees
+
     def _update_equity_metrics(self):
         """Recalculate drawdown and daily loss percentages."""
         today = time.strftime("%Y-%m-%d")
@@ -430,10 +459,10 @@ class TradeManager:
         self.last_trade_side = side
         self.last_trade_confidence = confidence
 
-    def close_trade(self, symbol, current_price, reason=""):
+    def close_trade(self, symbol, current_price, reason="", candidate=None):
         if not self.has_position(symbol):
             logger.warning(f"⚠️ No open position to close for {symbol}")
-            return
+            return False
 
         pos = self.positions[symbol]
         elapsed = time.time() - pos.get("entry_time", 0)
@@ -447,7 +476,7 @@ class TradeManager:
             logger.info(
                 f"⏱️ Minimum hold time not met for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s). Skipping close."
             )
-            return
+            return False
 
         # Verify profitability before closing
         qty = pos.get("qty", 0)
@@ -477,14 +506,41 @@ class TradeManager:
                 profit_fee_ratio,
                 self.min_profit_fee_ratio,
             )
-            return
+            return False
+
+        rotation_projected_gain = None
+        rotation_cost_est = None
+        if reason == "Rotated to better candidate" and candidate:
+            rotation_projected_gain = self._estimate_rotation_gain(
+                candidate.get("price"),
+                candidate.get("confidence", 1.0),
+                candidate.get("side", "BUY"),
+                balance_override=self.balance + current_price * qty,
+            )
+            if side == "BUY":
+                raw_loss = max(0, (entry_price - current_price) * qty)
+            else:
+                raw_loss = max(0, (current_price - entry_price) * qty)
+            rotation_cost_est = raw_loss + entry_fee + exit_fee_est
+            logger.info(
+                "🔄 Rotation check: projected gain $%.2f vs cost $%.2f",
+                rotation_projected_gain,
+                rotation_cost_est,
+            )
+            if rotation_projected_gain <= rotation_cost_est:
+                logger.info(
+                    "❌ Rotation aborted: projected gain $%.2f <= cost $%.2f",
+                    rotation_projected_gain,
+                    rotation_cost_est,
+                )
+                return False
 
         pos = self.positions.pop(symbol)
         side = pos.get("side", "BUY")
 
         if pos["qty"] <= 0:
             logger.warning(f"❌ Invalid quantity for {symbol}, skipping close.")
-            return
+            return False
 
         qty = pos["qty"]
         exit_order = None
@@ -524,6 +580,10 @@ class TradeManager:
         self._update_equity_metrics()
 
         duration = time.time() - pos.get("entry_time", time.time())
+
+        rotation_cost_actual = None
+        if reason == "Rotated to better candidate":
+            rotation_cost_actual = max(0, -pnl)
 
         # ✅ Exit momentum capture BEFORE building trade_record
         exit_momentum = {}
@@ -565,6 +625,10 @@ class TradeManager:
 
         if reason == "Rotated to better candidate":
             trade_record["rotation_exit_price"] = current_price
+            if rotation_projected_gain is not None:
+                trade_record["rotation_projected_gain"] = rotation_projected_gain
+                trade_record["rotation_cost"] = rotation_cost_actual
+                trade_record["rotation_candidate"] = candidate.get("symbol") if candidate else None
 
         self.trade_history.append(trade_record)
 
@@ -573,6 +637,8 @@ class TradeManager:
             f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}"
         )
         self.save_state()
+
+        return True
 
 
     def monitor_open_trades(self, check_interval=60, single_run=False):

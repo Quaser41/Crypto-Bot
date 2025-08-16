@@ -54,9 +54,34 @@ def test_close_trade_records_rotation_price(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
     tm.open_trade('ABC', 10.0, confidence=1.0)
-    tm.close_trade('ABC', 12.0, reason='Rotated to better candidate')
+    tm.close_trade(
+        'ABC',
+        12.0,
+        reason='Rotated to better candidate',
+        candidate={'symbol': 'XYZ', 'price': 5.0, 'confidence': 1.0},
+    )
     record = tm.trade_history[-1]
     assert record['rotation_exit_price'] == pytest.approx(12.0)
+    assert record['rotation_projected_gain'] > 0
+    assert record['rotation_cost'] == pytest.approx(0.0)
+
+
+def test_rotation_aborted_when_gain_insufficient(monkeypatch):
+    tm = create_tm()
+    tm.risk_per_trade = 1.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+    closed = tm.close_trade(
+        'ABC',
+        9.5,
+        reason='Rotated to better candidate',
+        candidate={'symbol': 'XYZ', 'price': 5.0, 'confidence': 0.1},
+    )
+    assert closed is False
+    assert 'ABC' in tm.positions
+    assert len(tm.trade_history) == 0
 
 
 def test_slippage_applied_to_trade(monkeypatch):

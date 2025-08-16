@@ -367,17 +367,31 @@ def scan_for_breakouts():
                 f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}"
             )
             logger.info(f"🔄 Rotating {open_symbol} → {best_symbol}")
-            tm.close_trade(open_symbol, current_price, reason="Rotated to better candidate")
-            tm.open_trade(
-                best_symbol,
-                best_price,
-                coin_id=best_coin_id,
-                confidence=best_conf,
-                label=best_label,
-                side="BUY",
+            closed = tm.close_trade(
+                open_symbol,
+                current_price,
+                reason="Rotated to better candidate",
+                candidate={
+                    "symbol": best_symbol,
+                    "price": best_price,
+                    "confidence": best_conf,
+                    "label": best_label,
+                    "side": "BUY",
+                },
             )
-            tm.save_state()
-            tm.summary()
+            if closed:
+                tm.open_trade(
+                    best_symbol,
+                    best_price,
+                    coin_id=best_coin_id,
+                    confidence=best_conf,
+                    label=best_label,
+                    side="BUY",
+                )
+                tm.save_state()
+                tm.summary()
+            else:
+                logger.info("❌ Rotation aborted: insufficient expected improvement")
     else:
         logger.info(
             f"✅ Keeping current trade {open_symbol} (conf={open_conf:.2f}) - no better candidate yet."
