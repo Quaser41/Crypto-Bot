@@ -1,9 +1,11 @@
+import os
 import warnings
 
+import data_fetcher
 from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics
 
 
-def test_no_future_warning_on_timestamp_parsing(monkeypatch):
+def test_no_future_warning_on_timestamp_parsing(monkeypatch, tmp_path):
     fg_sample = {
         "data": [
             {"timestamp": "1700000000", "value": "60"},
@@ -11,28 +13,24 @@ def test_no_future_warning_on_timestamp_parsing(monkeypatch):
         ]
     }
     tx_sample = {
-        "values": [
-            {"x": "1700000000", "y": 12345},
-            {"x": "1700003600", "y": 23456},
-        ]
+        "data": [["1700000000", 12345], ["1700003600", 23456]]
     }
     active_sample = {
-        "values": [
-            {"x": "1700000000", "y": 1000},
-            {"x": "1700003600", "y": 1200},
-        ]
+        "data": [["1700000000", 1000], ["1700003600", 1200]]
     }
 
     def mock_safe_request(url, params=None, **kwargs):
         if "fng" in url:
             return fg_sample
-        if "transaction-volume" in url:
+        if "transactions-per-day" in url:
             return tx_sample
-        if "activeaddresses" in url:
+        if "active-addresses" in url:
             return active_sample
         return None
 
-    monkeypatch.setattr('data_fetcher.safe_request', mock_safe_request)
+    monkeypatch.setattr("data_fetcher.safe_request", mock_safe_request)
+    monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
+    os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
