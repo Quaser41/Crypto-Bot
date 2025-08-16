@@ -21,6 +21,10 @@ from config import (
     TRADING_MODE,
     MIN_SYMBOL_WIN_RATE,
     MIN_SYMBOL_AVG_PNL,
+    SUPPRESS_CLASS1_CONF,
+    HIGH_CONF_BUY_OVERRIDE,
+    VERY_HIGH_CONF_BUY_OVERRIDE,
+    MIN_VOLATILITY_7D,
 )
 from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
@@ -152,7 +156,7 @@ def scan_for_breakouts():
             continue
 
         vol_7d = df["Volatility_7d"].iloc[-1]
-        if vol_7d < 1e-4:
+        if vol_7d < MIN_VOLATILITY_7D:
             logger.warning(f"⚠️ Skipping {symbol}: 7d volatility too low ({vol_7d:.6f})")
             continue
 
@@ -172,14 +176,14 @@ def scan_for_breakouts():
             logger.info(f"🤖 ML Signal: {signal} (conf={confidence:.2f}, label={label})")
             logger.info(f"🧠 Threshold: {threshold:.2f} (7d vol={vol_7d:.3f})")
 
-            if label == PredictionClass.SMALL_LOSS.value and confidence < 0.85:
+            if label == PredictionClass.SMALL_LOSS.value and confidence < SUPPRESS_CLASS1_CONF:
                 logger.info(
                     f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
                 )
                 signal = "HOLD"
                 suppressed += 1
 
-            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= 0.75:
+            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= HIGH_CONF_BUY_OVERRIDE:
                 logger.info("🔥 High Conviction BUY override active")
                 signal = "BUY"
 
@@ -194,14 +198,14 @@ def scan_for_breakouts():
                 continue
 
             # === High-confidence override for Class 3 or 4 ===
-            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= 0.90:
+            if label in [PredictionClass.SMALL_GAIN.value, PredictionClass.BIG_GAIN.value] and confidence >= VERY_HIGH_CONF_BUY_OVERRIDE:
                 logger.info(
                     f"🟢 High-conviction BUY override: {symbol} → label={label}, conf={confidence:.2f}"
                 )
                 signal = "BUY"
 
             # === Suppress weak Class 1 signals ===
-            elif label == PredictionClass.SMALL_LOSS.value and confidence < 0.85:
+            elif label == PredictionClass.SMALL_LOSS.value and confidence < SUPPRESS_CLASS1_CONF:
                 logger.info(
                     f"🚫 Suppressing weak Class 1 pick: {symbol} (conf={confidence:.2f})"
                 )

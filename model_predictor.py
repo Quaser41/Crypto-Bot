@@ -9,6 +9,7 @@ import asyncio
 
 from utils.logging import get_logger
 from utils.prediction_class import PredictionClass
+from config import HIGH_CONF_BUY_OVERRIDE
 
 logger = get_logger(__name__)
 
@@ -147,7 +148,7 @@ def predict_signal(df, threshold, log_frequency=None):
         if predicted_class == PredictionClass.SMALL_LOSS and confidence < threshold:
             return "HOLD", confidence, predicted_class.value
 
-        if predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN) and confidence >= 0.75:
+        if predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN) and confidence >= HIGH_CONF_BUY_OVERRIDE:
             # Logging handled at caller layer to avoid duplicate messages
             logger.debug("🔥 High Conviction BUY override active")
             return "BUY", confidence, predicted_class.value

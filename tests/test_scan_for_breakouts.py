@@ -104,3 +104,68 @@ def test_scan_for_breakouts_skips_low_performance(monkeypatch):
 
     fetch_mock.assert_not_called()
     assert not tm.open_trade.called
+
+
+def test_low_buy_override_threshold_allows_trade(monkeypatch):
+    main = _reload_main(monkeypatch)
+
+    tm = types.SimpleNamespace(
+        positions={},
+        can_trade=MagicMock(return_value=True),
+        open_trade=MagicMock(),
+        save_state=lambda: None,
+        summary=lambda: None,
+    )
+    monkeypatch.setattr(main, "tm", tm)
+    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)])
+    monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: _mock_df())
+    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+
+    def fake_predict(df, threshold):
+        return ("BUY" if 0.7 >= main.HIGH_CONF_BUY_OVERRIDE else "HOLD", 0.7, 3)
+
+    monkeypatch.setattr(main, "predict_signal", fake_predict)
+    monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
+
+    main.CONFIDENCE_THRESHOLD = 0.65
+    main.HIGH_CONF_BUY_OVERRIDE = 0.8
+    main.scan_for_breakouts()
+    assert not tm.open_trade.called
+
+    tm.open_trade.reset_mock()
+    main.HIGH_CONF_BUY_OVERRIDE = 0.6
+    main.scan_for_breakouts()
+    tm.open_trade.assert_called_once()
+
+
+def test_low_volatility_threshold_allows_trade(monkeypatch):
+    main = _reload_main(monkeypatch)
+
+    tm = types.SimpleNamespace(
+        positions={},
+        can_trade=MagicMock(return_value=True),
+        open_trade=MagicMock(),
+        save_state=lambda: None,
+        summary=lambda: None,
+    )
+    monkeypatch.setattr(main, "tm", tm)
+    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)])
+
+    def low_vol_df():
+        df = _mock_df()
+        df["Volatility_7d"] = [0.00005] * 60
+        return df
+
+    monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: low_vol_df())
+    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
+    monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
+
+    main.MIN_VOLATILITY_7D = 0.0001
+    main.scan_for_breakouts()
+    assert not tm.open_trade.called
+
+    tm.open_trade.reset_mock()
+    main.MIN_VOLATILITY_7D = 0.0
+    main.scan_for_breakouts()
+    tm.open_trade.assert_called_once()
