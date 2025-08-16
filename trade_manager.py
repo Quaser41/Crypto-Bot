@@ -7,6 +7,7 @@ import numpy as np
 
 from data_fetcher import fetch_live_price
 from utils.prediction_class import PredictionClass
+from analytics.performance import is_blacklisted, get_duration_bucket
 
 from config import ATR_MULT_SL, ATR_MULT_TP
 
@@ -19,6 +20,7 @@ from config import (
     REVERSAL_CONF_DELTA,
     MIN_PROFIT_FEE_RATIO,
     CONFIDENCE_THRESHOLD,
+    BLACKLIST_REFRESH_SEC,
 )
 
 from utils.logging import get_logger
@@ -54,7 +56,8 @@ class TradeManager:
                  reverse_conf_delta=REVERSAL_CONF_DELTA,
                  min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,
                  trail_profit_fee_ratio=2.0,
-                 exchange=None):
+                 exchange=None,
+                 blacklist_refresh_sec=BLACKLIST_REFRESH_SEC):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -68,6 +71,7 @@ class TradeManager:
         self.slippage_pct = slippage_pct
         self.min_profit_fee_ratio = min_profit_fee_ratio
         self.trail_profit_fee_ratio = trail_profit_fee_ratio
+        self.blacklist_refresh_sec = blacklist_refresh_sec
 
         # Holding period and reversal requirements
         self.min_hold_time = hold_period_sec
@@ -210,6 +214,15 @@ class TradeManager:
                 symbol,
                 confidence - self.last_trade_confidence,
                 self.reverse_conf_delta,
+            )
+            return
+
+        duration_bucket = get_duration_bucket(self.min_hold_time)
+        if is_blacklisted(symbol, duration_bucket, refresh_seconds=self.blacklist_refresh_sec):
+            logger.info(
+                "🚫 Skipping %s: blacklisted for bucket %s",
+                symbol,
+                duration_bucket,
             )
             return
 

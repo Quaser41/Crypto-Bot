@@ -253,3 +253,23 @@ def test_state_persists_trade_fee_pct(tmp_path):
     tm_loaded.STATE_FILE = tm.STATE_FILE
     tm_loaded.load_state()
     assert tm_loaded.trade_fee_pct == pytest.approx(0.01)
+
+
+def test_blacklist_skips_trade(monkeypatch):
+    tm = TradeManager(starting_balance=1000, hold_period_sec=300)
+    tm.risk_per_trade = 1.0
+    tm.min_trade_usd = 0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    # INJ with bucket 5-30m is blacklisted in analytics/trade_stats.csv
+    tm.open_trade('INJ', 10.0, confidence=1.0)
+    assert 'INJ' not in tm.positions
+
+    # BTC is not blacklisted
+    tm.open_trade('BTC', 10.0, confidence=1.0)
+    assert 'BTC' in tm.positions
