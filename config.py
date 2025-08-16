@@ -108,3 +108,5 @@ HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "300"))
 REVERSAL_CONF_DELTA = float(os.getenv("REVERSAL_CONF_DELTA", "0"))
 
 
+# Seconds before refreshing performance blacklist from analytics file.
+BLACKLIST_REFRESH_SEC = int(os.getenv("BLACKLIST_REFRESH_SEC", "3600"))
