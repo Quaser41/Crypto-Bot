@@ -2,19 +2,18 @@
 title Update Crypto-Bot Repository
 cd /d "%~dp0"
 
-for /f "delims=" %%i in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%i"
-echo Updating branch %BRANCH%...
+echo Updating main branch...
 git fetch origin
 if %errorlevel% neq 0 (
     echo Failed to fetch from origin.
     goto end
 )
-git reset --hard origin/%BRANCH%
+git reset --hard origin/main
 if %errorlevel% neq 0 (
-    echo Failed to reset local branch. Check that origin/%BRANCH% exists.
+    echo Failed to reset local branch to origin/main.
     goto end
 )
 
-echo Update complete.
+echo Update of main branch complete.
 :end
 pause
