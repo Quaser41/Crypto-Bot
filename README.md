@@ -1,4 +1,3 @@
-
 # Crypto Bot
 
 This repository contains utilities for analyzing cryptocurrency markets and automated trading.
@@ -6,21 +5,12 @@ This repository contains utilities for analyzing cryptocurrency markets and auto
 ## Requirements
 
 - Python 3.10+
-- Google Chrome or Chromium and the matching ChromeDriver for features that rely on Selenium (e.g., scraping CoinMarketCap). Without Chrome or Chromium installed, those features will return no data.
-
-Install Python dependencies with:
-
-```bash
-pip install -r requirements.txt
-```
-
-=======
-# Crypto-Bot
-
+- Google Chrome or Chromium and the matching ChromeDriver for features that rely on Selenium (e.g., scraping CoinMarketCap). Ensure both are installed and available on your `PATH`; otherwise, scraping features will return no data.
+- TA-Lib C library.
 
 ## Installation
 
-1. Install the native TA-Lib library **before** installing Python packages.
+1. Install the native TA-Lib library before installing Python packages.
    - **Debian/Ubuntu**:
      ```bash
      sudo apt-get update && sudo apt-get install -y build-essential ta-lib
@@ -29,14 +19,25 @@ pip install -r requirements.txt
      ```bash
      brew install ta-lib
      ```
-   - **Windows**: Download precompiled TA-Lib binaries from [https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib](https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib) and install them, ensuring the library is on your PATH.
+   - **Windows**: Download precompiled TA-Lib binaries from [https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib](https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib) and ensure the library is on your `PATH`.
 
 2. Install Python dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-=======
+## Training the Model
+
+To enable machine-learning based predictions you can train an XGBoost model:
+
+1. Ensure TA-Lib and the required Python packages (e.g., `xgboost`, `pandas`) are installed.
+2. Run the training script:
+   ```bash
+   python train_real_model.py
+   ```
+   It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
+3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
+
 ## Running the Bot
 
 ### Unix-like systems
