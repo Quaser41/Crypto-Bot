@@ -81,3 +81,21 @@ source code by setting environment variables:
 
 These options allow fine-tuning of momentum evaluation without code changes.
 
+### Tuning Trade Aggressiveness
+
+Several environment variables control how aggressively the bot enters trades.
+Lowering these thresholds allows more trades, while raising them makes the bot
+more selective:
+
+- `MIN_VOLATILITY_7D`: Minimum 7‑day volatility required to analyze a symbol.
+  Defaults to `0.0001`.
+- `SUPPRESS_CLASS1_CONF`: If a prediction indicates a small loss and the
+  confidence is below this value (default `0.85`), the trade is suppressed.
+- `HIGH_CONF_BUY_OVERRIDE`: Confidence needed to upgrade small/big gain
+  predictions to BUY signals. Defaults to `0.75`.
+- `VERY_HIGH_CONF_BUY_OVERRIDE`: Strongest BUY override for gain predictions.
+  Defaults to `0.90`.
+
+By adjusting these values, users can tune the bot's sensitivity to predictions
+and market volatility without modifying the source code.
+
