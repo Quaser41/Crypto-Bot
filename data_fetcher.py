@@ -64,14 +64,14 @@ def fetch_onchain_metrics(days=14):
 
     logger.info(f"🌐 Fetching on-chain metrics for {days} days")
 
-    # ``api.blockchain.info`` exposes anonymous chart endpoints for a handful
-    # of on-chain statistics.  The parameters ``timespan``, ``format`` and
-    # ``cors`` are added explicitly to ensure JSON responses and to avoid
-    # cross-origin issues.
-    base = "https://api.blockchain.info/charts"
-    params = {"timespan": f"{days}days", "format": "json", "cors": "true"}
-    tx_url = f"{base}/transaction-volume"
-    active_url = f"{base}/activeaddresses"
+    # Blockchair exposes public chart endpoints for several Bitcoin on-chain
+    # statistics. Data is returned under a ``data`` key and each item is a
+    # ``[timestamp, value]`` pair. ``days`` controls how much history to
+    # request.
+    base = "https://api.blockchair.com/bitcoin/charts"
+    params = {"days": days}
+    tx_url = f"{base}/transactions-per-day"
+    active_url = f"{base}/active-addresses"
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
@@ -92,31 +92,43 @@ def fetch_onchain_metrics(days=14):
 
     if not (
         tx_data
-        and "values" in tx_data
+        and "data" in tx_data
         and active_data
-        and "values" in active_data
+        and "data" in active_data
     ):
         empty_df = pd.DataFrame()
         update_cache(placeholder_key, empty_df)
         return empty_df
 
-    values = tx_data["values"]
-    if values and isinstance(values[0], (list, tuple)):
-        df_tx = pd.DataFrame(values, columns=["Timestamp", "TxVolume"])
-    else:
-        df_tx = pd.DataFrame(values)
-        df_tx.rename(columns={"x": "Timestamp", "y": "TxVolume"}, inplace=True)
-    df_tx["Timestamp"] = pd.to_numeric(df_tx["Timestamp"], errors="coerce")
-    df_tx["Timestamp"] = pd.to_datetime(df_tx["Timestamp"], unit="s")
+    def _parse_blockchair(data: dict, col: str) -> pd.DataFrame:
+        """Convert Blockchair chart data to a DataFrame."""
+        values = data.get("data", [])
+        if values and isinstance(values[0], (list, tuple)):
+            df = pd.DataFrame(values, columns=["Timestamp", col])
+        else:
+            df = pd.DataFrame(values)
+            ts_key = next(
+                (k for k in ["time", "date", "t", "timestamp"] if k in df.columns),
+                None,
+            )
+            val_key = next(
+                (k for k in ["value", "v", "volume", "count"] if k in df.columns),
+                None,
+            )
+            if ts_key is None or val_key is None:
+                return pd.DataFrame(columns=["Timestamp", col])
+            df.rename(columns={ts_key: "Timestamp", val_key: col}, inplace=True)
 
-    values = active_data["values"]
-    if values and isinstance(values[0], (list, tuple)):
-        df_active = pd.DataFrame(values, columns=["Timestamp", "ActiveAddresses"])
-    else:
-        df_active = pd.DataFrame(values)
-        df_active.rename(columns={"x": "Timestamp", "y": "ActiveAddresses"}, inplace=True)
-    df_active["Timestamp"] = pd.to_numeric(df_active["Timestamp"], errors="coerce")
-    df_active["Timestamp"] = pd.to_datetime(df_active["Timestamp"], unit="s")
+        # Try to convert timestamps that may be numeric strings
+        ts_numeric = pd.to_numeric(df["Timestamp"], errors="coerce")
+        if ts_numeric.notna().all():
+            df["Timestamp"] = pd.to_datetime(ts_numeric, unit="s", errors="coerce")
+        else:
+            df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+        return df[["Timestamp", col]]
+
+    df_tx = _parse_blockchair(tx_data, "TxVolume")
+    df_active = _parse_blockchair(active_data, "ActiveAddresses")
 
     df = pd.merge(df_tx, df_active, on="Timestamp", how="outer")
 
