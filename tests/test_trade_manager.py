@@ -4,7 +4,7 @@ import numpy as np
 import logging
 
 from trade_manager import TradeManager
-from config import ATR_MULT_SL
+from config import ATR_MULT_SL, MIN_PROFIT_FEE_RATIO
 
 
 def create_tm():
@@ -146,7 +146,7 @@ def test_skips_trade_when_profit_insufficient(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0
     tm.trade_fee_pct = 0.01
-    tm.min_profit_fee_ratio = 2.0
+    tm.min_profit_fee_ratio = MIN_PROFIT_FEE_RATIO
 
     df = pd.DataFrame({'ATR': [0.01]})
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
@@ -276,7 +276,8 @@ def test_losing_position_does_not_trigger_trailing_stop(monkeypatch):
 
 
 def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
-    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01, min_profit_fee_ratio=2.0, hold_period_sec=0)
+    tm = TradeManager(starting_balance=1000, trade_fee_pct=0.01,
+                      min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO, hold_period_sec=0)
     tm.positions['ABC'] = {
         'coin_id': 'abc',
         'entry_price': 100.0,
@@ -298,7 +299,7 @@ def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
     tm.close_trade('ABC', 100.5, reason='Take-Profit')
     assert tm.has_position('ABC')
 
-    tm.close_trade('ABC', 105.0, reason='Take-Profit')
+    tm.close_trade('ABC', 107.0, reason='Take-Profit')
     assert not tm.has_position('ABC')
 
 
