@@ -2,6 +2,7 @@ import requests
 
 from utils.logging import get_logger
 from config import MIN_SYMBOL_WIN_RATE, MIN_SYMBOL_AVG_PNL
+from analytics import performance as perf_utils
 
 logger = get_logger(__name__)
 
@@ -120,6 +121,16 @@ def filter_candidates(movers, open_symbols, performance):
                     f"⏭️ Skipping {symbol}: win rate {perf['win_rate']:.2f}% below {MIN_SYMBOL_WIN_RATE}%"
                 )
                 continue
+
+            holding_times = perf.get("holding_times")
+            if holding_times:
+                avg_hold = sum(holding_times) / len(holding_times)
+                duration_bucket = perf_utils.get_duration_bucket(avg_hold)
+                if perf_utils.is_blacklisted(symbol, duration_bucket):
+                    logger.info(
+                        f"⏭️ Skipping {symbol}: blacklisted for duration {duration_bucket}"
+                    )
+                    continue
 
         candidates.append((coin_id, symbol, name))
 
