@@ -74,6 +74,11 @@ source code by setting environment variables:
   its threshold. All default to `1`.
 - `SLIPPAGE_PCT`: Estimated slippage percentage applied to each trade. Defaults to `0`.
 - `FEE_PCT`: Trading fee percentage deducted on entry and exit. Defaults to `0.001` (0.1%).
+- `MIN_HOLD_BUCKET`: Minimum trade duration bucket that must be reached before a
+  position can be closed without exceptional profit. Accepts labels such as
+  `<1m`, `1-5m`, `5-30m`, `30m-2h`, and `>2h`. Defaults to `">2h"`.
+- `EARLY_EXIT_FEE_MULT`: Profit-to-fee multiple required to exit a trade before
+  reaching `MIN_HOLD_BUCKET`. Defaults to `3`.
 
 - `PREDICT_SIGNAL_LOG_FREQ`: How often `predict_signal` emits info-level logs
   of the predicted class. Defaults to `100`. Set to `0` to silence per-iteration

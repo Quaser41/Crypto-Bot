@@ -117,6 +117,15 @@ HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
 # Minimum seconds to wait after a trade before opening a new one in live trading.
 HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "300"))
 
+# Minimum trade duration bucket required before exits are allowed without
+# exceptional profitability. Uses labels from
+# ``analytics.performance.get_duration_bucket``.
+MIN_HOLD_BUCKET = os.getenv("MIN_HOLD_BUCKET", ">2h")
+
+# Profit-to-fee multiple required to exit a trade before reaching
+# ``MIN_HOLD_BUCKET``.
+EARLY_EXIT_FEE_MULT = float(os.getenv("EARLY_EXIT_FEE_MULT", "3"))
+
 # Additional confidence required before reversing an open position.
 REVERSAL_CONF_DELTA = float(os.getenv("REVERSAL_CONF_DELTA", "0"))
 

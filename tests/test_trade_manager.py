@@ -8,7 +8,7 @@ from config import ATR_MULT_SL, MIN_PROFIT_FEE_RATIO
 
 
 def create_tm():
-    tm = TradeManager(starting_balance=1000, hold_period_sec=0)
+    tm = TradeManager(starting_balance=1000, hold_period_sec=0, min_hold_bucket="<1m")
     tm.risk_per_trade = 0.1
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -103,7 +103,7 @@ def test_slippage_applied_to_trade(monkeypatch):
 
 
 def test_hold_period_delays_exits(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+    tm = TradeManager(starting_balance=1000, hold_period_sec=60, min_hold_bucket="<1m")
     tm.risk_per_trade = 1.0
     tm.slippage_pct = 0.0
     tm.trade_fee_pct = 0.0
@@ -124,21 +124,30 @@ def test_hold_period_delays_exits(monkeypatch):
     assert not tm.has_position('ABC')
 
 
-def test_close_trade_respects_hold_period(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+def test_close_trade_respects_hold_bucket(monkeypatch):
+    tm = TradeManager(
+        starting_balance=1000,
+        hold_period_sec=0,
+        min_hold_bucket="30m-2h",
+        early_exit_fee_mult=2,
+        min_profit_fee_ratio=0,
+    )
     tm.risk_per_trade = 1.0
     tm.slippage_pct = 0.0
-    tm.trade_fee_pct = 0.0
+    tm.trade_fee_pct = 0.01
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
-    tm.close_trade('ABC', 9.0, reason='Stop-Loss')
+    pos = tm.positions['ABC']
+    pos['entry_time'] -= 600  # 10 minutes < 30m
+    closed = tm.close_trade('ABC', 10.1, reason='Take-Profit')
+    assert closed is False
     assert tm.has_position('ABC')
 
-    tm.positions['ABC']['entry_time'] -= 61
-    tm.close_trade('ABC', 9.0, reason='Stop-Loss')
+    closed = tm.close_trade('ABC', 12.0, reason='Take-Profit')
+    assert closed is True
     assert not tm.has_position('ABC')
 
 
@@ -180,7 +189,7 @@ def test_open_trade_respects_confidence_threshold(monkeypatch):
 
 
 def test_open_trade_enforces_hold_period(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=60)
+    tm = TradeManager(starting_balance=1000, hold_period_sec=60, min_hold_bucket="<1m")
     tm.risk_per_trade = 0.5
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -315,7 +324,7 @@ def test_state_persists_trade_fee_pct(tmp_path):
 
 
 def test_blacklist_skips_trade(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=300)
+    tm = TradeManager(starting_balance=1000, hold_period_sec=300, min_hold_bucket="5-30m")
     tm.risk_per_trade = 1.0
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0

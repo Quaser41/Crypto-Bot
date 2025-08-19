@@ -21,11 +21,23 @@ from config import (
     MIN_PROFIT_FEE_RATIO,
     CONFIDENCE_THRESHOLD,
     BLACKLIST_REFRESH_SEC,
+    MIN_HOLD_BUCKET,
+    EARLY_EXIT_FEE_MULT,
 )
 
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Order of duration buckets for comparison with ``MIN_HOLD_BUCKET``
+DURATION_BUCKETS = ["<1m", "1-5m", "5-30m", "30m-2h", ">2h"]
+
+
+def _bucket_index(bucket: str) -> int:
+    try:
+        return DURATION_BUCKETS.index(bucket)
+    except ValueError:
+        return len(DURATION_BUCKETS)
 
 
 
@@ -57,7 +69,9 @@ class TradeManager:
                  min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,
                  trail_profit_fee_ratio=2.0,
                  exchange=None,
-                 blacklist_refresh_sec=BLACKLIST_REFRESH_SEC):
+                 blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
+                 min_hold_bucket=MIN_HOLD_BUCKET,
+                 early_exit_fee_mult=EARLY_EXIT_FEE_MULT):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -72,6 +86,8 @@ class TradeManager:
         self.min_profit_fee_ratio = min_profit_fee_ratio
         self.trail_profit_fee_ratio = trail_profit_fee_ratio
         self.blacklist_refresh_sec = blacklist_refresh_sec
+        self.min_hold_bucket = min_hold_bucket
+        self.early_exit_fee_mult = early_exit_fee_mult
 
         # Holding period and reversal requirements
         self.min_hold_time = hold_period_sec
@@ -265,7 +281,7 @@ class TradeManager:
             )
             return
 
-        duration_bucket = get_duration_bucket(self.min_hold_time)
+        duration_bucket = self.min_hold_bucket
         if is_blacklisted(symbol, duration_bucket, refresh_seconds=self.blacklist_refresh_sec):
             logger.info(
                 "🚫 Skipping %s: blacklisted for bucket %s",
@@ -492,6 +508,13 @@ class TradeManager:
         profit_fee_ratio = (
             expected_profit / total_fees if total_fees > 0 else float("inf")
         )
+        duration_bucket = get_duration_bucket(elapsed)
+        if _bucket_index(duration_bucket) < _bucket_index(self.min_hold_bucket) and profit_fee_ratio < self.early_exit_fee_mult:
+            logger.info(
+                f"⏱️ Hold bucket {duration_bucket} below {self.min_hold_bucket} for {symbol}. "
+                f"Profit/fee ratio {profit_fee_ratio:.2f} < {self.early_exit_fee_mult:.2f}. Skipping close."
+            )
+            return False
         if (
             expected_profit > 0
             and total_fees > 0

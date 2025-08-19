@@ -1,7 +1,7 @@
 import requests
 
 from utils.logging import get_logger
-from config import MIN_SYMBOL_WIN_RATE, MIN_SYMBOL_AVG_PNL
+from config import MIN_SYMBOL_WIN_RATE, MIN_SYMBOL_AVG_PNL, MIN_HOLD_BUCKET
 from analytics import performance as perf_utils
 
 logger = get_logger(__name__)
@@ -9,6 +9,17 @@ logger = get_logger(__name__)
 BINANCE_GLOBAL_SYMBOLS = {}
 BINANCE_US_SYMBOLS = {}
 COINBASE_SYMBOLS = {}
+
+# Duration bucket ordering used when enforcing minimum hold requirements.
+DURATION_BUCKETS = ["<1m", "1-5m", "5-30m", "30m-2h", ">2h"]
+
+
+def _bucket_index(bucket: str) -> int:
+    """Return numeric index for duration bucket comparison."""
+    try:
+        return DURATION_BUCKETS.index(bucket)
+    except ValueError:
+        return len(DURATION_BUCKETS)
 
 def load_binance_global_symbols():
     global BINANCE_GLOBAL_SYMBOLS
@@ -126,6 +137,11 @@ def filter_candidates(movers, open_symbols, performance):
             if holding_times:
                 avg_hold = sum(holding_times) / len(holding_times)
                 duration_bucket = perf_utils.get_duration_bucket(avg_hold)
+                if _bucket_index(duration_bucket) < _bucket_index(MIN_HOLD_BUCKET):
+                    logger.info(
+                        f"⏭️ Skipping {symbol}: average hold {duration_bucket} below {MIN_HOLD_BUCKET}"
+                    )
+                    continue
                 if perf_utils.is_blacklisted(symbol, duration_bucket):
                     logger.info(
                         f"⏭️ Skipping {symbol}: blacklisted for duration {duration_bucket}"
