@@ -1,6 +1,7 @@
 import pytest
 
 from config import MIN_SYMBOL_AVG_PNL, MIN_SYMBOL_WIN_RATE
+import symbol_resolver
 from symbol_resolver import filter_candidates
 import analytics.performance as perf_utils
 
@@ -42,6 +43,8 @@ def test_filter_candidates_skips_blacklisted(monkeypatch):
         },
     }
 
+    monkeypatch.setattr(symbol_resolver, "MIN_HOLD_BUCKET", "<1m")
+
     calls = []
 
     def fake_blacklisted(symbol, bucket):
@@ -54,3 +57,20 @@ def test_filter_candidates_skips_blacklisted(monkeypatch):
     assert result == [("id2", "BBB", "BBB Coin")]
     expected_bucket = perf_utils.get_duration_bucket(120)
     assert ("AAA", expected_bucket) in calls
+
+
+def test_filter_candidates_respects_min_hold_bucket(monkeypatch):
+    movers = [("id1", "AAA", "AAA Coin", 10.0)]
+    performance = {
+        "AAA": {
+            "avg_pnl": MIN_SYMBOL_AVG_PNL + 0.1,
+            "win_rate": MIN_SYMBOL_WIN_RATE + 10,
+            "holding_times": [120],
+        }
+    }
+
+    monkeypatch.setattr(symbol_resolver, "MIN_HOLD_BUCKET", "30m-2h")
+    monkeypatch.setattr(perf_utils, "is_blacklisted", lambda *a, **k: False)
+
+    result = filter_candidates(movers, set(), performance)
+    assert result == []
