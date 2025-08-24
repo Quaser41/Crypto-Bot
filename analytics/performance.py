@@ -6,6 +6,9 @@ from typing import Set, Tuple
 # Default location for the trade statistics CSV
 DEFAULT_STATS_FILE = os.path.join(os.path.dirname(__file__), "trade_stats.csv")
 
+# Maximum acceptable fees relative to PnL before blacklisting
+FEE_RATIO_THRESHOLD = 1.0
+
 # Cached blacklist and timestamp of last refresh
 _blacklist: Set[Tuple[str, str]] = set()
 _last_loaded: float = 0.0
@@ -14,8 +17,9 @@ _last_loaded: float = 0.0
 def _parse_stats(path: str) -> Set[Tuple[str, str]]:
     """Parse the trade stats CSV and return blacklist pairs.
 
-    A pair ``(symbol, duration_bucket)`` is blacklisted when the win rate is 0
-    or the average PnL is negative.
+    A pair ``(symbol, duration_bucket)`` is blacklisted when the win rate is 0,
+    the average PnL is negative, or the ``fee_ratio`` exceeds
+    :data:`FEE_RATIO_THRESHOLD`.
     """
     pairs: Set[Tuple[str, str]] = set()
     if not os.path.exists(path):
@@ -27,9 +31,10 @@ def _parse_stats(path: str) -> Set[Tuple[str, str]]:
             try:
                 win_rate = float(row.get("win_rate", 0))
                 avg_pnl = float(row.get("avg_pnl", 0))
+                fee_ratio = float(row.get("fee_ratio", 0))
             except (TypeError, ValueError):
                 continue
-            if win_rate == 0 or avg_pnl < 0:
+            if win_rate == 0 or avg_pnl < 0 or fee_ratio > FEE_RATIO_THRESHOLD:
                 symbol = row.get("symbol", "").upper()
                 bucket = row.get("duration_bucket", "")
                 pairs.add((symbol, bucket))

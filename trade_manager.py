@@ -282,6 +282,8 @@ class TradeManager:
             return
 
         duration_bucket = self.min_hold_bucket
+        # `is_blacklisted` now also screens out combinations where trading fees
+        # have historically outweighed profits via the fee-ratio rule.
         if is_blacklisted(symbol, duration_bucket, refresh_seconds=self.blacklist_refresh_sec):
             logger.info(
                 "🚫 Skipping %s: blacklisted for bucket %s",

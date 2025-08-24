@@ -419,5 +419,8 @@ if __name__ == "__main__":
     except Exception:
         logger.exception("❌ FATAL ERROR")
         input("Press Enter to exit...")
+    finally:
+        # Regenerate trade_stats.csv so future sessions pick up new blacklist data
+        tm.summary()
 
 
