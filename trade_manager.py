@@ -533,6 +533,7 @@ class TradeManager:
 
         rotation_projected_gain = None
         rotation_cost_est = None
+        rotation_net_gain_est = None
         if reason == "Rotated to better candidate" and candidate:
             rotation_projected_gain = self._estimate_rotation_gain(
                 candidate.get("price"),
@@ -545,16 +546,17 @@ class TradeManager:
             else:
                 raw_loss = max(0, (current_price - entry_price) * qty)
             rotation_cost_est = raw_loss + entry_fee + exit_fee_est
+            rotation_net_gain_est = rotation_projected_gain - rotation_cost_est
             logger.info(
-                "🔄 Rotation check: projected gain $%.2f vs cost $%.2f",
+                "🔄 Rotation check: projected gain $%.2f vs cost $%.2f => net $%.2f",
                 rotation_projected_gain,
                 rotation_cost_est,
+                rotation_net_gain_est,
             )
-            if rotation_projected_gain <= rotation_cost_est:
+            if rotation_net_gain_est <= 0:
                 logger.info(
-                    "❌ Rotation aborted: projected gain $%.2f <= cost $%.2f",
-                    rotation_projected_gain,
-                    rotation_cost_est,
+                    "❌ Rotation aborted: net gain $%.2f <= 0",
+                    rotation_net_gain_est,
                 )
                 return False
 
@@ -651,6 +653,7 @@ class TradeManager:
             if rotation_projected_gain is not None:
                 trade_record["rotation_projected_gain"] = rotation_projected_gain
                 trade_record["rotation_cost"] = rotation_cost_actual
+                trade_record["rotation_net_gain"] = rotation_projected_gain - rotation_cost_actual
                 trade_record["rotation_candidate"] = candidate.get("symbol") if candidate else None
 
         self.trade_history.append(trade_record)
