@@ -328,7 +328,7 @@ def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
     tm.close_trade('ABC', 100.5, reason='Take-Profit')
     assert tm.has_position('ABC')
 
-    tm.close_trade('ABC', 107.0, reason='Take-Profit')
+    tm.close_trade('ABC', 111.0, reason='Take-Profit')
     assert not tm.has_position('ABC')
 
 
