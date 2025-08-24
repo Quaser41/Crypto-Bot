@@ -160,7 +160,14 @@ class TradeManager:
             )
             est_exit_fee = est_take_profit * est_qty * self.trade_fee_pct
             expected_profit = (est_exec_price - est_take_profit) * est_qty
+
         total_est_fees = entry_fee_est + est_exit_fee
+        profit_fee_ratio = (
+            expected_profit / total_est_fees if total_est_fees > 0 else float("inf")
+        )
+        if profit_fee_ratio < self.min_profit_fee_ratio:
+            return 0.0
+
         return expected_profit - total_est_fees
 
     def _update_equity_metrics(self):
