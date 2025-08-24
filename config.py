@@ -115,7 +115,8 @@ MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0.05"))
 HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
 
 # Minimum seconds to wait after a trade before opening a new one in live trading.
-HOLDING_PERIOD_SECONDS = int(os.getenv("HOLDING_PERIOD_SECONDS", "300"))
+# Enforce a minimum of 5 minutes to bucket trades more coarsely.
+HOLDING_PERIOD_SECONDS = max(300, int(os.getenv("HOLDING_PERIOD_SECONDS", "300")))
 
 # Minimum trade duration bucket required before exits are allowed without
 # exceptional profitability. Uses labels from

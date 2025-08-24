@@ -25,6 +25,7 @@ from config import (
     HIGH_CONF_BUY_OVERRIDE,
     VERY_HIGH_CONF_BUY_OVERRIDE,
     MIN_VOLATILITY_7D,
+    HOLDING_PERIOD_SECONDS,
 )
 from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
@@ -91,7 +92,7 @@ if TRADING_MODE == "paper":
 else:
     exchange = None
 
-tm = TradeManager(exchange=exchange)
+tm = TradeManager(exchange=exchange, hold_period_sec=HOLDING_PERIOD_SECONDS)
 tm.load_state()
 
 # ✅ Background thread for monitoring existing trades

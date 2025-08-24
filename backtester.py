@@ -20,6 +20,7 @@ from config import (
     EXECUTION_PRICE_WEIGHT,
     HOLDING_PERIOD_BARS,
     REVERSAL_CONF_DELTA,
+    HOLDING_PERIOD_SECONDS,
 )
 from trade_manager import TradeManager
 
@@ -249,7 +250,12 @@ def _simulate_trades(
         return metrics
 
     # === TradeManager-powered simulation ===
-    tm = TradeManager(starting_balance=1000, trade_fee_pct=fee_pct, slippage_pct=slippage_pct)
+    tm = TradeManager(
+        starting_balance=1000,
+        trade_fee_pct=fee_pct,
+        slippage_pct=slippage_pct,
+        hold_period_sec=HOLDING_PERIOD_SECONDS,
+    )
     equity_curve = []
     returns = []
     max_exposure = 0.0
