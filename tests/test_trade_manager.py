@@ -4,7 +4,7 @@ import numpy as np
 import logging
 
 from trade_manager import TradeManager
-from config import ATR_MULT_SL, MIN_PROFIT_FEE_RATIO
+from config import ATR_MULT_SL, MIN_PROFIT_FEE_RATIO, HOLDING_PERIOD_SECONDS
 
 
 def create_tm():
@@ -123,7 +123,7 @@ def test_slippage_applied_to_trade(monkeypatch):
 
 
 def test_hold_period_delays_exits(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=60, min_hold_bucket="<1m")
+    tm = TradeManager(starting_balance=1000, hold_period_sec=HOLDING_PERIOD_SECONDS, min_hold_bucket="<1m")
     tm.risk_per_trade = 1.0
     tm.slippage_pct = 0.0
     tm.trade_fee_pct = 0.0
@@ -139,7 +139,7 @@ def test_hold_period_delays_exits(monkeypatch):
     assert tm.has_position('ABC')
 
     # After hold period elapsed, manage should close on the same price
-    tm.positions['ABC']['entry_time'] -= 61
+    tm.positions['ABC']['entry_time'] -= HOLDING_PERIOD_SECONDS + 1
     tm.manage('ABC', pos['stop_loss'] - 0.01)
     assert not tm.has_position('ABC')
 
@@ -209,7 +209,7 @@ def test_open_trade_respects_confidence_threshold(monkeypatch):
 
 
 def test_open_trade_enforces_hold_period(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=60, min_hold_bucket="<1m")
+    tm = TradeManager(starting_balance=1000, hold_period_sec=HOLDING_PERIOD_SECONDS, min_hold_bucket="<1m")
     tm.risk_per_trade = 0.5
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -222,7 +222,7 @@ def test_open_trade_enforces_hold_period(monkeypatch):
     tm.open_trade('DEF', 5.0, confidence=1.0)
     assert 'DEF' not in tm.positions
 
-    tm.last_trade_time -= 61
+    tm.last_trade_time -= HOLDING_PERIOD_SECONDS + 1
     tm.open_trade('DEF', 5.0, confidence=1.0)
     assert 'DEF' in tm.positions
 
@@ -344,7 +344,7 @@ def test_state_persists_trade_fee_pct(tmp_path):
 
 
 def test_blacklist_skips_trade(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=300, min_hold_bucket="5-30m")
+    tm = TradeManager(starting_balance=1000, hold_period_sec=HOLDING_PERIOD_SECONDS, min_hold_bucket="5-30m")
     tm.risk_per_trade = 1.0
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
