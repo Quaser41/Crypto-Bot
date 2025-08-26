@@ -74,7 +74,9 @@ class TradeManager:
                  exchange=None,
                  blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
                  min_hold_bucket=MIN_HOLD_BUCKET,
-                 early_exit_fee_mult=EARLY_EXIT_FEE_MULT):
+                 early_exit_fee_mult=EARLY_EXIT_FEE_MULT,
+                 stagnation_threshold_pct=0.005,
+                 stagnation_duration_sec=30 * 60):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -91,6 +93,8 @@ class TradeManager:
         self.blacklist_refresh_sec = blacklist_refresh_sec
         self.min_hold_bucket = min_hold_bucket
         self.early_exit_fee_mult = early_exit_fee_mult
+        self.stagnation_threshold_pct = stagnation_threshold_pct
+        self.stagnation_duration_sec = stagnation_duration_sec
 
         # Holding period and reversal requirements
         # Add a small buffer to the minimum hold time to better absorb
@@ -487,8 +491,8 @@ class TradeManager:
             "confidence": confidence,
             "label": label,
             "side": side,
-            "entry_time": time.time(),
-            "last_movement_time": time.time(),
+            "entry_time": now,
+            "last_movement_time": now,
             "atr": atr_val,
             "order_id": order.get("order_id") if order else None,
             "entry_slippage_pct": entry_slippage_pct,
@@ -743,7 +747,7 @@ class TradeManager:
                     recent.pop(0)
 
                 price_change = abs(last_price - entry_price) / entry_price
-                if price_change >= 0.005:
+                if price_change >= self.stagnation_threshold_pct:
                     pos["last_movement_time"] = time.time()
 
                 # ✅ Hybrid profit protection
@@ -880,13 +884,27 @@ class TradeManager:
             if current_price < highest_price:
                 pos["highest_price"] = current_price
 
+        now = time.time()
+        price_change = abs(current_price - entry_price) / entry_price
+        if price_change >= self.stagnation_threshold_pct:
+            pos["last_movement_time"] = now
+
         # Respect minimum holding period before evaluating exits
-        elapsed = time.time() - pos.get("entry_time", 0)
+        elapsed = now - pos.get("entry_time", 0)
         if elapsed < self.min_hold_time:
             logger.debug(
                 f"⏱️ Holding period active for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s)"
             )
             return
+
+        if price_change < self.stagnation_threshold_pct:
+            stagnant_for = now - pos.get("last_movement_time", pos.get("entry_time", now))
+            if stagnant_for >= self.stagnation_duration_sec:
+                logger.info(
+                    f"🔕 Price stagnation exit for {symbol}: below {self.stagnation_threshold_pct * 100:.2f}% for {stagnant_for:.0f}s"
+                )
+                self.close_trade(symbol, current_price, reason="Stagnant Price")
+                return
 
         trail_stop = None
         atr = pos.get("atr")
