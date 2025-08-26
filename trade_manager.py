@@ -83,12 +83,9 @@ class TradeManager:
                  blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
                  min_hold_bucket=MIN_HOLD_BUCKET,
                  early_exit_fee_mult=EARLY_EXIT_FEE_MULT,
-                 stagnation_threshold_pct=0.005,
-                 stagnation_duration_sec=30 * 60,
-                 include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
-
                  stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
-                 stagnation_duration_sec=STAGNATION_DURATION_SEC):
+                 stagnation_duration_sec=STAGNATION_DURATION_SEC,
+                 include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
 
         self.starting_balance = starting_balance
         self.balance = starting_balance
