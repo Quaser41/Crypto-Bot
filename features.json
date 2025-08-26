@@ -13,5 +13,9 @@
   "Price_vs_SMA20",
   "Price_vs_SMA50",
   "Volatility_7d",
-  "MACD_Hist_norm"
+  "MACD_Hist_norm",
+  "MACD_4h",
+  "Signal_4h",
+  "Hist_4h",
+  "SMA_4h"
 ]

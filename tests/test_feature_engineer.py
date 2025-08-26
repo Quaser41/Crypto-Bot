@@ -34,3 +34,7 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
     assert result['FearGreed_norm'].notna().all()
     assert 'TxVolume_norm' in result.columns
     assert 'ActiveAddresses_norm' in result.columns
+    assert 'MACD_4h' in result.columns
+    assert 'SMA_4h' in result.columns
+    assert result['MACD_4h'].notna().all()
+    assert result['SMA_4h'].notna().all()
