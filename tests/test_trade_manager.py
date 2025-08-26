@@ -425,6 +425,18 @@ def test_state_persists_trade_fee_pct(tmp_path):
     assert tm_loaded.trade_fee_pct == pytest.approx(0.01)
 
 
+def test_state_persists_closed_pnl_history(tmp_path):
+    tm = TradeManager(starting_balance=1000)
+    tm.closed_pnl_history = [5.0, -3.0]
+    tm.STATE_FILE = str(tmp_path / "state.json")
+    tm.save_state()
+
+    tm_loaded = TradeManager(starting_balance=1000)
+    tm_loaded.STATE_FILE = tm.STATE_FILE
+    tm_loaded.load_state()
+    assert tm_loaded.closed_pnl_history == [5.0, -3.0]
+
+
 def test_blacklist_skips_trade(monkeypatch):
     tm = TradeManager(starting_balance=1000, hold_period_sec=HOLDING_PERIOD_SECONDS, min_hold_bucket="5-30m")
     tm.risk_per_trade = 1.0

@@ -1103,6 +1103,7 @@ class TradeManager:
             "balance": self.balance,
             "positions": self.positions,
             "trade_history": self.trade_history,
+            "closed_pnl_history": self.closed_pnl_history,
             "total_fees": self.total_fees,
             "trade_fee_pct": self.trade_fee_pct,
             "peak_equity": self.peak_equity,
@@ -1129,6 +1130,7 @@ class TradeManager:
             self.balance = state.get("balance", self.starting_balance)
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
+            self.closed_pnl_history = state.get("closed_pnl_history", [])
             self.total_fees = state.get("total_fees", 0.0)
             self.trade_fee_pct = state.get("trade_fee_pct", self.trade_fee_pct)
             self.peak_equity = state.get("peak_equity", self.balance)
