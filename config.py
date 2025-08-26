@@ -79,6 +79,10 @@ FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 
+# Allocation scaling parameters for drawdown control.
+ALLOCATION_MAX_DD = float(os.getenv("ALLOCATION_MAX_DD", "0.10"))
+ALLOCATION_MIN_FACTOR = float(os.getenv("ALLOCATION_MIN_FACTOR", "0.5"))
+
 # Number of bars to delay trade execution in backtests to model latency.
 EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
 
