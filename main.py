@@ -52,6 +52,8 @@ MOMENTUM_ADV_THRESHOLD = 0.5        # candidate must exceed current momentum sco
 STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
+# Correlation filter threshold for new candidates
+CORRELATION_THRESHOLD = 0.8
 
 # Momentum tier mapping for gating logic
 TIER_RANKS = {"Tier 1": 1, "Tier 2": 2, "Tier 3": 3, "Tier 4": 4}
@@ -267,6 +269,40 @@ def scan_for_breakouts():
     best = max(candidates, key=lambda x: x[2])
     best_symbol, best_price, best_conf, best_coin_id, _, best_label, best_mom_score = best
     logger.info(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
+
+    # ✅ Correlation filter to avoid redundant positions
+    if tm.positions:
+        try:
+            cand_df = fetch_ohlcv_smart(best_symbol, coin_id=best_coin_id, days=10)
+            cand_returns = cand_df["Close"].pct_change().dropna().tail(7)
+        except Exception as e:
+            logger.warning(f"Correlation check failed for {best_symbol}: {e}")
+            cand_returns = pd.Series(dtype=float)
+
+        skip_due_to_corr = False
+        for sym, pos in tm.positions.items():
+            try:
+                open_df = fetch_ohlcv_smart(sym, coin_id=pos.get("coin_id"), days=10)
+                open_returns = open_df["Close"].pct_change().dropna().tail(7)
+                if len(cand_returns) >= 7 and len(open_returns) >= 7:
+                    corr = cand_returns.corr(open_returns)
+                    logger.info(
+                        f"📈 7d return correlation {best_symbol}-{sym}: {corr:.2f}"
+                    )
+                    if corr >= CORRELATION_THRESHOLD:
+                        logger.info(
+                            f"🚫 Skipping {best_symbol}: correlation {corr:.2f} with open position {sym} exceeds {CORRELATION_THRESHOLD}"
+                        )
+                        skip_due_to_corr = True
+                        break
+            except Exception as e:
+                logger.warning(
+                    f"Correlation check failed for {best_symbol}-{sym}: {e}"
+                )
+
+        if skip_due_to_corr:
+            logger.info("✅ Scan cycle complete\n" + "="*40)
+            return
 
     if not tm.positions:
         tm.open_trade(best_symbol, best_price, coin_id=best_coin_id, confidence=best_conf, label=best_label, side="BUY")

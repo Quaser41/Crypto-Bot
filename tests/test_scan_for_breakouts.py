@@ -3,6 +3,7 @@ import sys
 import types
 from unittest.mock import MagicMock
 
+import os
 import pandas as pd
 import threading
 
@@ -11,6 +12,7 @@ def _reload_main(monkeypatch):
     """Reload the main module with thread creation suppressed."""
     dummy_thread = types.SimpleNamespace(start=lambda: None)
     monkeypatch.setattr(threading, "Thread", lambda *a, **k: dummy_thread)
+    sys.path.insert(0, os.getcwd())
     if "main" in sys.modules:
         main = sys.modules["main"]
         return importlib.reload(main)
@@ -169,3 +171,48 @@ def test_low_volatility_threshold_allows_trade(monkeypatch):
     main.MIN_VOLATILITY_7D = 0.0
     main.scan_for_breakouts()
     tm.open_trade.assert_called_once()
+
+
+def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
+    main = _reload_main(monkeypatch)
+
+    tm = types.SimpleNamespace(
+        positions={"OPEN": {"coin_id": "id0"}},
+        can_trade=MagicMock(return_value=True),
+        open_trade=MagicMock(),
+        save_state=lambda: None,
+        summary=lambda: None,
+    )
+    monkeypatch.setattr(main, "tm", tm)
+
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)],
+    )
+
+    def fetch(symbol, coin_id=None, days=10, limit=200):
+        close = list(range(100, 160))
+        df = pd.DataFrame({"Close": close})
+        if symbol == "ABC":
+            df["RSI"] = [60] * 60
+            df["MACD"] = [1] * 60
+            df["Signal"] = [0] * 60
+            df["Hist"] = [1] * 60
+            df["SMA_20"] = [95] * 60
+            df["SMA_50"] = [90] * 60
+            df["Return_1d"] = [0.02] * 60
+            df["Volatility_7d"] = [0.02] * 60
+            df["Momentum_Tier"] = ["Tier 1"] * 60
+            df["Momentum_Score"] = [0.8] * 60
+            df["Return_3d"] = [0.04] * 60
+        return df
+
+    monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch)
+    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
+    monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
+
+    main.scan_for_breakouts()
+
+    assert not tm.open_trade.called
