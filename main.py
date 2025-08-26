@@ -265,44 +265,51 @@ def scan_for_breakouts():
         logger.info("✅ Scan cycle complete\n" + "="*40)
         return
 
-    # ✅ Select best BUY candidate
-    best = max(candidates, key=lambda x: x[2])
-    best_symbol, best_price, best_conf, best_coin_id, _, best_label, best_mom_score = best
-    logger.info(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
+    # Sort candidates by confidence (desc)
+    candidates.sort(key=lambda x: x[2], reverse=True)
 
-    # ✅ Correlation filter to avoid redundant positions
-    if tm.positions:
-        try:
-            cand_df = fetch_ohlcv_smart(best_symbol, coin_id=best_coin_id, days=10)
-            cand_returns = cand_df["Close"].pct_change().dropna().tail(7)
-        except Exception as e:
-            logger.warning(f"Correlation check failed for {best_symbol}: {e}")
-            cand_returns = pd.Series(dtype=float)
-
+    selected = None
+    for symbol, price, conf, coin_id, sig, label, mom_score in candidates:
         skip_due_to_corr = False
-        for sym, pos in tm.positions.items():
+        if tm.positions:
             try:
-                open_df = fetch_ohlcv_smart(sym, coin_id=pos.get("coin_id"), days=10)
-                open_returns = open_df["Close"].pct_change().dropna().tail(7)
-                if len(cand_returns) >= 7 and len(open_returns) >= 7:
-                    corr = cand_returns.corr(open_returns)
-                    logger.info(
-                        f"📈 7d return correlation {best_symbol}-{sym}: {corr:.2f}"
-                    )
-                    if corr >= CORRELATION_THRESHOLD:
-                        logger.info(
-                            f"🚫 Skipping {best_symbol}: correlation {corr:.2f} with open position {sym} exceeds {CORRELATION_THRESHOLD}"
-                        )
-                        skip_due_to_corr = True
-                        break
+                cand_df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10)
+                cand_returns = cand_df["Close"].pct_change().dropna().tail(7)
             except Exception as e:
-                logger.warning(
-                    f"Correlation check failed for {best_symbol}-{sym}: {e}"
-                )
+                logger.warning(f"Correlation check failed for {symbol}: {e}")
+                cand_returns = pd.Series(dtype=float)
 
-        if skip_due_to_corr:
-            logger.info("✅ Scan cycle complete\n" + "="*40)
-            return
+            for sym, pos in tm.positions.items():
+                try:
+                    open_df = fetch_ohlcv_smart(sym, coin_id=pos.get("coin_id"), days=10)
+                    open_returns = open_df["Close"].pct_change().dropna().tail(7)
+                    if len(cand_returns) >= 7 and len(open_returns) >= 7:
+                        corr = cand_returns.corr(open_returns)
+                        logger.info(
+                            f"📈 7d return correlation {symbol}-{sym}: {corr:.2f}"
+                        )
+                        if corr >= CORRELATION_THRESHOLD:
+                            logger.info(
+                                f"🚫 Skipping {symbol}: correlation {corr:.2f} with open position {sym} exceeds {CORRELATION_THRESHOLD}"
+                            )
+                            skip_due_to_corr = True
+                            break
+                except Exception as e:
+                    logger.warning(
+                        f"Correlation check failed for {symbol}-{sym}: {e}"
+                    )
+
+        if not skip_due_to_corr:
+            selected = (symbol, price, conf, coin_id, sig, label, mom_score)
+            break
+
+    if not selected:
+        logger.error("❌ All trade candidates are too correlated with open positions.")
+        logger.info("✅ Scan cycle complete\n" + "="*40)
+        return
+
+    best_symbol, best_price, best_conf, best_coin_id, _, best_label, best_mom_score = selected
+    logger.info(f"\n🏆 BEST PICK: {best_symbol} BUY with confidence {best_conf:.2f} (label={best_label})")
 
     if not tm.positions:
         tm.open_trade(best_symbol, best_price, coin_id=best_coin_id, confidence=best_conf, label=best_label, side="BUY")

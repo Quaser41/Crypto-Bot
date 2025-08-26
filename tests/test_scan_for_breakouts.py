@@ -177,11 +177,13 @@ def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
     main = _reload_main(monkeypatch)
 
     tm = types.SimpleNamespace(
-        positions={"OPEN": {"coin_id": "id0"}},
+        positions={"OPEN": {"coin_id": "id0", "entry_price": 100, "qty": 1, "entry_fee": 0}},
         can_trade=MagicMock(return_value=True),
         open_trade=MagicMock(),
+        close_trade=MagicMock(return_value=True),
         save_state=lambda: None,
         summary=lambda: None,
+        trade_fee_pct=0,
     )
     monkeypatch.setattr(main, "tm", tm)
 
@@ -216,3 +218,61 @@ def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
     main.scan_for_breakouts()
 
     assert not tm.open_trade.called
+
+
+def test_scan_for_breakouts_selects_uncorrelated_candidate(monkeypatch):
+    main = _reload_main(monkeypatch)
+
+    tm = types.SimpleNamespace(
+        positions={"OPEN": {"coin_id": "id0", "entry_price": 100, "qty": 1, "entry_fee": 0}},
+        can_trade=MagicMock(return_value=True),
+        open_trade=MagicMock(),
+        close_trade=MagicMock(return_value=True),
+        save_state=lambda: None,
+        summary=lambda: None,
+        trade_fee_pct=0,
+    )
+    monkeypatch.setattr(main, "tm", tm)
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [
+            ("id1", "ABC", "ABC Coin", 10.0),
+            ("id2", "DEF", "DEF Coin", 8.0),
+        ],
+    )
+    monkeypatch.setattr(
+        main,
+        "filter_candidates",
+        lambda movers, open_symbols, performance: [(cid, sym, name) for cid, sym, name, _ in movers],
+    )
+
+    def fetch(symbol, coin_id=None, days=10, limit=200):
+        df = _mock_df()
+        if symbol == "OPEN":
+            df["Close"] = [100 + i * 0.001 for i in range(60)]
+            df["RSI"] = [40] * 60
+            df["Return_3d"] = [0.0] * 60
+            df["MACD"] = [0] * 60
+            df["Signal"] = [0] * 60
+        elif symbol == "ABC":  # correlated with OPEN
+            df["Close"] = [100 + i * 0.001 for i in range(60)]
+        elif symbol == "DEF":  # uncorrelated (flat series → NaN correlation)
+            df["Close"] = [100] * 60
+        return df
+
+    monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch)
+    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+
+    def pred(df, threshold):
+        trend_up = df["Close"].iloc[-1] > df["Close"].iloc[0]
+        return ("BUY", 0.95 if trend_up else 0.90, 4)
+
+    monkeypatch.setattr(main, "predict_signal", pred)
+    monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
+
+    main.scan_for_breakouts()
+
+    tm.open_trade.assert_called_once()
+    args, kwargs = tm.open_trade.call_args
+    assert args[0] == "DEF"
