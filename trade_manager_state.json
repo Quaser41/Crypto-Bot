@@ -1,5 +1,5 @@
 {
-  "balance": 993.9001760566629,
+  "balance": 993.6502370975555,
   "positions": {},
   "trade_history": [
     {
@@ -1357,18 +1357,40 @@
       },
       "order_id": null,
       "exit_order_id": null
+    },
+    {
+      "symbol": "SOL",
+      "entry_price": 206.35614999999999,
+      "exit_price": 203.98581,
+      "qty": 0.08985741955978532,
+      "pnl": -0.24988346624961721,
+      "reason": "Trailing Stop",
+      "entry_fee": 0.018561191856861115,
+      "exit_fee": 0.01832963851341265,
+      "confidence": 0.9337552785873413,
+      "label": 3,
+      "trail_triggered": true,
+      "duration": 7328.67,
+      "exit_momentum": {
+        "return_1d": -0.0010766896686732474,
+        "return_3d": 0.004873966128396967,
+        "rsi": 45.656023870304985,
+        "macd_hist": -0.04510341534761536
+      },
+      "order_id": null,
+      "exit_order_id": null
     }
   ],
-  "total_fees": 2.350840601384333,
+  "total_fees": 2.387731331857529,
   "trade_fee_pct": 0.001,
   "peak_equity": 1000.494392721223,
-  "drawdown_pct": 0.006590958142828422,
+  "drawdown_pct": 0.006840773594994562,
   "current_day": "2025-08-24",
   "daily_start_balance": 993.6909527152658,
-  "daily_loss_pct": 0.0,
-  "last_trade_time": 1756045159.556484,
+  "daily_loss_pct": 4.09741254048779e-05,
+  "last_trade_time": 1756084677.2620625,
   "last_trade_side": "BUY",
-  "last_trade_confidence": 0.785870373249054,
+  "last_trade_confidence": 0.9337552785873413,
   "trail_pct": 0.03,
   "trail_atr_mult": null
 }
