@@ -8,9 +8,9 @@ import analytics.performance as perf_utils
 
 def test_filter_candidates_enforces_thresholds():
     movers = [
-        ("id1", "AAA", "AAA Coin", 10.0),
-        ("id2", "BBB", "BBB Coin", 5.0),
-        ("id3", "CCC", "CCC Coin", 3.0),
+        ("id1", "AAA", "AAA Coin", 10.0, 2_000_000),
+        ("id2", "BBB", "BBB Coin", 5.0, 2_000_000),
+        ("id3", "CCC", "CCC Coin", 3.0, 2_000_000),
     ]
     performance = {
         # Meets both thresholds
@@ -27,8 +27,8 @@ def test_filter_candidates_enforces_thresholds():
 
 def test_filter_candidates_skips_blacklisted(monkeypatch):
     movers = [
-        ("id1", "AAA", "AAA Coin", 10.0),
-        ("id2", "BBB", "BBB Coin", 5.0),
+        ("id1", "AAA", "AAA Coin", 10.0, 2_000_000),
+        ("id2", "BBB", "BBB Coin", 5.0, 2_000_000),
     ]
     performance = {
         "AAA": {
@@ -60,7 +60,7 @@ def test_filter_candidates_skips_blacklisted(monkeypatch):
 
 
 def test_filter_candidates_respects_min_hold_bucket(monkeypatch):
-    movers = [("id1", "AAA", "AAA Coin", 10.0)]
+    movers = [("id1", "AAA", "AAA Coin", 10.0, 2_000_000)]
     performance = {
         "AAA": {
             "avg_pnl": MIN_SYMBOL_AVG_PNL + 0.1,
@@ -71,6 +71,20 @@ def test_filter_candidates_respects_min_hold_bucket(monkeypatch):
 
     monkeypatch.setattr(symbol_resolver, "MIN_HOLD_BUCKET", "30m-2h")
     monkeypatch.setattr(perf_utils, "is_blacklisted", lambda *a, **k: False)
+
+    result = filter_candidates(movers, set(), performance)
+    assert result == []
+
+
+def test_filter_candidates_skips_low_volume(monkeypatch):
+    movers = [("id1", "AAA", "AAA Coin", 10.0, 500)]
+    performance = {
+        "AAA": {
+            "avg_pnl": MIN_SYMBOL_AVG_PNL + 0.1,
+            "win_rate": MIN_SYMBOL_WIN_RATE + 10,
+        }
+    }
+    monkeypatch.setattr(symbol_resolver, "MIN_24H_VOLUME", 1000)
 
     result = filter_candidates(movers, set(), performance)
     assert result == []
