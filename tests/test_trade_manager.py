@@ -328,7 +328,7 @@ def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
     tm.close_trade('ABC', 100.5, reason='Take-Profit')
     assert tm.has_position('ABC')
 
-    tm.close_trade('ABC', 111.0, reason='Take-Profit')
+    tm.close_trade('ABC', 120.0, reason='Take-Profit')
     assert not tm.has_position('ABC')
 
 
@@ -364,7 +364,7 @@ def test_blacklist_skips_trade(monkeypatch):
 
 
 def test_fee_ratio_blacklist(monkeypatch):
-    tm = TradeManager(starting_balance=1000, hold_period_sec=10, min_hold_bucket="<1m")
+    tm = TradeManager(starting_balance=1000, hold_period_sec=10, min_hold_bucket="30m-2h")
     tm.risk_per_trade = 1.0
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -374,6 +374,6 @@ def test_fee_ratio_blacklist(monkeypatch):
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
-    # DOGE with <1m bucket has a positive PnL but excessive fee ratio in stats
-    tm.open_trade('DOGE', 10.0, confidence=1.0)
-    assert 'DOGE' not in tm.positions
+    # LINK in the 30m-2h bucket is blacklisted due to historical fee ratio
+    tm.open_trade('LINK', 10.0, confidence=1.0)
+    assert 'LINK' not in tm.positions

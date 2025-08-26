@@ -18,7 +18,7 @@ from config import (
     FEE_PCT,
     HOLDING_PERIOD_SECONDS,
     REVERSAL_CONF_DELTA,
-    MIN_PROFIT_FEE_RATIO,
+    MIN_PROFIT_FEE_RATIO,  # Higher profit-to-fee requirement
     CONFIDENCE_THRESHOLD,
     BLACKLIST_REFRESH_SEC,
     MIN_HOLD_BUCKET,
@@ -66,7 +66,7 @@ class TradeManager:
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
                  reverse_conf_delta=REVERSAL_CONF_DELTA,
-                 min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,
+                 min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,  # Enforce stricter profit threshold
                  trail_profit_fee_ratio=2.0,
                  exchange=None,
                  blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
