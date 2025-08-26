@@ -54,6 +54,24 @@ def test_allocation_scales_with_drawdown():
     assert alloc_dd15 == pytest.approx(expected_dd15)
 
 
+@pytest.mark.parametrize(
+    "pnl_history, expected_factor",
+    [
+        ([], 1.0),
+        ([-10], 1.0),
+        ([-10, -5], 0.8),
+        ([-10, -5, -2], 0.6),
+        ([-10, -5, -2, -1], 0.6),
+    ],
+)
+def test_allocation_scales_with_loss_streak(pnl_history, expected_factor):
+    tm = create_tm()
+    tm.closed_pnl_history = pnl_history
+    alloc = tm.calculate_allocation(confidence=1.0)
+    expected = tm.balance * tm.risk_per_trade * expected_factor
+    assert alloc == pytest.approx(expected)
+
+
 def test_open_trade_uses_atr_for_stops(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0

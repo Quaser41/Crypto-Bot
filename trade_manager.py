@@ -140,11 +140,28 @@ class TradeManager:
 
         Allocation is derived from a fixed fraction of equity (``risk_per_trade``)
         and optionally scaled by the model's confidence score to favor
-        higher-conviction entries.
+        higher-conviction entries.  Recent loss streaks further reduce the
+        allocation to slow down trading after consecutive losing trades.
         """
         base = self.balance * self.risk_per_trade
         if confidence is not None:
             base *= confidence
+
+        # Apply a penalty for consecutive losing trades based on recent
+        # closed-trade PnL history.  Count the number of negative PnL values
+        # starting from the most recent trade and scale the allocation
+        # accordingly.
+        loss_streak = 0
+        for pnl in reversed(self.closed_pnl_history):
+            if pnl < 0:
+                loss_streak += 1
+            else:
+                break
+
+        if loss_streak >= 3:
+            base *= 0.6
+        elif loss_streak >= 2:
+            base *= 0.8
 
         # Scale allocation based on current drawdown
         self._update_equity_metrics()
