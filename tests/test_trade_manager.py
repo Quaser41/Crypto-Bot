@@ -10,6 +10,8 @@ from config import (
     HOLDING_PERIOD_SECONDS,
     ALLOCATION_MAX_DD,
     ALLOCATION_MIN_FACTOR,
+    STAGNATION_THRESHOLD_PCT,
+    STAGNATION_DURATION_SEC,
 )
 
 
@@ -228,8 +230,8 @@ def test_stagnation_closes_position(monkeypatch):
     tm = TradeManager(
         starting_balance=1000,
         hold_period_sec=0,
-        stagnation_threshold_pct=0.005,
-        stagnation_duration_sec=10,
+        stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
+        stagnation_duration_sec=STAGNATION_DURATION_SEC,
         min_hold_bucket="<1m",
     )
     tm.risk_per_trade = 1.0
@@ -245,10 +247,10 @@ def test_stagnation_closes_position(monkeypatch):
     assert pos['entry_price'] == pytest.approx(100.0)
     assert pos['entry_time'] > 0
 
-    pos['entry_time'] -= 11
-    pos['last_movement_time'] -= 11
+    pos['entry_time'] -= STAGNATION_DURATION_SEC + 1
+    pos['last_movement_time'] -= STAGNATION_DURATION_SEC + 1
 
-    tm.manage('ABC', pos['entry_price'] * 1.001)
+    tm.manage('ABC', pos['entry_price'] * (1 + STAGNATION_THRESHOLD_PCT / 2))
     assert 'ABC' not in tm.positions
     assert tm.trade_history[-1]['reason'] == 'Stagnant Price'
 
