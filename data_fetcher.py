@@ -383,6 +383,27 @@ def resolve_coin_id(symbol, name):
 
     return None
 
+def _parse_volume(vol_str: str) -> float:
+    """Parse a volume string like "$1.2M" into a float."""
+    if not vol_str:
+        return 0.0
+    vol_str = vol_str.replace("$", "").replace(",", "").strip()
+    multiplier = 1
+    if vol_str.endswith("B"):
+        multiplier = 1_000_000_000
+        vol_str = vol_str[:-1]
+    elif vol_str.endswith("M"):
+        multiplier = 1_000_000
+        vol_str = vol_str[:-1]
+    elif vol_str.endswith("K"):
+        multiplier = 1_000
+        vol_str = vol_str[:-1]
+    try:
+        return float(vol_str) * multiplier
+    except ValueError:
+        return 0.0
+
+
 def get_top_gainers(limit=10):
     raw = extract_gainers()
     result = []
@@ -395,6 +416,8 @@ def get_top_gainers(limit=10):
         except ValueError:
             continue
 
+        volume = _parse_volume(g.get("volume", ""))
+
         # ✅ Check availability on Coinbase
         if not is_symbol_on_coinbase(symbol):
             continue
@@ -404,7 +427,7 @@ def get_top_gainers(limit=10):
         if not coin_id:
             continue
 
-        result.append((coin_id, symbol, name, change_pct))
+        result.append((coin_id, symbol, name, change_pct, volume))
 
         if len(result) >= limit:
             break

@@ -79,6 +79,12 @@ FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 
+# Price stagnation detection parameters. If price movement stays below
+# ``STAGNATION_THRESHOLD_PCT`` for ``STAGNATION_DURATION_SEC`` seconds, the
+# position will be closed.
+STAGNATION_THRESHOLD_PCT = float(os.getenv("STAGNATION_THRESHOLD_PCT", "0.005"))
+STAGNATION_DURATION_SEC = int(os.getenv("STAGNATION_DURATION_SEC", "1800"))
+
 # Allocation scaling parameters for drawdown control.
 ALLOCATION_MAX_DD = float(os.getenv("ALLOCATION_MAX_DD", "0.10"))
 ALLOCATION_MIN_FACTOR = float(os.getenv("ALLOCATION_MIN_FACTOR", "0.5"))
@@ -110,6 +116,10 @@ VERY_HIGH_CONF_BUY_OVERRIDE = float(os.getenv("VERY_HIGH_CONF_BUY_OVERRIDE", "0.
 
 # Minimum 7-day volatility required for a symbol to be considered.
 MIN_VOLATILITY_7D = float(os.getenv("MIN_VOLATILITY_7D", "0.0001"))
+
+# Minimum 24h trading volume (USD) required for a symbol to be considered.
+# Assets below this threshold are skipped to avoid illiquid markets.
+MIN_24H_VOLUME = float(os.getenv("MIN_24H_VOLUME", "1000000"))
 
 # Minimum historical win rate (%) required for symbols to be considered.
 # Default to 60% so underperforming assets are filtered out unless

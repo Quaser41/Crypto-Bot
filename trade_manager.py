@@ -25,7 +25,12 @@ from config import (
     EARLY_EXIT_FEE_MULT,
     ALLOCATION_MAX_DD,
     ALLOCATION_MIN_FACTOR,
+
     INCLUDE_UNREALIZED_PNL,
+
+    STAGNATION_THRESHOLD_PCT,
+    STAGNATION_DURATION_SEC,
+
 )
 
 from utils.logging import get_logger
@@ -81,6 +86,10 @@ class TradeManager:
                  stagnation_threshold_pct=0.005,
                  stagnation_duration_sec=30 * 60,
                  include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
+
+                 stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
+                 stagnation_duration_sec=STAGNATION_DURATION_SEC):
+
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -1124,6 +1133,7 @@ class TradeManager:
             "balance": self.balance,
             "positions": self.positions,
             "trade_history": self.trade_history,
+            "closed_pnl_history": self.closed_pnl_history,
             "total_fees": self.total_fees,
             "trade_fee_pct": self.trade_fee_pct,
             "peak_equity": self.peak_equity,
@@ -1150,6 +1160,7 @@ class TradeManager:
             self.balance = state.get("balance", self.starting_balance)
             self.positions = state.get("positions", {})
             self.trade_history = state.get("trade_history", [])
+            self.closed_pnl_history = state.get("closed_pnl_history", [])
             self.total_fees = state.get("total_fees", 0.0)
             self.trade_fee_pct = state.get("trade_fee_pct", self.trade_fee_pct)
             self.peak_equity = state.get("peak_equity", self.balance)

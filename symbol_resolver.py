@@ -1,7 +1,12 @@
 import requests
 
 from utils.logging import get_logger
-from config import MIN_SYMBOL_WIN_RATE, MIN_SYMBOL_AVG_PNL, MIN_HOLD_BUCKET
+from config import (
+    MIN_SYMBOL_WIN_RATE,
+    MIN_SYMBOL_AVG_PNL,
+    MIN_HOLD_BUCKET,
+    MIN_24H_VOLUME,
+)
 from analytics import performance as perf_utils
 
 logger = get_logger(__name__)
@@ -101,7 +106,7 @@ def filter_candidates(movers, open_symbols, performance):
     Parameters
     ----------
     movers : iterable
-        Sequence of tuples ``(coin_id, symbol, name, change)``.
+        Sequence of tuples ``(coin_id, symbol, name, change, volume)``.
     open_symbols : iterable
         Symbols that already have open positions and should be skipped.
     performance : dict
@@ -115,9 +120,15 @@ def filter_candidates(movers, open_symbols, performance):
     """
 
     candidates = []
-    for coin_id, symbol, name, _ in movers:
+    for coin_id, symbol, name, _, volume in movers:
         if symbol in open_symbols:
             logger.info(f"⏭️ Skipping {symbol} (already open trade)")
+            continue
+
+        if volume < MIN_24H_VOLUME:
+            logger.info(
+                f"⏭️ Skipping {symbol}: volume {volume:.0f} below {MIN_24H_VOLUME}"
+            )
             continue
 
         perf = performance.get(symbol)

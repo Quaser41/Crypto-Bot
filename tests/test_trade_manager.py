@@ -10,6 +10,8 @@ from config import (
     HOLDING_PERIOD_SECONDS,
     ALLOCATION_MAX_DD,
     ALLOCATION_MIN_FACTOR,
+    STAGNATION_THRESHOLD_PCT,
+    STAGNATION_DURATION_SEC,
 )
 
 
@@ -248,8 +250,8 @@ def test_stagnation_closes_position(monkeypatch):
     tm = TradeManager(
         starting_balance=1000,
         hold_period_sec=0,
-        stagnation_threshold_pct=0.005,
-        stagnation_duration_sec=10,
+        stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
+        stagnation_duration_sec=STAGNATION_DURATION_SEC,
         min_hold_bucket="<1m",
     )
     tm.risk_per_trade = 1.0
@@ -265,10 +267,10 @@ def test_stagnation_closes_position(monkeypatch):
     assert pos['entry_price'] == pytest.approx(100.0)
     assert pos['entry_time'] > 0
 
-    pos['entry_time'] -= 11
-    pos['last_movement_time'] -= 11
+    pos['entry_time'] -= STAGNATION_DURATION_SEC + 1
+    pos['last_movement_time'] -= STAGNATION_DURATION_SEC + 1
 
-    tm.manage('ABC', pos['entry_price'] * 1.001)
+    tm.manage('ABC', pos['entry_price'] * (1 + STAGNATION_THRESHOLD_PCT / 2))
     assert 'ABC' not in tm.positions
     assert tm.trade_history[-1]['reason'] == 'Stagnant Price'
 
@@ -443,6 +445,18 @@ def test_state_persists_trade_fee_pct(tmp_path):
     tm_loaded.STATE_FILE = tm.STATE_FILE
     tm_loaded.load_state()
     assert tm_loaded.trade_fee_pct == pytest.approx(0.01)
+
+
+def test_state_persists_closed_pnl_history(tmp_path):
+    tm = TradeManager(starting_balance=1000)
+    tm.closed_pnl_history = [5.0, -3.0]
+    tm.STATE_FILE = str(tmp_path / "state.json")
+    tm.save_state()
+
+    tm_loaded = TradeManager(starting_balance=1000)
+    tm_loaded.STATE_FILE = tm.STATE_FILE
+    tm_loaded.load_state()
+    assert tm_loaded.closed_pnl_history == [5.0, -3.0]
 
 
 def test_blacklist_skips_trade(monkeypatch):
