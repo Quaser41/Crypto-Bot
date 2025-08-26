@@ -82,6 +82,34 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     # Normalized MACD histogram
     df["MACD_Hist_norm"] = df["Hist"] / df["Close"]
 
+    # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
+    try:
+        agg = (
+            df.sort_values("Timestamp")
+            .set_index("Timestamp")["Close"]
+            .resample("4h")
+            .last()
+            .ffill()
+            .to_frame()
+        )
+        agg_sma = SMAIndicator(agg["Close"], window=20)
+        agg["SMA_4h"] = agg_sma.sma_indicator()
+        agg_macd = MACD(agg["Close"])
+        agg["MACD_4h"] = agg_macd.macd()
+        agg["Signal_4h"] = agg_macd.macd_signal()
+        agg["Hist_4h"] = agg_macd.macd_diff()
+        agg = agg[["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]].reset_index()
+        df = pd.merge_asof(
+            df.sort_values("Timestamp"),
+            agg.sort_values("Timestamp"),
+            on="Timestamp",
+            direction="backward",
+        )
+    except Exception as e:
+        logger.warning("⚠️ Failed to compute 4h aggregates: %s", e)
+        for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
+            df[col] = np.nan
+
     # ==== Merge sentiment and on-chain metrics ====
     df = df.sort_values("Timestamp")
 

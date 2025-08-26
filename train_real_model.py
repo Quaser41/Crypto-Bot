@@ -22,7 +22,8 @@ DEFAULT_FEATURES = [
     "SMA_20", "SMA_50",
     "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
     "Price_vs_SMA20", "Price_vs_SMA50",
-    "Volatility_7d", "MACD_Hist_norm"
+    "Volatility_7d", "MACD_Hist_norm",
+    "MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h"
 ]
 
 
