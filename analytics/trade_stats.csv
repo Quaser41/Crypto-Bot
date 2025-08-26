@@ -1,7 +1,7 @@
 symbol,duration_bucket,trade_count,win_rate,avg_pnl,fee_ratio
 DOGE,<1m,3,100.0,0.05,1.5
 ETH,<1m,3,33.33,-0.03,0.7453
-LINK,30m-2h,1,0.0,-0.03,6.519
+LINK,30m-2h,3,0.0,-0.03,6.519
 ETC,>2h,1,100.0,0.4,0.4706
 INJ,5-30m,3,0.0,-0.14,0.2042
 INJ,30m-2h,3,33.33,-0.11,0.2664
