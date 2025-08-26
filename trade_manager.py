@@ -32,6 +32,9 @@ logger = get_logger(__name__)
 # Order of duration buckets for comparison with ``MIN_HOLD_BUCKET``
 DURATION_BUCKETS = ["<1m", "1-5m", "5-30m", "30m-2h", ">2h"]
 
+# Max number of recent closed-trade PnL values to retain
+PNL_HISTORY_LIMIT = 20
+
 
 def _bucket_index(bucket: str) -> int:
     try:
@@ -119,6 +122,9 @@ class TradeManager:
         self.trade_history = []
         self.total_fees = 0.0
 
+        # Recent closed-trade PnL history
+        self.closed_pnl_history = []
+
     def has_position(self, symbol):
         return symbol in self.positions
 
@@ -135,7 +141,18 @@ class TradeManager:
         base = self.balance * self.risk_per_trade
         if confidence is not None:
             base *= confidence
-        return base
+
+        # Scale allocation based on current drawdown
+        self._update_equity_metrics()
+        dd = self.drawdown_pct
+        if dd <= 0:
+            factor = 1.0
+        else:
+            max_dd = 0.10
+            min_factor = 0.5
+            factor = max(min_factor, 1 - (dd / max_dd) * (1 - min_factor))
+
+        return base * factor
 
     def _estimate_rotation_gain(self, price, confidence, side="BUY", balance_override=None):
         """Estimate net profit of a prospective trade for rotation decisions."""
@@ -677,6 +694,11 @@ class TradeManager:
                 trade_record["rotation_candidate"] = candidate.get("symbol") if candidate else None
 
         self.trade_history.append(trade_record)
+
+        # Maintain short history of closed-trade PnL
+        self.closed_pnl_history.append(pnl)
+        if len(self.closed_pnl_history) > PNL_HISTORY_LIMIT:
+            self.closed_pnl_history.pop(0)
 
         logger.info(
             f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exec_price)} | "
