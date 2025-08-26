@@ -193,6 +193,35 @@ def test_close_trade_respects_hold_bucket(monkeypatch):
     assert not tm.has_position('ABC')
 
 
+def test_stagnation_closes_position(monkeypatch):
+    tm = TradeManager(
+        starting_balance=1000,
+        hold_period_sec=0,
+        stagnation_threshold_pct=0.005,
+        stagnation_duration_sec=10,
+        min_hold_bucket="<1m",
+    )
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 100.0, confidence=1.0)
+    pos = tm.positions['ABC']
+    assert pos['entry_price'] == pytest.approx(100.0)
+    assert pos['entry_time'] > 0
+
+    pos['entry_time'] -= 11
+    pos['last_movement_time'] -= 11
+
+    tm.manage('ABC', pos['entry_price'] * 1.001)
+    assert 'ABC' not in tm.positions
+    assert tm.trade_history[-1]['reason'] == 'Stagnant Price'
+
+
 def test_skips_trade_when_profit_insufficient(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0
