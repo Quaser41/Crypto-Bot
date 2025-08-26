@@ -25,6 +25,8 @@ from config import (
     EARLY_EXIT_FEE_MULT,
     ALLOCATION_MAX_DD,
     ALLOCATION_MIN_FACTOR,
+    STAGNATION_THRESHOLD_PCT,
+    STAGNATION_DURATION_SEC,
 )
 
 from utils.logging import get_logger
@@ -77,8 +79,8 @@ class TradeManager:
                  blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
                  min_hold_bucket=MIN_HOLD_BUCKET,
                  early_exit_fee_mult=EARLY_EXIT_FEE_MULT,
-                 stagnation_threshold_pct=0.005,
-                 stagnation_duration_sec=30 * 60):
+                 stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
+                 stagnation_duration_sec=STAGNATION_DURATION_SEC):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation

@@ -79,6 +79,12 @@ FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 
+# Price stagnation detection parameters. If price movement stays below
+# ``STAGNATION_THRESHOLD_PCT`` for ``STAGNATION_DURATION_SEC`` seconds, the
+# position will be closed.
+STAGNATION_THRESHOLD_PCT = float(os.getenv("STAGNATION_THRESHOLD_PCT", "0.005"))
+STAGNATION_DURATION_SEC = int(os.getenv("STAGNATION_DURATION_SEC", "1800"))
+
 # Allocation scaling parameters for drawdown control.
 ALLOCATION_MAX_DD = float(os.getenv("ALLOCATION_MAX_DD", "0.10"))
 ALLOCATION_MIN_FACTOR = float(os.getenv("ALLOCATION_MIN_FACTOR", "0.5"))
