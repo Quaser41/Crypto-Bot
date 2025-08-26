@@ -90,7 +90,10 @@ class TradeManager:
         self.early_exit_fee_mult = early_exit_fee_mult
 
         # Holding period and reversal requirements
-        self.min_hold_time = hold_period_sec
+        # Add a small buffer to the minimum hold time to better absorb
+        # slippage-induced execution delays.
+        extra_hold = max(1, int(hold_period_sec * self.slippage_pct)) if hold_period_sec > 0 else 0
+        self.min_hold_time = hold_period_sec + extra_hold
         self.reverse_conf_delta = reverse_conf_delta
         self.last_trade_time = 0.0
         self.last_trade_side = None
@@ -417,6 +420,8 @@ class TradeManager:
                 exec_price = price * (1 - self.slippage_pct)
             qty = net_allocation / exec_price
 
+        entry_slippage_pct = abs(exec_price - price) / price if price else 0
+
         if qty < 0.0001:
 
             logger.warning(f"⚠️ Trade qty too small for {symbol}, skipping")
@@ -433,7 +438,7 @@ class TradeManager:
         self.total_fees += entry_fee
 
         if atr_val and atr_val > 0:
-            sl_offset = self.atr_mult_sl * atr_val
+            sl_offset = self.atr_mult_sl * atr_val + exec_price * self.slippage_pct
             tp_offset = self.atr_mult_tp * atr_val
             if side == "SELL":
                 stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
@@ -446,7 +451,7 @@ class TradeManager:
             logger.warning(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
 
             tp_pct = self.take_profit_pct
-            sl_pct = self.stop_loss_pct
+            sl_pct = self.stop_loss_pct + self.slippage_pct
             if side == "SELL":
                 stop_loss = exec_price * (1 + sl_pct) * (1 + self.trade_fee_pct)
                 take_profit = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
@@ -469,10 +474,12 @@ class TradeManager:
             "last_movement_time": time.time(),
             "atr": atr_val,
             "order_id": order.get("order_id") if order else None,
+            "entry_slippage_pct": entry_slippage_pct,
         }
 
         msg = (
             f"🚀 OPEN {side.upper()} {symbol}: qty={qty:.4f} @ ${self.fmt_price(exec_price)} | "
+            f"Slippage {entry_slippage_pct * 100:.2f}% | "
             f"Allocated ${allocation:.2f} (fee ${entry_fee:.2f}) | Balance left ${self.balance:.2f} | "
             f"Label={label}"
         )
@@ -598,6 +605,8 @@ class TradeManager:
             else:
                 exec_price = current_price * (1 + self.slippage_pct)
 
+        slippage_pct = abs(exec_price - current_price) / current_price if current_price else 0
+
         entry_val = pos["entry_price"] * qty
         exit_val = exec_price * qty
 
@@ -655,6 +664,8 @@ class TradeManager:
             "exit_momentum": exit_momentum,
             "order_id": pos.get("order_id"),
             "exit_order_id": exit_order.get("order_id") if exit_order else None,
+            "entry_slippage_pct": pos.get("entry_slippage_pct"),
+            "exit_slippage_pct": slippage_pct,
         }
 
         if reason == "Rotated to better candidate":
@@ -669,7 +680,9 @@ class TradeManager:
 
         logger.info(
             f"🔐 CLOSE {symbol} | Exit ${self.fmt_price(exec_price)} | "
-            f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | Balance now ${self.balance:.2f}"
+            f"PnL: ${pnl:.2f} | Fee ${exit_fee:.2f} | "
+            f"Slippage {slippage_pct * 100:.2f}% | Duration {duration:.0f}s | "
+            f"Balance now ${self.balance:.2f}"
         )
         self.save_state()
 
