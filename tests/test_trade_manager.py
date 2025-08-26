@@ -32,6 +32,28 @@ def test_calculate_allocation():
     assert alloc == pytest.approx(50.0)
 
 
+def test_allocation_scales_with_drawdown():
+    tm = create_tm()
+
+    # At new equity highs, factor should be 1.0
+    alloc_high = tm.calculate_allocation(confidence=1.0)
+    assert alloc_high == pytest.approx(100.0)
+
+    # Simulate 5% drawdown
+    tm.balance = tm.peak_equity * 0.95
+    tm._update_equity_metrics()
+    alloc_dd5 = tm.calculate_allocation(confidence=1.0)
+    expected_dd5 = tm.balance * tm.risk_per_trade * 0.75
+    assert alloc_dd5 == pytest.approx(expected_dd5)
+
+    # Simulate drawdown exceeding 10%
+    tm.balance = tm.peak_equity * 0.85
+    tm._update_equity_metrics()
+    alloc_dd15 = tm.calculate_allocation(confidence=1.0)
+    expected_dd15 = tm.balance * tm.risk_per_trade * 0.5
+    assert alloc_dd15 == pytest.approx(expected_dd15)
+
+
 def test_open_trade_uses_atr_for_stops(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0
