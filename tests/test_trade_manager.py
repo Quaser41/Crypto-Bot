@@ -4,7 +4,13 @@ import numpy as np
 import logging
 
 from trade_manager import TradeManager
-from config import ATR_MULT_SL, MIN_PROFIT_FEE_RATIO, HOLDING_PERIOD_SECONDS
+from config import (
+    ATR_MULT_SL,
+    MIN_PROFIT_FEE_RATIO,
+    HOLDING_PERIOD_SECONDS,
+    ALLOCATION_MAX_DD,
+    ALLOCATION_MIN_FACTOR,
+)
 
 
 def create_tm():
@@ -39,19 +45,26 @@ def test_allocation_scales_with_drawdown():
     alloc_high = tm.calculate_allocation(confidence=1.0)
     assert alloc_high == pytest.approx(100.0)
 
-    # Simulate 5% drawdown
-    tm.balance = tm.peak_equity * 0.95
+    # Simulate drawdown below max threshold
+    dd_mid = ALLOCATION_MAX_DD / 2
+    tm.balance = tm.peak_equity * (1 - dd_mid)
     tm._update_equity_metrics()
-    alloc_dd5 = tm.calculate_allocation(confidence=1.0)
-    expected_dd5 = tm.balance * tm.risk_per_trade * 0.75
-    assert alloc_dd5 == pytest.approx(expected_dd5)
+    alloc_dd_mid = tm.calculate_allocation(confidence=1.0)
+    expected_factor_mid = max(
+        ALLOCATION_MIN_FACTOR,
+        1 - (dd_mid / ALLOCATION_MAX_DD) * (1 - ALLOCATION_MIN_FACTOR),
+    )
+    expected_dd_mid = tm.balance * tm.risk_per_trade * expected_factor_mid
+    assert alloc_dd_mid == pytest.approx(expected_dd_mid)
 
-    # Simulate drawdown exceeding 10%
-    tm.balance = tm.peak_equity * 0.85
+    # Simulate drawdown exceeding max threshold
+    dd_exceed = ALLOCATION_MAX_DD * 1.5
+    dd_exceed = min(dd_exceed, 0.99)
+    tm.balance = tm.peak_equity * (1 - dd_exceed)
     tm._update_equity_metrics()
-    alloc_dd15 = tm.calculate_allocation(confidence=1.0)
-    expected_dd15 = tm.balance * tm.risk_per_trade * 0.5
-    assert alloc_dd15 == pytest.approx(expected_dd15)
+    alloc_dd_exceed = tm.calculate_allocation(confidence=1.0)
+    expected_dd_exceed = tm.balance * tm.risk_per_trade * ALLOCATION_MIN_FACTOR
+    assert alloc_dd_exceed == pytest.approx(expected_dd_exceed)
 
 
 def test_open_trade_uses_atr_for_stops(monkeypatch):

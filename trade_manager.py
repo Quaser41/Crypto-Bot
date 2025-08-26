@@ -23,6 +23,8 @@ from config import (
     BLACKLIST_REFRESH_SEC,
     MIN_HOLD_BUCKET,
     EARLY_EXIT_FEE_MULT,
+    ALLOCATION_MAX_DD,
+    ALLOCATION_MIN_FACTOR,
 )
 
 from utils.logging import get_logger
@@ -152,9 +154,10 @@ class TradeManager:
         if dd <= 0:
             factor = 1.0
         else:
-            max_dd = 0.10
-            min_factor = 0.5
-            factor = max(min_factor, 1 - (dd / max_dd) * (1 - min_factor))
+            factor = max(
+                ALLOCATION_MIN_FACTOR,
+                1 - (dd / ALLOCATION_MAX_DD) * (1 - ALLOCATION_MIN_FACTOR),
+            )
 
         return base * factor
 
