@@ -25,6 +25,7 @@ from config import (
     EARLY_EXIT_FEE_MULT,
     ALLOCATION_MAX_DD,
     ALLOCATION_MIN_FACTOR,
+    INCLUDE_UNREALIZED_PNL,
 )
 
 from utils.logging import get_logger
@@ -78,7 +79,8 @@ class TradeManager:
                  min_hold_bucket=MIN_HOLD_BUCKET,
                  early_exit_fee_mult=EARLY_EXIT_FEE_MULT,
                  stagnation_threshold_pct=0.005,
-                 stagnation_duration_sec=30 * 60):
+                 stagnation_duration_sec=30 * 60,
+                 include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
         self.starting_balance = starting_balance
         self.balance = starting_balance
         self.max_allocation = max_allocation
@@ -116,6 +118,9 @@ class TradeManager:
 
         # Optional exchange adapter (paper or live trading)
         self.exchange = exchange
+
+        # Whether to factor open trade PnL into equity calculations
+        self.include_unrealized_pnl = include_unrealized_pnl
 
         # Equity tracking
         self.peak_equity = starting_balance
@@ -216,24 +221,40 @@ class TradeManager:
 
     def _update_equity_metrics(self):
         """Recalculate drawdown and daily loss percentages."""
+        equity = self.balance
+        if self.include_unrealized_pnl and self.positions:
+            for symbol, pos in self.positions.items():
+                price = fetch_live_price(symbol, pos.get("coin_id"))
+                if price is None or price <= 0:
+                    continue
+                qty = pos.get("qty", 0)
+                entry = pos.get("entry_price", 0)
+                if pos.get("side") == "SELL":
+                    unrealized = (entry - price) * qty
+                else:
+                    unrealized = (price - entry) * qty
+                equity += unrealized
+
         today = time.strftime("%Y-%m-%d")
         if self.current_day != today:
             self.current_day = today
-            self.daily_start_balance = self.balance
+            self.daily_start_balance = equity
             self.daily_loss_pct = 0.0
 
-        # Only update drawdown using realized equity when no open positions
-        if self.positions:
+        # In realized-only mode, defer drawdown updates until all trades closed
+        if not self.include_unrealized_pnl and self.positions:
             return
 
-        if self.balance > self.peak_equity:
-            self.peak_equity = self.balance
+        if equity > self.peak_equity:
+            self.peak_equity = equity
 
         if self.peak_equity > 0:
-            self.drawdown_pct = max(0.0, (self.peak_equity - self.balance) / self.peak_equity)
+            self.drawdown_pct = max(0.0, (self.peak_equity - equity) / self.peak_equity)
 
         if self.daily_start_balance > 0:
-            self.daily_loss_pct = max(0.0, (self.daily_start_balance - self.balance) / self.daily_start_balance)
+            self.daily_loss_pct = max(
+                0.0, (self.daily_start_balance - equity) / self.daily_start_balance
+            )
 
     def can_trade(self):
         """Return True if drawdown and daily loss are within limits."""

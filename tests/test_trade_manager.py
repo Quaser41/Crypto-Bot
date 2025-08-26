@@ -13,8 +13,8 @@ from config import (
 )
 
 
-def create_tm():
-    tm = TradeManager(starting_balance=1000, hold_period_sec=0, min_hold_bucket="<1m")
+def create_tm(include_unrealized=False):
+    tm = TradeManager(starting_balance=1000, hold_period_sec=0, min_hold_bucket="<1m", include_unrealized_pnl=include_unrealized)
     tm.risk_per_trade = 0.1
     tm.min_trade_usd = 0
     tm.slippage_pct = 0.0
@@ -65,6 +65,26 @@ def test_allocation_scales_with_drawdown():
     alloc_dd_exceed = tm.calculate_allocation(confidence=1.0)
     expected_dd_exceed = tm.balance * tm.risk_per_trade * ALLOCATION_MIN_FACTOR
     assert alloc_dd_exceed == pytest.approx(expected_dd_exceed)
+
+
+def test_unrealized_drawdown_reduces_allocation(monkeypatch):
+    tm = create_tm(include_unrealized=True)
+    tm.risk_per_trade = 0.1
+    tm.min_trade_usd = 0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+
+    # Price drops 50%, creating unrealized drawdown
+    monkeypatch.setattr('trade_manager.fetch_live_price', lambda *a, **k: 5.0)
+    alloc = tm.calculate_allocation(confidence=1.0)
+
+    expected = tm.balance * tm.risk_per_trade * ALLOCATION_MIN_FACTOR
+    assert alloc == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
