@@ -89,6 +89,10 @@ STAGNATION_DURATION_SEC = int(os.getenv("STAGNATION_DURATION_SEC", "1800"))
 ALLOCATION_MAX_DD = float(os.getenv("ALLOCATION_MAX_DD", "0.10"))
 ALLOCATION_MIN_FACTOR = float(os.getenv("ALLOCATION_MIN_FACTOR", "0.5"))
 
+# Include unrealized PnL from open positions when computing equity metrics.
+# Disabled by default to preserve legacy realized-only behavior.
+INCLUDE_UNREALIZED_PNL = os.getenv("INCLUDE_UNREALIZED_PNL", "0") == "1"
+
 # Number of bars to delay trade execution in backtests to model latency.
 EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
 
