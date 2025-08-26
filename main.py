@@ -124,8 +124,8 @@ def scan_for_breakouts():
         return
 
     logger.info("\n🔥 TOP GAINERS:")
-    for cid, sym, name, chg in movers:
-        logger.info(f" - {name} ({sym}) {chg:.2f}%")
+    for cid, sym, name, chg, vol in movers:
+        logger.info(f" - {name} ({sym}) {chg:.2f}% | vol {vol:,.0f}")
 
     candidates = []
     open_symbols = list(tm.positions.keys())

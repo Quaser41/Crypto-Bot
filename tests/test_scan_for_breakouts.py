@@ -48,7 +48,11 @@ def test_scan_for_breakouts_opens_trade(monkeypatch):
         summary=lambda: None,
     )
     monkeypatch.setattr(main, "tm", tm)
-    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)])
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
+    )
     monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: _mock_df())
     monkeypatch.setattr(main, "add_indicators", lambda d: d)
     monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
@@ -97,7 +101,11 @@ def test_scan_for_breakouts_skips_low_performance(monkeypatch):
     main.MIN_SYMBOL_WIN_RATE = 60
     main.MIN_SYMBOL_AVG_PNL = 0.05
 
-    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "BAD", "Bad", 10.0)])
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [("id1", "BAD", "Bad", 10.0, 1_000_000)],
+    )
 
     fetch_mock = MagicMock(side_effect=lambda *a, **k: _mock_df())
     monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch_mock)
@@ -119,7 +127,11 @@ def test_low_buy_override_threshold_allows_trade(monkeypatch):
         summary=lambda: None,
     )
     monkeypatch.setattr(main, "tm", tm)
-    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)])
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
+    )
     monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: _mock_df())
     monkeypatch.setattr(main, "add_indicators", lambda d: d)
 
@@ -151,7 +163,11 @@ def test_low_volatility_threshold_allows_trade(monkeypatch):
         summary=lambda: None,
     )
     monkeypatch.setattr(main, "tm", tm)
-    monkeypatch.setattr(main, "get_top_gainers", lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)])
+    monkeypatch.setattr(
+        main,
+        "get_top_gainers",
+        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
+    )
 
     def low_vol_df():
         df = _mock_df()
@@ -190,7 +206,7 @@ def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
     monkeypatch.setattr(
         main,
         "get_top_gainers",
-        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0)],
+        lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
     )
 
     def fetch(symbol, coin_id=None, days=10, limit=200):
@@ -237,14 +253,16 @@ def test_scan_for_breakouts_selects_uncorrelated_candidate(monkeypatch):
         main,
         "get_top_gainers",
         lambda limit=15: [
-            ("id1", "ABC", "ABC Coin", 10.0),
-            ("id2", "DEF", "DEF Coin", 8.0),
+            ("id1", "ABC", "ABC Coin", 10.0, 1_000_000),
+            ("id2", "DEF", "DEF Coin", 8.0, 1_000_000),
         ],
     )
     monkeypatch.setattr(
         main,
         "filter_candidates",
-        lambda movers, open_symbols, performance: [(cid, sym, name) for cid, sym, name, _ in movers],
+        lambda movers, open_symbols, performance: [
+            (cid, sym, name) for cid, sym, name, _, vol in movers
+        ],
     )
 
     def fetch(symbol, coin_id=None, days=10, limit=200):
