@@ -130,3 +130,37 @@ def test_add_indicators_skips_constant_price(monkeypatch, caplog):
 
     assert result.empty
     assert any('Volatility_7d is zero for all points' in r.message for r in caplog.records)
+
+
+def test_add_indicators_no_settingwithcopy_warning(monkeypatch):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    closes = np.concatenate([np.full(10, 100), np.linspace(101, 170, periods - 10)])
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': closes,
+        'High': closes + 1,
+        'Low': closes - 1,
+    })
+
+    sentiment = pd.DataFrame({
+        'Timestamp': dates,
+        'FearGreed': np.linspace(20, 80, periods)
+    })
+    onchain = pd.DataFrame({
+        'Timestamp': dates,
+        'TxVolume': np.linspace(1000, 2000, periods),
+        'ActiveAddresses': np.linspace(100, 200, periods)
+    })
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+
+    from pandas.errors import SettingWithCopyWarning
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', SettingWithCopyWarning)
+        result = add_indicators(df, min_rows=20)
+
+    assert not result.empty

@@ -83,17 +83,17 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if vol7.eq(0).any():
         zero_rows = df["Volatility_7d"] == 0
         logger.warning("⚠️ Dropping %d rows with zero Volatility_7d", zero_rows.sum())
-        df = df[~zero_rows]
+        df = df.loc[~zero_rows].copy()
 
     # Price deltas
-    df["Price_Change_3d"] = df["Close"] - df["Close"].shift(3)
+    df.loc[:, "Price_Change_3d"] = df["Close"] - df["Close"].shift(3)
 
     # Relative position vs SMAs
-    df["Price_vs_SMA20"] = (df["Close"] - df["SMA_20"]) / df["SMA_20"]
-    df["Price_vs_SMA50"] = (df["Close"] - df["SMA_50"]) / df["SMA_50"]
+    df.loc[:, "Price_vs_SMA20"] = (df["Close"] - df["SMA_20"]) / df["SMA_20"]
+    df.loc[:, "Price_vs_SMA50"] = (df["Close"] - df["SMA_50"]) / df["SMA_50"]
 
     # Normalized MACD histogram
-    df["MACD_Hist_norm"] = df["Hist"] / df["Close"]
+    df.loc[:, "MACD_Hist_norm"] = df["Hist"] / df["Close"]
 
     # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
     try:
