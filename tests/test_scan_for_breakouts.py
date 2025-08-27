@@ -260,7 +260,7 @@ def test_scan_for_breakouts_selects_uncorrelated_candidate(monkeypatch):
     monkeypatch.setattr(
         main,
         "filter_candidates",
-        lambda movers, open_symbols, performance: [
+        lambda movers, open_symbols, performance, **k: [
             (cid, sym, name) for cid, sym, name, _, vol in movers
         ],
     )

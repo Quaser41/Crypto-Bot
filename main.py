@@ -21,6 +21,7 @@ from config import (
     TRADING_MODE,
     MIN_SYMBOL_WIN_RATE,
     MIN_SYMBOL_AVG_PNL,
+    WIN_RATE_WEIGHT,
     SUPPRESS_CLASS1_CONF,
     HIGH_CONF_BUY_OVERRIDE,
     VERY_HIGH_CONF_BUY_OVERRIDE,
@@ -131,7 +132,9 @@ def scan_for_breakouts():
     open_symbols = list(tm.positions.keys())
     suppressed, fallbacks = 0, 0
 
-    fetch_meta = filter_candidates(movers, open_symbols, SYMBOL_PERFORMANCE)
+    fetch_meta = filter_candidates(
+        movers, open_symbols, SYMBOL_PERFORMANCE, win_rate_weight=WIN_RATE_WEIGHT
+    )
 
     logger.info("📡 Fetching OHLCV data for candidates...")
     ohlcvs = [

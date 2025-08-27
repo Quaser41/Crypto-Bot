@@ -6,6 +6,7 @@ from config import (
     MIN_SYMBOL_AVG_PNL,
     MIN_HOLD_BUCKET,
     MIN_24H_VOLUME,
+    WIN_RATE_WEIGHT,
 )
 from analytics import performance as perf_utils
 
@@ -100,7 +101,7 @@ def resolve_symbol_coinbase(base_asset):
     return COINBASE_SYMBOLS.get(base_asset.upper())
 
 
-def filter_candidates(movers, open_symbols, performance):
+def filter_candidates(movers, open_symbols, performance, win_rate_weight=WIN_RATE_WEIGHT):
     """Filter mover list using historical performance thresholds.
 
     Parameters
@@ -116,7 +117,8 @@ def filter_candidates(movers, open_symbols, performance):
     -------
     list
         Filtered list of tuples ``(coin_id, symbol, name)`` for further
-        processing.
+        processing. Candidates are ordered by a weighted score combining win
+        rate and average PnL.
     """
 
     candidates = []
@@ -161,4 +163,11 @@ def filter_candidates(movers, open_symbols, performance):
 
         candidates.append((coin_id, symbol, name))
 
-    return candidates
+    def _score(item):
+        _, sym, _ = item
+        perf = performance.get(sym, {})
+        win = perf.get("win_rate", 0) / 100
+        pnl = perf.get("avg_pnl", 0)
+        return win_rate_weight * win + (1 - win_rate_weight) * pnl
+
+    return sorted(candidates, key=_score, reverse=True)
