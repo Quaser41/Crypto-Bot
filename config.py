@@ -85,6 +85,14 @@ MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 STAGNATION_THRESHOLD_PCT = float(os.getenv("STAGNATION_THRESHOLD_PCT", "0.005"))
 STAGNATION_DURATION_SEC = int(os.getenv("STAGNATION_DURATION_SEC", "1800"))
 
+# Optional volatility multipliers for dynamic exit behaviour. ``TRAIL_VOL_MULT``
+# scales the trailing-stop distance based on recent price volatility while
+# ``ADAPTIVE_STAGNATION`` enables scaling of stagnation thresholds/durations
+# using ``STAGNATION_VOL_MULT``.
+TRAIL_VOL_MULT = float(os.getenv("TRAIL_VOL_MULT", "1.0"))
+ADAPTIVE_STAGNATION = os.getenv("ADAPTIVE_STAGNATION", "0") == "1"
+STAGNATION_VOL_MULT = float(os.getenv("STAGNATION_VOL_MULT", "1.0"))
+
 # Allocation scaling parameters for drawdown control.
 ALLOCATION_MAX_DD = float(os.getenv("ALLOCATION_MAX_DD", "0.10"))
 ALLOCATION_MIN_FACTOR = float(os.getenv("ALLOCATION_MIN_FACTOR", "0.5"))
