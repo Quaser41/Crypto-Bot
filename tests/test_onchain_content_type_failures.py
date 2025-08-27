@@ -37,7 +37,7 @@ def test_fetch_onchain_metrics_html_response(monkeypatch, tmp_path, caplog):
     assert not df.empty
     assert "Non-JSON response" in caplog.text
     assert len(calls) == 2
-    assert all("api.blockchain.info/charts" in url for url, _ in calls)
+    assert all("api.blockchain.com/charts" in url for url, _ in calls)
     assert all(p.get("cors") == "true" and p.get("format") == "json" for _, p in calls)
 
 
@@ -68,5 +68,5 @@ def test_fetch_onchain_metrics_invalid_json(monkeypatch, tmp_path, caplog):
     assert not df.empty
     assert "JSON decode error" in caplog.text
     assert len(calls) == 2
-    assert all("api.blockchain.info/charts" in url for url, _ in calls)
+    assert all("api.blockchain.com/charts" in url for url, _ in calls)
     assert all(p.get("cors") == "true" and p.get("format") == "json" for _, p in calls)

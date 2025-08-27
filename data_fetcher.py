@@ -68,13 +68,12 @@ def fetch_onchain_metrics(days=14):
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
     # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
-    # history to request.  Older ``api.blockchain.com`` and
-    # ``api.blockchain.info`` domains have been deprecated in favour of the
-    # primary ``blockchain.info`` chart API. Users may override the base URL via
-    # ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass ``format=json`` to ensure
-    # a JSON payload is returned.
+    # history to request. The legacy ``api.blockchain.info`` domain has been
+    # deprecated in favour of ``api.blockchain.com``. Users may override the base
+    # URL via ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass ``format=json`` to
+    # ensure a JSON payload is returned.
     base_url = os.getenv(
-        "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.info/charts"
+        "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.com/charts"
     )
     tx_url = f"{base_url}/n-transactions"
     active_url = f"{base_url}/active-addresses"
@@ -84,7 +83,13 @@ def fetch_onchain_metrics(days=14):
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
 
     def _fetch_chart(url: str):
-        """Fetch a Blockchain.com chart and ensure the response is JSON."""
+        """Fetch a Blockchain.com chart and ensure the response is JSON.
+
+        Returns a minimal placeholder chart ``{"values": []}`` whenever the
+        underlying request fails (e.g. 404 or invalid JSON) so that callers can
+        gracefully fall back to default data.
+        """
+
         data = safe_request(
             url,
             params=params,
@@ -92,12 +97,24 @@ def fetch_onchain_metrics(days=14):
             backoff_on_429=False,
             headers=headers,
         )
+
         if data is None:
+            # ``safe_request`` logs the initial 404; avoid re-fetching/logging for
+            # that case by checking the global ``SEEN_404_URLS`` cache.
+            if url in SEEN_404_URLS:
+                return {"values": []}
+
             try:
                 resp = requests.get(url, params=params, headers=headers, timeout=10)
+                status = resp.status_code
                 ctype = resp.headers.get("content-type", "")
                 snippet = resp.text[:200].replace("\n", " ")
-                if url not in SEEN_NON_JSON_URLS:
+
+                if status == 404:
+                    if url not in SEEN_404_URLS:
+                        SEEN_404_URLS.add(url)
+                        logger.warning(f"⚠️ 404 Not Found {url}")
+                elif url not in SEEN_NON_JSON_URLS:
                     SEEN_NON_JSON_URLS.add(url)
                     if "application/json" not in ctype.lower():
                         logger.warning(
@@ -112,7 +129,11 @@ def fetch_onchain_metrics(days=14):
                         except json.JSONDecodeError as e:
                             logger.warning(f"⚠️ JSON decode error for {url}: {e}")
             except Exception as e:  # pragma: no cover - network exceptions
-                logger.warning(f"⚠️ Exception fetching {url} for inspection: {e}")
+                if url not in SEEN_NON_JSON_URLS:
+                    logger.warning(f"⚠️ Exception fetching {url} for inspection: {e}")
+
+            return {"values": []}
+
         return data
 
     tx_data = _fetch_chart(tx_url)
@@ -175,13 +196,17 @@ def fetch_onchain_metrics(days=14):
         return df[["Timestamp", col]]
 
     missing = False
-    if tx_data and ("values" in tx_data or "data" in tx_data):
+    if tx_data and (
+        ("values" in tx_data and tx_data["values"]) or ("data" in tx_data and tx_data["data"])
+    ):
         df_tx = _parse_blockchain_chart(tx_data, "TxVolume")
     else:
         df_tx = _default_df("TxVolume")
         missing = True
 
-    if active_data and ("values" in active_data or "data" in active_data):
+    if active_data and (
+        ("values" in active_data and active_data["values"]) or ("data" in active_data and active_data["data"])
+    ):
         df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
     else:
         df_active = _default_df("ActiveAddresses")
