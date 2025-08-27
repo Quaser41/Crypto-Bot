@@ -38,3 +38,29 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
     assert 'SMA_4h' in result.columns
     assert result['MACD_4h'].notna().all()
     assert result['SMA_4h'].notna().all()
+
+
+def test_add_indicators_handles_all_nan_onchain(monkeypatch):
+    periods = 120
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 220, periods),
+        'High': np.linspace(101, 221, periods),
+        'Low': np.linspace(99, 219, periods)
+    })
+
+    sentiment = pd.DataFrame({
+        'Timestamp': dates,
+        'FearGreed': np.linspace(20, 80, periods)
+    })
+    onchain = pd.DataFrame({
+        'Timestamp': dates,
+        'UnknownMetric': [np.nan] * periods
+    })
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+
+    result = add_indicators(df)
+    assert len(result) >= 60

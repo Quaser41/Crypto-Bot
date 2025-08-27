@@ -136,7 +136,8 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
         for col in ["TxVolume", "ActiveAddresses"]:
-            df[col] = df[col].ffill().bfill()
+            if col in df.columns:
+                df[col] = df[col].ffill().bfill()
         if "TxVolume" in df.columns:
             std = df["TxVolume"].std()
             df["TxVolume_norm"] = (
@@ -168,7 +169,23 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         tier_counts = df["Momentum_Tier"].value_counts(dropna=False)
         logger.info("Momentum tier distribution:\n%s", tier_counts.to_string())
 
-    df = df.dropna()
+    # Drop columns that are entirely NaN (e.g., failed on-chain metrics)
+    all_nan_cols = [col for col in df.columns if df[col].isna().all()]
+    if all_nan_cols:
+        logger.debug("Dropping all-NaN columns: %s", all_nan_cols)
+        df = df.drop(columns=all_nan_cols)
+
+    # Only drop rows missing essential indicators
+    essential_cols = [
+        "Close",
+        "RSI",
+        "MACD",
+        "Signal",
+        "SMA_20",
+        "SMA_50",
+    ]
+    subset_cols = [c for c in essential_cols if c in df.columns]
+    df = df.dropna(subset=subset_cols)
     remaining = df.shape[0]
     if remaining < min_rows:
         logger.warning(
