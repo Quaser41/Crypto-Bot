@@ -131,6 +131,10 @@ VERY_HIGH_CONF_BUY_OVERRIDE = float(os.getenv("VERY_HIGH_CONF_BUY_OVERRIDE", "0.
 # Minimum 7-day volatility required for a symbol to be considered.
 MIN_VOLATILITY_7D = float(os.getenv("MIN_VOLATILITY_7D", "0.0001"))
 
+# Maximum allowed price correlation between a candidate and any open position.
+# Symbols exceeding this threshold will be skipped.
+CORRELATION_THRESHOLD = float(os.getenv("CORRELATION_THRESHOLD", "0.8"))
+
 # Minimum 24h trading volume (USD) required for a symbol to be considered.
 # Assets below this threshold are skipped to avoid illiquid markets.
 MIN_24H_VOLUME = float(os.getenv("MIN_24H_VOLUME", "1000000"))

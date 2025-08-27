@@ -32,6 +32,7 @@ from config import (
     VERY_HIGH_CONF_BUY_OVERRIDE,
     MIN_VOLATILITY_7D,
     HOLDING_PERIOD_SECONDS,
+    CORRELATION_THRESHOLD,
 )
 from exchange_adapter import BinancePaperTradeAdapter
 from threshold_utils import get_dynamic_threshold
@@ -60,8 +61,8 @@ ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
 # Protects access to the rotation audit log
 ROTATION_AUDIT_LOCK = threading.Lock()
-# Correlation filter threshold for new candidates
-CORRELATION_THRESHOLD = 0.8
+# Correlation filter threshold for new candidates (imported from config)
+# CORRELATION_THRESHOLD is imported above
 
 # Momentum tier mapping for gating logic
 TIER_RANKS = {"Tier 1": 1, "Tier 2": 2, "Tier 3": 3, "Tier 4": 4}
