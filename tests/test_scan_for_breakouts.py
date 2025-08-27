@@ -4,6 +4,7 @@ import types
 from unittest.mock import MagicMock
 
 import os
+import config
 import pandas as pd
 import threading
 
@@ -190,6 +191,7 @@ def test_low_volatility_threshold_allows_trade(monkeypatch):
 
 
 def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
+    monkeypatch.setattr(config, "CORRELATION_THRESHOLD", 0.8)
     main = _reload_main(monkeypatch)
 
     tm = types.SimpleNamespace(
@@ -237,6 +239,7 @@ def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
 
 
 def test_scan_for_breakouts_selects_uncorrelated_candidate(monkeypatch):
+    monkeypatch.setattr(config, "CORRELATION_THRESHOLD", 0.8)
     main = _reload_main(monkeypatch)
 
     tm = types.SimpleNamespace(
