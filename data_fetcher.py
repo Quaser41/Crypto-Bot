@@ -521,7 +521,7 @@ def is_symbol_on_coinbase(symbol):
 # =========================================================
 # ✅ MULTI-SOURCE OHLCV FETCHING
 # =========================================================
-DATA_SOURCES = ["coinbase", "coingecko", "dexscreener"]
+DATA_SOURCES = ["coinbase", "yfinance", "coingecko", "dexscreener"]
 
 
 def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
@@ -549,7 +549,9 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
 
             elif source == "yfinance":
                 logger.info(f"⚡ Trying YFinance for {symbol}")
-                df = fetch_from_yfinance(symbol, days=params.get("days", 1))
+                df = fetch_from_yfinance(
+                    symbol, interval=interval, days=params.get("days", 1)
+                )
                 if not df.empty:
                     save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
@@ -793,26 +795,42 @@ def fetch_dexscreener_ohlcv(symbol):
     return pd.DataFrame({"Timestamp": [ts], "Close": [price]})
 
 
-#def fetch_from_yfinance(symbol, days=10):
+def fetch_from_yfinance(symbol, interval="1h", days=10):
     yf_candidates = [
         f"{symbol.upper()}-USD",
         f"{symbol.upper()}-CRYPTO",
-        f"{symbol.upper()}"
+        f"{symbol.upper()}",
     ]
+    interval_map = {
+        "1m": "1m",
+        "5m": "5m",
+        "15m": "15m",
+        "30m": "30m",
+        "1h": "1h",
+        "1d": "1d",
+    }
+    yf_interval = interval_map.get(interval, "1h")
 
     for yf_symbol in yf_candidates:
         try:
             logger.info(f"🔎 Trying yfinance ticker: {yf_symbol}")
-            df = yf.download(yf_symbol, period=f"{days}d", interval="1h", progress=False)
-
+            df = yf.download(
+                yf_symbol, period=f"{days}d", interval=yf_interval, progress=False
+            )
             if not df.empty and "Close" in df.columns and df["Close"].dropna().shape[0] > 0:
-                df = df.rename(columns={
-                    "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume"
-                })[["Open", "High", "Low", "Close", "Volume"]]
-                df.reset_index(drop=True, inplace=True)
+                df = df.rename(
+                    columns={
+                        "Open": "Open",
+                        "High": "High",
+                        "Low": "Low",
+                        "Close": "Close",
+                        "Volume": "Volume",
+                    }
+                )[["Open", "High", "Low", "Close", "Volume"]]
+                df = df.rename_axis("Timestamp").reset_index()
+                df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
                 logger.info(f"✅ YFinance data loaded for {yf_symbol}")
                 return df
-
         except Exception as e:
             logger.warning(f"⚠️ Failed for {yf_symbol}: {e}")
 
