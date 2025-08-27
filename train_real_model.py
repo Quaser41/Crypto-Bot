@@ -12,7 +12,7 @@ import data_fetcher
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
@@ -23,9 +23,9 @@ from utils.logging import get_logger
 logger = get_logger(__name__)
 
 try:
-    from imblearn.over_sampling import SMOTE, ADASYN
+    from imblearn.over_sampling import SMOTE, ADASYN, BorderlineSMOTE
 except ImportError:  # pragma: no cover - handled gracefully at runtime
-    SMOTE = ADASYN = None
+    SMOTE = ADASYN = BorderlineSMOTE = None
     logger.warning(
         "imbalanced-learn is not installed. Run 'pip install imbalanced-learn' to enable oversampling"
     )
@@ -86,6 +86,7 @@ def prepare_training_data(
     coin_id,
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
+    augment_target: int = 50,
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -93,13 +94,18 @@ def prepare_training_data(
     ----------
     symbol, coin_id: str
         Asset identifiers used for data fetching.
-    oversampler: {"smote", "adasyn"}, optional
+    oversampler: {"smote", "adasyn", "borderline"}, optional
         Technique for oversampling minority classes.  ``None`` disables
         oversampling.
     min_unique_samples: int, default ``3``
         Minimum number of unique rows required in a class before simple
         resampling. Classes with fewer unique samples are dropped to avoid
-        training on duplicated data. When fewer than 60 historical rows are
+
+        training on duplicated data.
+    augment_target: int, default ``50``
+        Target size for minority classes during augmentation.
+
+        When fewer than 60 historical rows are
         available, the threshold is lowered by one after retrying additional
         data sources.
     """
@@ -187,10 +193,10 @@ def prepare_training_data(
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
-    # Optional oversampling with SMOTE/ADASYN
+    # Optional oversampling with SMOTE variants
     class_counts = y.value_counts()
-    rare_classes = [cls for cls, cnt in class_counts.items() if cnt < 50]
-    if oversampler in {"smote", "adasyn"} and rare_classes:
+    rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
+    if oversampler in {"smote", "adasyn", "borderline"} and rare_classes:
         if SMOTE is None:
             logger.warning(
                 "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -198,8 +204,15 @@ def prepare_training_data(
             )
         else:
             try:
-                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
-                strategy = {cls: 50 for cls in rare_classes if class_counts[cls] > 1}
+                sampler_map = {
+                    "smote": SMOTE,
+                    "adasyn": ADASYN,
+                    "borderline": BorderlineSMOTE,
+                }
+                sampler_cls = sampler_map[oversampler]
+                strategy = {
+                    cls: augment_target for cls in rare_classes if class_counts[cls] > 1
+                }
                 if strategy:
                     sampler = sampler_cls(
                         random_state=42, sampling_strategy=strategy
@@ -213,7 +226,7 @@ def prepare_training_data(
     # Fallback simple resampling for remaining minority classes
     class_counts = y.value_counts()
     for cls, cnt in class_counts.items():
-        target = min(50, 2 * cnt)
+        target = min(augment_target, 2 * cnt)
         if cnt < target:
             logger.info(
                 "⚠️ Class %d has %d samples; augmenting to reach %d", cls, cnt, target
@@ -316,7 +329,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
         y_tr = fold_le.fit_transform(y_tr_raw)
         y_val = fold_le.transform(y_val_raw)
 
-        if oversampler in {"smote", "adasyn"}:
+        if oversampler in {"smote", "adasyn", "borderline"}:
             if SMOTE is None:
                 logger.warning(
                     "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -324,7 +337,12 @@ def train_model(X, y, oversampler: Optional[str] = None):
                 )
             else:
                 try:
-                    sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                    sampler_map = {
+                        "smote": SMOTE,
+                        "adasyn": ADASYN,
+                        "borderline": BorderlineSMOTE,
+                    }
+                    sampler_cls = sampler_map[oversampler]
                     sampler = sampler_cls(random_state=42)
                     X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
                     logger.info(
@@ -383,7 +401,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
 
     # === Optional oversampling before final training ===
-    if oversampler in {"smote", "adasyn"}:
+    if oversampler in {"smote", "adasyn", "borderline"}:
         if SMOTE is None:
             logger.warning(
                 "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -391,7 +409,12 @@ def train_model(X, y, oversampler: Optional[str] = None):
             )
         else:
             try:
-                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                sampler_map = {
+                    "smote": SMOTE,
+                    "adasyn": ADASYN,
+                    "borderline": BorderlineSMOTE,
+                }
+                sampler_cls = sampler_map[oversampler]
                 sampler = sampler_cls(random_state=42)
                 X_train, y_train = sampler.fit_resample(X_train, y_train)
                 logger.info(
@@ -404,7 +427,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
-    # === Final model training with class weights ===
+    # === Final model training with class weights & hyperparameter search ===
     sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
     class_weights = (
         pd.Series(sample_weights, index=y_train)
@@ -414,24 +437,46 @@ def train_model(X, y, oversampler: Optional[str] = None):
     )
     logger.info("⚖️ Class weights: %s", class_weights)
 
-    model = XGBClassifier(
-        n_estimators=200,
-        max_depth=4,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        objective='multi:softprob',
-        num_class=len(le.classes_),
-        random_state=42,
-        eval_metric='mlogloss'
+    param_grid = {
+        "n_estimators": [100, 200],
+        "max_depth": [3, 4, 5],
+        "learning_rate": [0.01, 0.05, 0.1],
+        "subsample": [0.8, 1.0],
+        "colsample_bytree": [0.8, 1.0],
+    }
+    grid = GridSearchCV(
+        XGBClassifier(
+            objective="multi:softprob",
+            num_class=len(le.classes_),
+            random_state=42,
+            eval_metric="mlogloss",
+        ),
+        param_grid,
+        scoring="f1_macro",
+        cv=TimeSeriesSplit(n_splits=n_splits),
+        n_jobs=-1,
+        refit=True,
+    )
+    grid.fit(X_train, y_train, sample_weight=sample_weights)
+    model = grid.best_estimator_
+    logger.info(
+        "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
     )
 
-    model.fit(X_train, y_train, sample_weight=sample_weights)
     preds = model.predict(X_test)
 
     labels_sorted = sorted(np.unique(np.concatenate([y_test, preds])))
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
 
+    report_dict = classification_report(
+        y_test,
+        preds,
+        labels=labels_sorted,
+        target_names=target_names,
+        digits=3,
+        zero_division=0,
+        output_dict=True,
+    )
     report = classification_report(
         y_test,
         preds,
@@ -448,12 +493,22 @@ def train_model(X, y, oversampler: Optional[str] = None):
         "📊 Prediction distribution: %s", pd.Series(preds).value_counts().sort_index()
     )
 
+    metrics_summary = {
+        "macro_f1": report_dict["macro avg"]["f1-score"],
+        "per_class_recall": {
+            name: report_dict[str(lbl)]["recall"]
+            for name, lbl in zip(target_names, labels_sorted)
+        },
+    }
+
     os.makedirs("analytics", exist_ok=True)
     pd.DataFrame(cm, index=target_names, columns=target_names).to_csv(
         os.path.join("analytics", "confusion_matrix.csv"), index_label="actual"
     )
     with open(os.path.join("analytics", "classification_report.txt"), "w") as f:
         f.write(report)
+    with open(os.path.join("analytics", "metrics_summary.json"), "w") as f:
+        json.dump(metrics_summary, f, indent=2)
     logger.info("📁 Saved diagnostics to analytics/")
 
     return model, le.classes_
@@ -462,7 +517,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train crypto classifier")
     parser.add_argument(
         "--oversampler",
-        choices=["smote", "adasyn"],
+        choices=["smote", "adasyn", "borderline"],
         default="smote",
         help="Apply oversampling technique to minority classes",
     )
@@ -471,6 +526,12 @@ def main():
         type=int,
         default=3,
         help="Minimum unique rows required per class before resampling",
+    )
+    parser.add_argument(
+        "--augment-target",
+        type=int,
+        default=50,
+        help="Target sample size for minority classes during augmentation",
     )
     args = parser.parse_args()
 
@@ -508,6 +569,7 @@ def main():
             coin_id,
             oversampler=None,
             min_unique_samples=args.min_unique_samples,
+            augment_target=args.augment_target,
         )
         if X is not None and y is not None:
             X_list.append(X)
