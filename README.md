@@ -31,7 +31,11 @@ This repository contains utilities for analyzing cryptocurrency markets and auto
 
 To enable machine-learning based predictions you can train an XGBoost model:
 
-1. Ensure TA-Lib and the required Python packages (e.g., `xgboost`, `pandas`) are installed.
+1. Install the Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   Ensure the TA-Lib library is installed before running this command.
 2. Run the training script:
    ```bash
    python train_real_model.py
