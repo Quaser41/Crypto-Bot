@@ -7,6 +7,7 @@ This repository contains utilities for analyzing cryptocurrency markets and auto
 - Python 3.10+
 - Google Chrome or Chromium and the matching ChromeDriver for features that rely on Selenium (e.g., scraping CoinMarketCap). Ensure both are installed and available on your `PATH`; otherwise, scraping features will return no data.
 - TA-Lib C library.
+- imbalanced-learn>=0.11 for optional SMOTE/ADASYN oversampling.
 
 ## Installation
 
@@ -41,7 +42,8 @@ To enable machine-learning based predictions you can train an XGBoost model:
 ### Handling Class Imbalance
 
 The training pipeline now applies **SMOTE** oversampling by default to
-improve recall for rare classes.  You can switch to **ADASYN** with:
+improve recall for rare classes. It relies on the [`imbalanced-learn`](https://imbalanced-learn.org/) package,
+which is installed via `requirements.txt`. You can switch to **ADASYN** with:
 
 ```bash
 python train_real_model.py --oversampler adasyn

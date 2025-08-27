@@ -20,6 +20,14 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+try:
+    from imblearn.over_sampling import SMOTE, ADASYN
+except ImportError:  # pragma: no cover - handled gracefully at runtime
+    SMOTE = ADASYN = None
+    logger.warning(
+        "imbalanced-learn is not installed. Run 'pip install imbalanced-learn' to enable oversampling"
+    )
+
 # === Feature configuration ===
 DEFAULT_FEATURES = [
     "RSI", "MACD", "Signal", "Hist",
@@ -137,18 +145,24 @@ def prepare_training_data(
     class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < 50]
     if oversampler in {"smote", "adasyn"} and rare_classes:
-        try:
-            from imblearn.over_sampling import SMOTE, ADASYN
-
-            sampler_cls = SMOTE if oversampler == "smote" else ADASYN
-            strategy = {cls: 50 for cls in rare_classes if class_counts[cls] > 1}
-            if strategy:
-                sampler = sampler_cls(random_state=42, sampling_strategy=strategy)
-                X, y = sampler.fit_resample(X, y)
-                class_counts = y.value_counts()
-                logger.info("📈 Applied %s oversampling", oversampler.upper())
-        except Exception as e:
-            logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
+        if SMOTE is None:
+            logger.warning(
+                "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
+                oversampler,
+            )
+        else:
+            try:
+                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                strategy = {cls: 50 for cls in rare_classes if class_counts[cls] > 1}
+                if strategy:
+                    sampler = sampler_cls(
+                        random_state=42, sampling_strategy=strategy
+                    )
+                    X, y = sampler.fit_resample(X, y)
+                    class_counts = y.value_counts()
+                    logger.info("📈 Applied %s oversampling", oversampler.upper())
+            except Exception as e:
+                logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
     # Fallback simple resampling for remaining minority classes
     class_counts = y.value_counts()
@@ -250,19 +264,23 @@ def train_model(X, y, oversampler: Optional[str] = None):
         y_val = fold_le.transform(y_val_raw)
 
         if oversampler in {"smote", "adasyn"}:
-            try:
-                from imblearn.over_sampling import ADASYN, SMOTE
-
-                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
-                sampler = sampler_cls(random_state=42)
-                X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
-                logger.info(
-                    "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
-                )
-            except Exception as e:
+            if SMOTE is None:
                 logger.warning(
-                    "⚠️ Fold %d %s oversampling failed: %s", fold, oversampler, e
+                    "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
+                    oversampler,
                 )
+            else:
+                try:
+                    sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                    sampler = sampler_cls(random_state=42)
+                    X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
+                    logger.info(
+                        "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "⚠️ Fold %d %s oversampling failed: %s", fold, oversampler, e
+                    )
 
         present_classes = set(y_tr_raw.unique())
         missing_classes = set(le.classes_) - present_classes
@@ -313,19 +331,25 @@ def train_model(X, y, oversampler: Optional[str] = None):
 
     # === Optional oversampling before final training ===
     if oversampler in {"smote", "adasyn"}:
-        try:
-            from imblearn.over_sampling import ADASYN, SMOTE
-
-            sampler_cls = SMOTE if oversampler == "smote" else ADASYN
-            sampler = sampler_cls(random_state=42)
-            X_train, y_train = sampler.fit_resample(X_train, y_train)
-            logger.info("📈 Applied %s oversampling to training set", oversampler.upper())
-            logger.info(
-                "📊 Post-oversampling class distribution: %s",
-                pd.Series(y_train).value_counts().sort_index(),
+        if SMOTE is None:
+            logger.warning(
+                "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
+                oversampler,
             )
-        except Exception as e:
-            logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
+        else:
+            try:
+                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                sampler = sampler_cls(random_state=42)
+                X_train, y_train = sampler.fit_resample(X_train, y_train)
+                logger.info(
+                    "📈 Applied %s oversampling to training set", oversampler.upper()
+                )
+                logger.info(
+                    "📊 Post-oversampling class distribution: %s",
+                    pd.Series(y_train).value_counts().sort_index(),
+                )
+            except Exception as e:
+                logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
     # === Final model training with class weights ===
     sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
