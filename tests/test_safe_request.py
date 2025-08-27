@@ -51,7 +51,7 @@ def test_safe_request_retries_on_429_with_backoff(monkeypatch):
     assert result == {"ok": True}
     # Should retry once after the initial 429
     assert not status_codes  # list empty => both responses used
-    assert sleep_calls and sleep_calls[0] == 2  # exponential backoff
+    assert sleep_calls and sleep_calls[0] == 5  # exponential backoff from retry_delay
 
 class DummyResponse:
     def __init__(self, status_code, json_data=None):
@@ -79,4 +79,32 @@ def test_safe_request_404_returns_none_immediately(monkeypatch):
     assert result is None
     assert calls["count"] == 1, "Request should not be retried on 404"
     assert sleeps == [], "Should not wait between retries when 404 occurs"
+
+
+def test_safe_request_401_returns_none_and_logs(monkeypatch, caplog):
+    calls = {"count": 0}
+
+    class Resp:
+        status_code = 401
+        headers = {"content-type": "application/json"}
+        text = "{}"
+        def json(self):
+            return {}
+
+    def fake_get(url, params=None, timeout=10):
+        calls["count"] += 1
+        return Resp()
+
+    sleeps = []
+    monkeypatch.setattr("data_fetcher.requests.get", fake_get)
+    monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
+    monkeypatch.setattr("data_fetcher.time.sleep", lambda s: sleeps.append(s))
+
+    with caplog.at_level("ERROR"):
+        result = safe_request("https://example.com")
+
+    assert result is None
+    assert calls["count"] == 1
+    assert sleeps == []
+    assert any("401 Unauthorized" in r.message for r in caplog.records)
 

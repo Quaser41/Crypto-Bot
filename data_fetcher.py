@@ -292,6 +292,9 @@ def safe_request(
             else:
                 r = requests.get(url, params=params, timeout=timeout)
 
+            if r.status_code == 401:
+                logger.error(f"❌ 401 Unauthorized {url}")
+                return None
 
             if r.status_code == 404:
                 if url not in SEEN_404_URLS:
@@ -306,19 +309,18 @@ def safe_request(
                         f"⚠️ Rate limited {url} (attempt {attempt})"
                         + (" → backoff..." if backoff_on_429 else "")
                     )
+                    delay = retry_delay * (2 ** (attempt - 1))
                     if backoff_on_429:
                         wait_for_slot(url, backoff=True)
-                        time.sleep(2 ** attempt)
-                    else:
-                        time.sleep(retry_delay)
+                    time.sleep(delay)
                     continue
                 logger.error(f"❌ Failed (429) {url} attempt {attempt}")
                 return None
 
-
             if r.status_code in retry_statuses:
                 logger.error(f"❌ Failed ({r.status_code}) {url} attempt {attempt}")
-                time.sleep(retry_delay)
+                delay = retry_delay * (2 ** (attempt - 1))
+                time.sleep(delay)
                 continue
 
             if 400 <= r.status_code < 600:
@@ -341,7 +343,8 @@ def safe_request(
 
         except Exception as e:
             logger.error(f"❌ Exception on attempt {attempt} for {url}: {e}")
-            time.sleep(retry_delay)
+            delay = retry_delay * (2 ** (attempt - 1))
+            time.sleep(delay)
 
     logger.error(f"❌ All attempts failed for {url}")
     return None

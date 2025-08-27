@@ -84,3 +84,26 @@ def test_add_indicators_insufficient_4h_history(monkeypatch):
     assert result.empty
     assert cols.issubset(result.columns)
     assert result[list(cols)].isna().all().all()
+
+
+def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):
+    periods = 55  # less than default min_rows=60 but enough for indicator windows
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 155, periods),
+        'High': np.linspace(101, 156, periods),
+        'Low': np.linspace(99, 154, periods),
+    })
+
+    def fail_fetch(*args, **kwargs):
+        raise AssertionError('fetch should not be called')
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', fail_fetch)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', fail_fetch)
+
+    with caplog.at_level('WARNING'):
+        result = add_indicators(df)
+
+    assert result.empty
+    assert any('Skipping symbol' in r.message for r in caplog.records)
