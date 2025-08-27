@@ -28,8 +28,13 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
 
-    if len(df) < 50:
-        logger.warning("⚠️ Not enough candles to compute full indicators: %d rows", len(df))
+    required = max(min_rows, 50)
+    if len(df) < required:
+        logger.warning(
+            "⚠️ Skipping symbol: %d rows (<%d required)",
+            len(df),
+            required,
+        )
         return pd.DataFrame()
 
     # RSI
