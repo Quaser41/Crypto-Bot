@@ -12,7 +12,9 @@ def test_class_probabilities_logged_at_debug(monkeypatch, caplog):
             return np.array([[0.1, 0.2, 0.3, 0.15, 0.25]])
 
     monkeypatch.setattr(
-        model_predictor, "load_model", lambda: (DummyModel(), ["a", "b", "c", "d", "e"])
+        model_predictor,
+        "load_model",
+        lambda: (DummyModel(), ["a", "b", "c", "d", "e"], [0, 1, 2, 3, 4]),
     )
     monkeypatch.setattr(model_predictor, "xgb", types.SimpleNamespace(DMatrix=lambda X: X))
 
@@ -36,7 +38,11 @@ def test_predict_signal_fills_missing_4h_features(monkeypatch):
         "MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h"
     ]
 
-    monkeypatch.setattr(model_predictor, "load_model", lambda: (DummyModel(), features))
+    monkeypatch.setattr(
+        model_predictor,
+        "load_model",
+        lambda: (DummyModel(), features, [0, 1, 2, 3, 4]),
+    )
     monkeypatch.setattr(model_predictor, "xgb", types.SimpleNamespace(DMatrix=lambda X: X))
 
     df = pd.DataFrame({f: [1.0] for f in features if not f.endswith("_4h")})
@@ -46,3 +52,26 @@ def test_predict_signal_fills_missing_4h_features(monkeypatch):
     for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
         assert col in df.columns
         assert df[col].iloc[-1] == 0.0
+
+
+def test_predict_signal_uses_label_mapping(monkeypatch):
+    class DummyModel:
+        def predict(self, dmatrix):
+            return np.array([[0.1, 0.3, 0.4, 0.2]])
+
+    features = ["a", "b", "c", "d"]
+    labels = [0, 2, 3, 4]
+
+    monkeypatch.setattr(
+        model_predictor,
+        "load_model",
+        lambda: (DummyModel(), features, labels),
+    )
+    monkeypatch.setattr(model_predictor, "xgb", types.SimpleNamespace(DMatrix=lambda X: X))
+
+    df = pd.DataFrame({f: [1.0] for f in features})
+
+    signal, confidence, cls = model_predictor.predict_signal(df, threshold=0.2)
+    assert cls == 3  # maps index 2 -> original label 3
+    assert signal == "BUY"
+    assert abs(confidence - 0.4) < 1e-6

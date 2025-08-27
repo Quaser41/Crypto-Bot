@@ -15,6 +15,7 @@ logger = get_logger(__name__)
 
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
+LABELS_PATH = "labels.json"
 
 try:
     DEFAULT_LOG_FREQUENCY = int(os.getenv("PREDICT_SIGNAL_LOG_FREQ", "100"))
@@ -28,7 +29,7 @@ _last_logged_class = None
 
 
 def _load_model_from_disk():
-    """Load the XGBoost model and expected feature list from disk."""
+    """Load the XGBoost model, expected feature list, and label mapping from disk."""
     try:
         model = xgb.Booster()
         model.load_model(MODEL_PATH)
@@ -37,39 +38,53 @@ def _load_model_from_disk():
             logger.error("❌ Missing dependency 'xgboost'. Install it with 'pip install xgboost' to load the ML model.")
         else:
             logger.error("❌ Required module not found: %s", e.name)
-        return None, []
+        return None, [], []
     except FileNotFoundError:
         logger.error("❌ Model file not found at %s", MODEL_PATH)
-        return None, []
+        return None, [], []
     except Exception as e:
         logger.error("❌ Failed to load model from %s: %s", MODEL_PATH, e)
-        return None, []
+        return None, [], []
 
     try:
         with open(FEATURES_PATH, "r") as f:
             expected_features = json.load(f)
     except FileNotFoundError:
         logger.error("❌ Feature list file not found at %s", FEATURES_PATH)
-        return None, []
+        return None, [], []
     except json.JSONDecodeError as e:
         logger.error("❌ Failed to parse feature list: %s", e)
-        return None, []
+        return None, [], []
 
     if not isinstance(expected_features, (list, tuple)) or not all(isinstance(f, str) for f in expected_features):
         logger.error("❌ Expected features missing or malformed in feature list")
-        return None, []
+        return None, [], []
+
+    try:
+        with open(LABELS_PATH, "r") as f:
+            labels = json.load(f)
+    except FileNotFoundError:
+        logger.error("❌ Labels file not found at %s", LABELS_PATH)
+        return None, [], []
+    except json.JSONDecodeError as e:
+        logger.error("❌ Failed to parse label mapping: %s", e)
+        return None, [], []
+
+    if not isinstance(labels, (list, tuple)) or not all(isinstance(lbl, int) for lbl in labels):
+        logger.error("❌ Label mapping missing or malformed")
+        return None, [], []
 
     logger.info(
         "🔄 Loaded ML model expecting %d features: %s",
         len(expected_features),
         expected_features,
     )
-    return model, list(expected_features)
+    return model, list(expected_features), list(labels)
 
 
 @lru_cache(maxsize=1)
 def load_model():
-    """Load and cache the model and expected feature list."""
+    """Load and cache the model, expected feature list, and label mapping."""
     return _load_model_from_disk()
 
 
@@ -94,8 +109,8 @@ def predict_signal(df, threshold, log_frequency=None):
         negative value disables these logs entirely.
     """
 
-    model, expected_features = load_model()
-    if model is None or not expected_features:
+    model, expected_features, label_mapping = load_model()
+    if model is None or not expected_features or not label_mapping:
         logger.warning("⚠️ No valid model available, skipping prediction.")
         return None, 0.0, None
 
@@ -121,12 +136,18 @@ def predict_signal(df, threshold, log_frequency=None):
     try:
         dmatrix = xgb.DMatrix(X)
         class_probs = model.predict(dmatrix)[0]
-        predicted_class = PredictionClass(int(np.argmax(class_probs)))
-        confidence = class_probs[predicted_class.value]
+        pred_idx = int(np.argmax(class_probs))
+        try:
+            original_label = label_mapping[pred_idx]
+            predicted_class = PredictionClass(int(original_label))
+        except (IndexError, ValueError) as e:
+            logger.error("❌ Invalid label mapping for index %d: %s", pred_idx, e)
+            return None, 0.0, None
+        confidence = float(class_probs[pred_idx])
 
         logger.debug(
             "🔍 Class probabilities: %s",
-            dict(enumerate(np.round(class_probs, 3))),
+            {int(lbl): float(np.round(prob, 3)) for lbl, prob in zip(label_mapping, class_probs)},
         )
         global _prediction_counter, _last_logged_class
         _prediction_counter += 1
