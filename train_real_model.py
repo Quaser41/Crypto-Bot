@@ -1,6 +1,10 @@
 # train_real_model.py
 
 import os
+import json
+from typing import Optional
+
+import numpy as np
 import pandas as pd
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
@@ -10,8 +14,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
 from xgboost import XGBClassifier
-import json
-import numpy as np
 
 from utils.logging import get_logger
 
@@ -50,18 +52,25 @@ def load_feature_list():
 
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r):
-    if r <= -0.05:
+    """Bucket returns into coarse performance classes.
+
+    The thresholds are deliberately moderate to avoid creating extremely rare
+    classes which complicate training.  Extreme buckets may be merged later if
+    the dataset lacks examples.
+    """
+    if r <= -0.04:
         return 0  # Big loss
-    elif r <= -0.02:
-        return 1  # Small loss
-    elif r < 0.01:
+    elif r <= -0.015:
+        return 1  # Loss
+    elif r < 0.015:
         return 2  # Neutral
     elif r < 0.04:
-        return 3  # Small gain
+        return 3  # Gain
     else:
         return 4  # Big gain
 
-def prepare_training_data(symbol, coin_id):
+
+def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
 
@@ -82,23 +91,20 @@ def prepare_training_data(symbol, coin_id):
 
     df["Target"] = df["Return"].apply(return_bucket)
 
+    # Merge extreme buckets if completely absent
     class_counts = df["Target"].value_counts()
-    for cls in [0, 3]:
-        cnt = class_counts.get(cls, 0)
-        if cnt < 50:
-            logger.info(
-                "⚠️ Class %d has %d samples; augmenting to reach 50", cls, cnt
-            )
-            subset = df[df["Target"] == cls]
-            if not subset.empty:
-                augmented = resample(subset, replace=True, n_samples=50 - cnt, random_state=42)
-                df = pd.concat([df, augmented], ignore_index=True)
-            else:
-                logger.warning("⚠️ No data available to augment class %d", cls)
-    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-    logger.info(
-        "📊 Class distribution after augmentation: %s", df["Target"].value_counts().sort_index()
-    )
+    if class_counts.get(0, 0) == 0 and class_counts.get(1, 0) > 0:
+        logger.warning("⚠️ Merging small losses into big loss bucket for %s", coin_id)
+        df.loc[df["Target"] == 1, "Target"] = 0
+    if class_counts.get(4, 0) == 0 and class_counts.get(3, 0) > 0:
+        logger.warning("⚠️ Merging small gains into big gain bucket for %s", coin_id)
+        df.loc[df["Target"] == 3, "Target"] = 4
+    class_counts = df["Target"].value_counts()
+
+    # If after merging we still lack extreme classes, skip this coin
+    if class_counts.get(0, 0) == 0 or class_counts.get(4, 0) == 0:
+        logger.warning("⚠️ Missing extreme classes for %s; skipping", coin_id)
+        return None, None
 
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
@@ -106,6 +112,51 @@ def prepare_training_data(symbol, coin_id):
         logger.warning("⚠️ Missing features in data: %s", missing)
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
+
+    # Optional oversampling with SMOTE/ADASYN
+    class_counts = y.value_counts()
+    rare_classes = [cls for cls, cnt in class_counts.items() if cnt < 50]
+    if oversampler in {"smote", "adasyn"} and rare_classes:
+        try:
+            from imblearn.over_sampling import SMOTE, ADASYN
+
+            sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+            strategy = {cls: 50 for cls in rare_classes if class_counts[cls] > 1}
+            if strategy:
+                sampler = sampler_cls(random_state=42, sampling_strategy=strategy)
+                X, y = sampler.fit_resample(X, y)
+                class_counts = y.value_counts()
+                logger.info("📈 Applied %s oversampling", oversampler.upper())
+        except Exception as e:
+            logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
+
+    # Fallback simple resampling for remaining minority classes
+    class_counts = y.value_counts()
+    for cls, cnt in class_counts.items():
+        if cnt < 50:
+            logger.info(
+                "⚠️ Class %d has %d samples; augmenting to reach 50", cls, cnt
+            )
+            idx = y[y == cls].index
+            if len(idx) == 0:
+                logger.warning(
+                    "⚠️ No data available to augment class %d for %s; skipping", cls, coin_id
+                )
+                return None, None
+            subset = pd.concat([X.loc[idx], y.loc[idx]], axis=1)
+            augmented = resample(
+                subset, replace=True, n_samples=50 - cnt, random_state=42
+            )
+            X = pd.concat([X, augmented.drop(columns=["Target"])], ignore_index=True)
+            y = pd.concat([y, augmented["Target"]], ignore_index=True)
+
+    df_aug = pd.concat([X, y], axis=1).sample(frac=1, random_state=42).reset_index(drop=True)
+    logger.info(
+        "📊 Class distribution after augmentation: %s", df_aug["Target"].value_counts().sort_index()
+    )
+
+    X = df_aug.drop(columns=["Target"])
+    y = df_aug["Target"]
     return X, y
 
 def train_model(X, y):
