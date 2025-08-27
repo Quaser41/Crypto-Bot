@@ -31,6 +31,10 @@ from config import (
     STAGNATION_THRESHOLD_PCT,
     STAGNATION_DURATION_SEC,
 
+    TRAIL_VOL_MULT,
+    ADAPTIVE_STAGNATION,
+    STAGNATION_VOL_MULT,
+
 )
 
 from utils.logging import get_logger
@@ -71,6 +75,7 @@ class TradeManager:
     def __init__(self, starting_balance=500, max_allocation=0.20,
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=FEE_PCT,
                  trail_pct=0.03, trail_atr_mult=None,
+                 trail_vol_mult=TRAIL_VOL_MULT,
                  atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
                  max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
@@ -85,6 +90,8 @@ class TradeManager:
                  early_exit_fee_mult=EARLY_EXIT_FEE_MULT,
                  stagnation_threshold_pct=STAGNATION_THRESHOLD_PCT,
                  stagnation_duration_sec=STAGNATION_DURATION_SEC,
+                 adaptive_stagnation=ADAPTIVE_STAGNATION,
+                 stagnation_vol_mult=STAGNATION_VOL_MULT,
                  include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
 
         self.starting_balance = starting_balance
@@ -95,6 +102,7 @@ class TradeManager:
         self.trade_fee_pct = trade_fee_pct
         self.trail_pct = trail_pct
         self.trail_atr_mult = trail_atr_mult
+        self.trail_vol_mult = trail_vol_mult
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
         self.slippage_pct = slippage_pct
@@ -105,6 +113,8 @@ class TradeManager:
         self.early_exit_fee_mult = early_exit_fee_mult
         self.stagnation_threshold_pct = stagnation_threshold_pct
         self.stagnation_duration_sec = stagnation_duration_sec
+        self.adaptive_stagnation = adaptive_stagnation
+        self.stagnation_vol_mult = stagnation_vol_mult
 
         # Holding period and reversal requirements
         # Add a small buffer to the minimum hold time to better absorb
@@ -308,16 +318,34 @@ class TradeManager:
                 if len(prices) >= 2:
                     atr_val = float(np.std(prices))
             if atr_val and atr_val > 0:
-                return atr_val * self.trail_atr_mult
+                prices = pos.get("recent_prices", [])
+                vol_pct = 0.0
+                if len(prices) >= 2 and current_price > 0:
+                    vol_pct = float(np.std(prices)) / current_price
+                mult = 1 + vol_pct * self.trail_vol_mult
+                return atr_val * self.trail_atr_mult * mult
 
         prices = pos.get("recent_prices", [])
-        if len(prices) >= 2:
+        if len(prices) >= 2 and current_price > 0:
             vol = float(np.std(prices))
-            if current_price > 0:
-                vol_pct = vol / current_price
-                return current_price * self.trail_pct * (1 + vol_pct)
+            vol_pct = vol / current_price
+            mult = 1 + vol_pct * self.trail_vol_mult
+            return current_price * self.trail_pct * mult
 
         return current_price * self.trail_pct
+
+    def _compute_stagnation_params(self, pos, current_price):
+        """Return (threshold_pct, duration_sec) accounting for volatility."""
+        threshold = self.stagnation_threshold_pct
+        duration = self.stagnation_duration_sec
+        if self.adaptive_stagnation:
+            prices = pos.get("recent_prices", [])
+            if len(prices) >= 2 and current_price > 0:
+                vol_pct = float(np.std(prices)) / current_price
+                mult = 1 + vol_pct * self.stagnation_vol_mult
+                threshold *= mult
+                duration *= mult
+        return threshold, duration
 
     def open_trade(self, symbol, price, coin_id=None, confidence=0.5,
                    label=None, side="BUY", atr=None):
@@ -794,7 +822,8 @@ class TradeManager:
                     recent.pop(0)
 
                 price_change = abs(last_price - entry_price) / entry_price
-                if price_change >= self.stagnation_threshold_pct:
+                threshold, duration = self._compute_stagnation_params(pos, last_price)
+                if price_change >= threshold:
                     pos["last_movement_time"] = time.time()
 
                 # ✅ Hybrid profit protection
@@ -933,7 +962,8 @@ class TradeManager:
 
         now = time.time()
         price_change = abs(current_price - entry_price) / entry_price
-        if price_change >= self.stagnation_threshold_pct:
+        threshold, duration = self._compute_stagnation_params(pos, current_price)
+        if price_change >= threshold:
             pos["last_movement_time"] = now
 
         # Respect minimum holding period before evaluating exits
@@ -944,11 +974,11 @@ class TradeManager:
             )
             return
 
-        if price_change < self.stagnation_threshold_pct:
+        if price_change < threshold:
             stagnant_for = now - pos.get("last_movement_time", pos.get("entry_time", now))
-            if stagnant_for >= self.stagnation_duration_sec:
+            if stagnant_for >= duration:
                 logger.info(
-                    f"🔕 Price stagnation exit for {symbol}: below {self.stagnation_threshold_pct * 100:.2f}% for {stagnant_for:.0f}s"
+                    f"🔕 Price stagnation exit for {symbol}: below {threshold * 100:.2f}% for {stagnant_for:.0f}s"
                 )
                 self.close_trade(symbol, current_price, reason="Stagnant Price")
                 return

@@ -275,6 +275,33 @@ def test_stagnation_closes_position(monkeypatch):
     assert tm.trade_history[-1]['reason'] == 'Stagnant Price'
 
 
+def test_trailing_stop_volatility_multiplier():
+    tm = TradeManager(trail_pct=0.05, trail_atr_mult=None, trail_vol_mult=0)
+    pos = {
+        'entry_price': 100.0,
+        'qty': 1,
+        'side': 'BUY',
+        'recent_prices': [100, 120, 80, 110, 90]
+    }
+    base = tm._compute_trail_offset(pos, 103.0)
+    tm.trail_vol_mult = 2.0
+    widened = tm._compute_trail_offset(pos, 103.0)
+    assert widened > base
+
+
+def test_adaptive_stagnation_params():
+    tm = TradeManager(
+        stagnation_threshold_pct=0.01,
+        stagnation_duration_sec=100,
+        adaptive_stagnation=True,
+        stagnation_vol_mult=2.0,
+    )
+    pos = {'recent_prices': [100, 120, 80, 110, 90]}
+    thresh, dur = tm._compute_stagnation_params(pos, 105.0)
+    assert thresh > tm.stagnation_threshold_pct
+    assert dur > tm.stagnation_duration_sec
+
+
 def test_skips_trade_when_profit_insufficient(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0
