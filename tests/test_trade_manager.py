@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 import numpy as np
 import logging
+import time
 
 from trade_manager import TradeManager
 from config import (
@@ -337,6 +338,83 @@ def test_adaptive_stagnation_params():
     thresh, dur = tm._compute_stagnation_params(pos, 105.0)
     assert thresh > tm.stagnation_threshold_pct
     assert dur > tm.stagnation_duration_sec
+
+
+def test_trailing_stop_scales_with_atr_and_logging(monkeypatch, caplog):
+    tm = TradeManager(trail_pct=0.05, trail_atr_mult=1.0, trail_vol_mult=2.0, trade_fee_pct=0.0)
+    pos = {
+        'coin_id': 'abc',
+        'entry_price': 100.0,
+        'qty': 1.0,
+        'stop_loss': 90.0,
+        'take_profit': 110.0,
+        'entry_fee': 0.0,
+        'highest_price': 100.0,
+        'confidence': 1.0,
+        'label': None,
+        'side': 'BUY',
+        'entry_time': 0.0,
+        'last_movement_time': 0.0,
+        'atr': 1.0,
+        'recent_prices': [100, 120, 80, 110, 90],
+    }
+    tm.positions['ABC'] = pos
+    prices = [105.0, 108.0]
+
+    def mock_price(symbol, coin_id=None):
+        return prices.pop(0)
+
+    monkeypatch.setattr('trade_manager.fetch_live_price', mock_price)
+    with caplog.at_level(logging.INFO, logger='trade_manager'):
+        tm.monitor_open_trades(single_run=True)
+        tm.monitor_open_trades(single_run=True)
+
+    expected_prices = pos['recent_prices']
+    vol_pct = np.std(expected_prices) / 108.0
+    expected_offset = pos['atr'] * tm.trail_atr_mult * (1 + vol_pct * tm.trail_vol_mult)
+    expected_trail = 108.0 - expected_offset
+    assert pos['trail_price'] == pytest.approx(expected_trail)
+    assert f"{expected_trail:.4f}" in caplog.text
+
+
+def test_adaptive_stagnation_logs_scaled_threshold(caplog):
+    tm = TradeManager(
+        stagnation_threshold_pct=0.01,
+        stagnation_duration_sec=10,
+        adaptive_stagnation=True,
+        stagnation_vol_mult=2.0,
+        trade_fee_pct=0.0,
+        hold_period_sec=0,
+        min_hold_bucket="<1m",
+    )
+    now = time.time()
+    pos = {
+        'entry_price': 100.0,
+        'qty': 1.0,
+        'side': 'BUY',
+        'entry_time': now - 100,
+        'last_movement_time': now - 100,
+        'highest_price': 100.0,
+        'stop_loss': 90.0,
+        'take_profit': 110.0,
+        'entry_fee': 0.0,
+        'confidence': 1.0,
+        'label': None,
+        'recent_prices': [100, 120, 80, 110, 90],
+    }
+    tm.positions['ABC'] = pos
+    current_price = 100.2
+    vol_pct = np.std(pos['recent_prices']) / current_price
+    mult = 1 + vol_pct * tm.stagnation_vol_mult
+    expected_threshold = tm.stagnation_threshold_pct * mult
+    expected_duration = tm.stagnation_duration_sec * mult
+    pos['last_movement_time'] = now - expected_duration - 1
+
+    with caplog.at_level(logging.INFO, logger='trade_manager'):
+        tm.manage('ABC', current_price)
+
+    assert 'ABC' not in tm.positions
+    assert f"below {expected_threshold * 100:.2f}%" in caplog.text
 
 
 def test_skips_trade_when_profit_insufficient(monkeypatch):
