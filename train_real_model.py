@@ -251,11 +251,20 @@ def prepare_training_data(
 
 def train_model(X, y, oversampler: Optional[str] = None):
     logger.info("\n🚀 Training multi-class classifier...")
+    original_label_names = {
+        0: "big_loss",
+        1: "small_loss",
+        2: "neutral",
+        3: "small_gain",
+        4: "big_gain",
+    }
 
     le = LabelEncoder()
     y_encoded = le.fit_transform(y)
     class_count = len(le.classes_)
-    logger.info("✅ Model will use %d classes: %s", class_count, list(le.classes_))
+    label_names = [original_label_names[cls] for cls in le.classes_]
+    assert class_count == len(label_names), "Encoded class count mismatch"
+    logger.info("✅ Model will use %d classes: %s", class_count, label_names)
 
     logger.info("📊 Original class distribution:")
     class_dist = pd.Series(y_encoded).value_counts().sort_index()
@@ -270,16 +279,11 @@ def train_model(X, y, oversampler: Optional[str] = None):
         le = LabelEncoder()
         y_encoded = le.fit_transform(y)
         class_count = len(le.classes_)
-        logger.info("✅ Using %d classes after drop: %s", class_count, list(le.classes_))
+        label_names = [original_label_names[cls] for cls in le.classes_]
+        assert class_count == len(label_names), "Encoded class count mismatch"
+        logger.info("✅ Using %d classes after drop: %s", class_count, label_names)
         class_dist = pd.Series(y_encoded).value_counts().sort_index()
 
-    original_label_names = {
-        0: "big_loss",
-        1: "small_loss",
-        2: "neutral",
-        3: "small_gain",
-        4: "big_gain",
-    }
     label_map = {i: original_label_names[cls] for i, cls in enumerate(le.classes_)}
 
     # === Time-based train/test split (chronological) ===
