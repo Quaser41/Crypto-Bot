@@ -1,12 +1,14 @@
 # train_real_model.py
 
+import os
 import pandas as pd
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.utils import resample
 from xgboost import XGBClassifier
 import json
 import numpy as np
@@ -196,9 +198,34 @@ def train_model(X, y):
     model.fit(X_train, y_train, sample_weight=sample_weights)
     preds = model.predict(X_test)
 
-    logger.info("\n📊 Classification Report:")
-    logger.info("%s", classification_report(y_test, preds, digits=3))
-    logger.info("📊 Prediction distribution: %s", pd.Series(preds).value_counts().sort_index())
+    label_map = {
+        0: "big_loss",
+        1: "small_loss",
+        2: "neutral",
+        3: "small_gain",
+        4: "big_gain",
+    }
+    labels_sorted = sorted(np.unique(np.concatenate([y_test.values, preds])))
+    target_names = [label_map[int(lbl)] for lbl in labels_sorted]
+
+    report = classification_report(
+        y_test, preds, labels=labels_sorted, target_names=target_names, digits=3
+    )
+    cm = confusion_matrix(y_test, preds, labels=labels_sorted)
+
+    logger.info("\n📊 Classification Report:\n%s", report)
+    logger.info("🔁 Confusion Matrix:\n%s", cm)
+    logger.info(
+        "📊 Prediction distribution: %s", pd.Series(preds).value_counts().sort_index()
+    )
+
+    os.makedirs("analytics", exist_ok=True)
+    pd.DataFrame(cm, index=target_names, columns=target_names).to_csv(
+        os.path.join("analytics", "confusion_matrix.csv"), index_label="actual"
+    )
+    with open(os.path.join("analytics", "classification_report.txt"), "w") as f:
+        f.write(report)
+    logger.info("📁 Saved diagnostics to analytics/")
 
     return model
 
