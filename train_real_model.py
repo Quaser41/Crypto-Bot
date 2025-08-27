@@ -9,7 +9,7 @@ import pandas as pd
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import TimeSeriesSplit
+from sklearn.model_selection import StratifiedKFold, TimeSeriesSplit
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
@@ -70,7 +70,12 @@ def return_bucket(r):
         return 4  # Big gain
 
 
-def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
+def prepare_training_data(
+    symbol,
+    coin_id,
+    oversampler: Optional[str] = None,
+    n_classes: int = 5,
+):
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
 
@@ -91,20 +96,25 @@ def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
 
     df["Target"] = df["Return"].apply(return_bucket)
 
-    # Merge extreme buckets if completely absent
-    class_counts = df["Target"].value_counts()
-    if class_counts.get(0, 0) == 0 and class_counts.get(1, 0) > 0:
-        logger.warning("⚠️ Merging small losses into big loss bucket for %s", coin_id)
-        df.loc[df["Target"] == 1, "Target"] = 0
-    if class_counts.get(4, 0) == 0 and class_counts.get(3, 0) > 0:
-        logger.warning("⚠️ Merging small gains into big gain bucket for %s", coin_id)
-        df.loc[df["Target"] == 3, "Target"] = 4
-    class_counts = df["Target"].value_counts()
+    if n_classes == 3:
+        df["Target"] = df["Target"].replace({0: 0, 1: 0, 2: 1, 3: 2, 4: 2})
+    else:
+        class_counts = df["Target"].value_counts()
+        if class_counts.get(0, 0) == 0 and class_counts.get(1, 0) > 0:
+            logger.warning(
+                "⚠️ Merging small losses into big loss bucket for %s", coin_id
+            )
+            df.loc[df["Target"] == 1, "Target"] = 0
+        if class_counts.get(4, 0) == 0 and class_counts.get(3, 0) > 0:
+            logger.warning(
+                "⚠️ Merging small gains into big gain bucket for %s", coin_id
+            )
+            df.loc[df["Target"] == 3, "Target"] = 4
+        class_counts = df["Target"].value_counts()
 
-    # If after merging we still lack extreme classes, skip this coin
-    if class_counts.get(0, 0) == 0 or class_counts.get(4, 0) == 0:
-        logger.warning("⚠️ Missing extreme classes for %s; skipping", coin_id)
-        return None, None
+        if class_counts.get(0, 0) == 0 or class_counts.get(4, 0) == 0:
+            logger.warning("⚠️ Missing extreme classes for %s; skipping", coin_id)
+            return None, None
 
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
@@ -218,10 +228,17 @@ def train_model(X, y):
     y_test_raw = test_df["Target"]
     y_test = le.transform(y_test_raw)
 
-    # === Walk-forward cross-validation ===
+    # === Cross-validation ===
     n_splits = min(5, max(2, len(X_train) // 50))
-    tscv = TimeSeriesSplit(n_splits=n_splits)
-    for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
+    class_counts_train = y_train_raw.value_counts()
+    if class_counts_train.min() >= n_splits:
+        splitter = StratifiedKFold(
+            n_splits=n_splits, shuffle=True, random_state=42
+        ).split(X_train, y_train_raw)
+    else:
+        splitter = TimeSeriesSplit(n_splits=n_splits).split(X_train)
+
+    for fold, (tr_idx, val_idx) in enumerate(splitter, start=1):
         X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
         y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
 
@@ -270,6 +287,7 @@ def train_model(X, y):
                     labels=sorted(fold_le.classes_),
                     target_names=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
                     digits=3,
+                    zero_division=0,
                 ),
             )
         except Exception as e:
@@ -304,7 +322,12 @@ def train_model(X, y):
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
 
     report = classification_report(
-        y_test, preds, labels=labels_sorted, target_names=target_names, digits=3
+        y_test,
+        preds,
+        labels=labels_sorted,
+        target_names=target_names,
+        digits=3,
+        zero_division=0,
     )
     cm = confusion_matrix(y_test, preds, labels=labels_sorted)
 
@@ -346,8 +369,13 @@ def main():
     X_list = []
     y_list = []
 
+    oversampler = os.getenv("TRAIN_OVERSAMPLER")
+    n_classes = int(os.getenv("TRAIN_N_CLASSES", "5"))
+
     for symbol, coin_id in coins:
-        X, y = prepare_training_data(symbol, coin_id)
+        X, y = prepare_training_data(
+            symbol, coin_id, oversampler=oversampler, n_classes=n_classes
+        )
         if X is not None and y is not None:
             X_list.append(X)
             y_list.append(y)

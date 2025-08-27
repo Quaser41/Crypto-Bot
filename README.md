@@ -36,6 +36,17 @@ To enable machine-learning based predictions you can train an XGBoost model:
    python train_real_model.py
    ```
    It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
+   
+   Optional environment variables allow experimentation:
+
+   - `TRAIN_N_CLASSES`: set to `3` to merge the five return buckets into
+     loss/neutral/gain classes. Defaults to `5`.
+   - `TRAIN_OVERSAMPLER`: choose `smote` or `adasyn` to apply advanced
+     oversampling before simple resampling.
+
+   The training routine automatically switches from a time‑series split to
+   `StratifiedKFold` when each class has enough samples, ensuring every fold
+   sees all classes.
 3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
 
 ## Running the Bot
