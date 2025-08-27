@@ -28,11 +28,12 @@ def test_fetch_onchain_metrics_html_response(monkeypatch, tmp_path, caplog):
     monkeypatch.setattr(data_fetcher.requests, "get", lambda *a, **k: HTMLResp())
     _setup_cache(monkeypatch, tmp_path)
 
-    with caplog.at_level("ERROR"):
+    with caplog.at_level("WARNING"):
         df = data_fetcher.fetch_onchain_metrics(days=1)
 
     assert not df.empty
     assert "Non-JSON response" in caplog.text
+    assert any("api.blockchain.com" in c for c in calls)
     assert any("api.blockchain.info" in c for c in calls)
 
 
@@ -56,9 +57,10 @@ def test_fetch_onchain_metrics_invalid_json(monkeypatch, tmp_path, caplog):
     monkeypatch.setattr(data_fetcher.requests, "get", lambda *a, **k: BadJSONResp())
     _setup_cache(monkeypatch, tmp_path)
 
-    with caplog.at_level("ERROR"):
+    with caplog.at_level("WARNING"):
         df = data_fetcher.fetch_onchain_metrics(days=1)
 
     assert not df.empty
     assert "JSON decode error" in caplog.text
+    assert any("api.blockchain.com" in c for c in calls)
     assert any("api.blockchain.info" in c for c in calls)

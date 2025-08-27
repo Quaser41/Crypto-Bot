@@ -67,10 +67,11 @@ def fetch_onchain_metrics(days=14):
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
     # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
-    # history to request.  ``api.blockchain.info`` was deprecated, so fall back
-    # to the modern ``blockchain.info`` domain by default. Users may override the
-    # base URL via ``BLOCKCHAIN_CHARTS_BASE``.
-    base_url = os.getenv("BLOCKCHAIN_CHARTS_BASE", "https://blockchain.info")
+    # history to request.  The older ``blockchain.info`` endpoints have been
+    # phased out in favour of the ``api.blockchain.com`` domain.  Users may
+    # override the base URL via ``BLOCKCHAIN_CHARTS_BASE``.  Requests always pass
+    # ``format=json`` to ensure a JSON payload is returned.
+    base_url = os.getenv("BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.com")
     tx_url = f"{base_url}/charts/n-transactions"
     active_url = f"{base_url}/charts/active-addresses"
     params = {"timespan": f"{days}days", "format": "json"}
@@ -91,21 +92,21 @@ def fetch_onchain_metrics(days=14):
             try:
                 resp = requests.get(url, params=params, headers=headers, timeout=10)
                 ctype = resp.headers.get("content-type", "")
-                snippet = resp.text[:200].replace("\n", " " )
+                snippet = resp.text[:200].replace("\n", " ")
                 if "application/json" not in ctype.lower():
-                    logger.error(
-                        f"❌ Non-JSON response ({ctype}) {url}: {snippet}",
+                    logger.warning(
+                        f"⚠️ Non-JSON response ({ctype}) {url}: {snippet}",
                     )
                 else:
                     try:
                         resp.json()
-                        logger.error(
-                            f"❌ Invalid JSON content from {url}: {snippet}",
+                        logger.warning(
+                            f"⚠️ Invalid JSON content from {url}: {snippet}",
                         )
                     except json.JSONDecodeError as e:
-                        logger.error(f"❌ JSON decode error for {url}: {e}")
+                        logger.warning(f"⚠️ JSON decode error for {url}: {e}")
             except Exception as e:  # pragma: no cover - network exceptions
-                logger.error(f"❌ Exception fetching {url} for inspection: {e}")
+                logger.warning(f"⚠️ Exception fetching {url} for inspection: {e}")
         return data
 
     tx_data = _fetch_chart(tx_url)
@@ -135,13 +136,40 @@ def fetch_onchain_metrics(days=14):
 
     def _parse_blockchain_chart(data: dict, col: str) -> pd.DataFrame:
         """Convert Blockchain.com chart data to a DataFrame."""
-        values = data.get("values", [])
+        if not isinstance(data, dict):
+            return _default_df(col)
+
+        values = None
+        if "values" in data:
+            values = data["values"]
+        elif "data" in data:
+            inner = data["data"]
+            # Some APIs nest values under another dict
+            if isinstance(inner, dict) and "values" in inner:
+                values = inner["values"]
+            else:
+                values = inner
+
         if not values:
             return _default_df(col)
-        df = pd.DataFrame(values)
-        if not {"x", "y"} <= set(df.columns):
+
+        if isinstance(values, list) and values:
+            first = values[0]
+            if isinstance(first, dict):
+                cols = {"x": "Timestamp", "y": col, "t": "Timestamp", "v": col, "timestamp": "Timestamp", "value": col}
+                df = pd.DataFrame(values)
+                rename = {k: v for k, v in cols.items() if k in df.columns}
+                if {"Timestamp", col} <= set(rename.values()):
+                    df.rename(columns=rename, inplace=True)
+                else:
+                    return _default_df(col)
+            elif isinstance(first, (list, tuple)) and len(first) >= 2:
+                df = pd.DataFrame(values, columns=["Timestamp", col])
+            else:
+                return _default_df(col)
+        else:
             return _default_df(col)
-        df.rename(columns={"x": "Timestamp", "y": col}, inplace=True)
+
         df["Timestamp"] = pd.to_datetime(
             pd.to_numeric(df["Timestamp"], errors="coerce"),
             unit="s",
@@ -150,13 +178,13 @@ def fetch_onchain_metrics(days=14):
         return df[["Timestamp", col]]
 
     missing = False
-    if tx_data and "values" in tx_data:
+    if tx_data and ("values" in tx_data or "data" in tx_data):
         df_tx = _parse_blockchain_chart(tx_data, "TxVolume")
     else:
         df_tx = _default_df("TxVolume")
         missing = True
 
-    if active_data and "values" in active_data:
+    if active_data and ("values" in active_data or "data" in active_data):
         df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
     else:
         df_active = _default_df("ActiveAddresses")
