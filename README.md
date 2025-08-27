@@ -83,6 +83,8 @@ source code by setting environment variables:
 - `PREDICT_SIGNAL_LOG_FREQ`: How often `predict_signal` emits info-level logs
   of the predicted class. Defaults to `100`. Set to `0` to silence per-iteration
   logs during backtests.
+- `COINGECKO_API_KEY`: Optional CoinGecko API key. If set, it is sent as the
+  `x-cg-pro-api-key` header on CoinGecko requests.
 
 These options allow fine-tuning of momentum evaluation without code changes.
 

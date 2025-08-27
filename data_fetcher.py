@@ -283,12 +283,23 @@ def safe_request(
     else:
         retry_statuses = set(retry_statuses)
 
+    api_key = os.getenv("COINGECKO_API_KEY")
+
     for attempt in range(1, max_retries + 1):
         wait_for_slot(url)  # throttle
 
         try:
-            if headers is not None:
-                r = requests.get(url, params=params, timeout=timeout, headers=headers)
+            req_headers = headers.copy() if headers else {}
+            if "coingecko.com" in url and api_key:
+                req_headers.setdefault("x-cg-pro-api-key", api_key)
+
+            if req_headers:
+                r = requests.get(
+                    url,
+                    params=params,
+                    timeout=timeout,
+                    headers=req_headers,
+                )
             else:
                 r = requests.get(url, params=params, timeout=timeout)
 
@@ -510,8 +521,14 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
                     return df
 
             elif source == "coingecko":
-                logger.info(f"⚡ Trying Coingecko for {symbol} (days={params.get('days', 1)})")
-                df = fetch_coingecko_ohlcv(params.get("coin_id", symbol), days=params.get("days", 1))
+                logger.info(
+                    f"⚡ Trying Coingecko for {symbol} (days={params.get('days', 1)})"
+                )
+                df = fetch_coingecko_ohlcv(
+                    params.get("coin_id", symbol),
+                    days=params.get("days", 1),
+                    headers=params.get("headers"),
+                )
                 if not df.empty:
                     save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
@@ -750,7 +767,7 @@ def fetch_dexscreener_ohlcv(symbol):
     return pd.DataFrame()
 
 
-def fetch_coingecko_ohlcv(coin_id, days=1):
+def fetch_coingecko_ohlcv(coin_id, days=1, headers=None):
     cache_key = f"cg_ohlcv:{coin_id}:{days}"
     cached = cached_fetch(cache_key, ttl=180)  # 3 min TTL
     if cached is not None:
@@ -760,7 +777,7 @@ def fetch_coingecko_ohlcv(coin_id, days=1):
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
     params = {"vs_currency": "usd", "days": days}
 
-    data = safe_request(url, params=params, max_retries=3, retry_delay=5)
+    data = safe_request(url, params=params, max_retries=3, retry_delay=5, headers=headers)
     if data and "prices" in data:
         df = pd.DataFrame(data["prices"], columns=["Timestamp", "Close"])
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms")
