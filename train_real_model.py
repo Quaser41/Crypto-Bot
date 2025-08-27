@@ -3,6 +3,7 @@
 import os
 import json
 import argparse
+import sys
 from typing import Optional
 
 import numpy as np
@@ -420,6 +421,13 @@ def main():
         help="Minimum unique rows required per class before resampling",
     )
     args = parser.parse_args()
+
+    if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
+        logger.error(
+            "imbalanced-learn is required for %s oversampling. Run 'pip install -r requirements.txt' to install it.",
+            args.oversampler,
+        )
+        sys.exit(1)
 
     coins = [
         ("btc", "bitcoin"),
