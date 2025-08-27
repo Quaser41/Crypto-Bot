@@ -54,7 +54,7 @@ def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     with caplog.at_level("WARNING", logger=train_real_model.logger.name):
-        X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=5)
+        X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=6)
     assert X is None and y is None
     assert any("unique rows" in r.getMessage() for r in caplog.records)
 
