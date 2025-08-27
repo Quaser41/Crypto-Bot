@@ -56,6 +56,8 @@ MOMENTUM_ADV_THRESHOLD = 0.5        # candidate must exceed current momentum sco
 STAGNATION_THRESHOLD = 0.01         # <1% price movement = stagnation
 ROTATION_AUDIT_LOG = []  # 📘 In-memory rotation history
 ROTATION_LOG_LIMIT = 10  # How many to keep
+# Protects access to the rotation audit log
+ROTATION_AUDIT_LOCK = threading.Lock()
 # Correlation filter threshold for new candidates
 CORRELATION_THRESHOLD = 0.8
 
@@ -82,15 +84,16 @@ def log_rotation_decision(current, candidate):
     logger.info(f" - Candidate: {candidate['symbol']} | Conf {candidate['confidence']:.2f} | Label {candidate['label']} | Price ${candidate['price']:.4f}")
 
 def record_rotation_audit(current, candidate, pnl_before, pnl_after=None):
-    ROTATION_AUDIT_LOG.append({
-        "timestamp": time.time(),
-        "current": current,
-        "candidate": candidate,
-        "pnl_before": pnl_before,
-        "pnl_after": pnl_after,
-    })
-    if len(ROTATION_AUDIT_LOG) > ROTATION_LOG_LIMIT:
-        ROTATION_AUDIT_LOG.pop(0)
+    with ROTATION_AUDIT_LOCK:
+        ROTATION_AUDIT_LOG.append({
+            "timestamp": time.time(),
+            "current": current,
+            "candidate": candidate,
+            "pnl_before": pnl_before,
+            "pnl_after": pnl_after,
+        })
+        if len(ROTATION_AUDIT_LOG) > ROTATION_LOG_LIMIT:
+            ROTATION_AUDIT_LOG.pop(0)
 
 
 def save_rotation_audit(filepath="rotation_audit.json", max_entries=100):
@@ -442,7 +445,8 @@ def scan_for_breakouts():
                     pnl_before=net_unrealized,
                 )
                 if PERSIST_ROTATION_AUDIT:
-                    save_rotation_audit()
+                    with ROTATION_AUDIT_LOCK:
+                        save_rotation_audit()
 
             logger.info(
                 f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}"
@@ -510,6 +514,7 @@ if __name__ == "__main__":
         # Regenerate trade_stats.csv so future sessions pick up new blacklist data
         tm.summary()
         if ENABLE_ROTATION_AUDIT and PERSIST_ROTATION_AUDIT:
-            save_rotation_audit()
+            with ROTATION_AUDIT_LOCK:
+                save_rotation_audit()
 
 
