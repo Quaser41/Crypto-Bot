@@ -67,27 +67,45 @@ def fetch_onchain_metrics(days=14):
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
     # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
-    # history to request.
-    tx_url = "https://api.blockchain.info/charts/transactions"
-    active_url = "https://api.blockchain.info/charts/active_addresses"
+    # history to request.  ``api.blockchain.info`` was deprecated, so fall back
+    # to the modern ``blockchain.info`` domain by default. Users may override the
+    # base URL via ``BLOCKCHAIN_CHARTS_BASE``.
+    base_url = os.getenv("BLOCKCHAIN_CHARTS_BASE", "https://blockchain.info")
+    tx_url = f"{base_url}/charts/transactions"
+    active_url = f"{base_url}/charts/active_addresses"
     params = {"timespan": f"{days}days", "format": "json"}
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
-    tx_data = safe_request(
-        tx_url,
-        params=params,
-        retry_statuses=SERVER_ERROR_CODES,
-        backoff_on_429=False,
-        headers=headers,
-    )
-    active_data = safe_request(
-        active_url,
-        params=params,
-        retry_statuses=SERVER_ERROR_CODES,
-        backoff_on_429=False,
-        headers=headers,
-    )
+
+    tx_data = None
+    active_data = None
+    try:
+        tx_data = safe_request(
+            tx_url,
+            params=params,
+            retry_statuses=SERVER_ERROR_CODES,
+            backoff_on_429=False,
+            headers=headers,
+        )
+    except Exception as e:  # pragma: no cover - network exceptions
+        logger.error(f"❌ Exception fetching {tx_url}: {e}")
+
+    try:
+        active_data = safe_request(
+            active_url,
+            params=params,
+            retry_statuses=SERVER_ERROR_CODES,
+            backoff_on_429=False,
+            headers=headers,
+        )
+    except Exception as e:  # pragma: no cover - network exceptions
+        logger.error(f"❌ Exception fetching {active_url}: {e}")
+
+    if not tx_data and not active_data:
+        logger.warning(
+            "⚠️ On-chain metrics API unavailable; returning placeholder data"
+        )
 
     def _default_df(col: str) -> pd.DataFrame:
         # ``pd.Timestamp.utcnow()`` returns a timezone-aware value.  Downstream
