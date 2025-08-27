@@ -88,3 +88,22 @@ def test_filter_candidates_skips_low_volume(monkeypatch):
 
     result = filter_candidates(movers, set(), performance)
     assert result == []
+
+
+def test_filter_candidates_sorts_by_score():
+    movers = [
+        ("id1", "AAA", "AAA Coin", 10.0, 2_000_000),
+        ("id2", "BBB", "BBB Coin", 5.0, 2_000_000),
+    ]
+    performance = {
+        "AAA": {"avg_pnl": 0.07, "win_rate": 80},
+        "BBB": {"avg_pnl": 0.2, "win_rate": 70},
+    }
+
+    # Default weighting favors higher avg PnL when win rates are close
+    result = filter_candidates(movers, set(), performance)
+    assert [sym for _, sym, _ in result] == ["BBB", "AAA"]
+
+    # Heavier weighting toward win rate flips the order
+    result = filter_candidates(movers, set(), performance, win_rate_weight=0.8)
+    assert [sym for _, sym, _ in result] == ["AAA", "BBB"]

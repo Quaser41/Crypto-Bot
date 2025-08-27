@@ -131,6 +131,12 @@ MIN_SYMBOL_WIN_RATE = float(os.getenv("MIN_SYMBOL_WIN_RATE", "60"))
 # unless ``MIN_SYMBOL_AVG_PNL`` is overridden via environment variables.
 MIN_SYMBOL_AVG_PNL = float(os.getenv("MIN_SYMBOL_AVG_PNL", "0.05"))
 
+# Weight given to historical win rate when ranking candidate symbols.  The
+# remaining weight ``1 - WIN_RATE_WEIGHT`` is applied to average PnL.  Adjust via
+# environment variable ``WIN_RATE_WEIGHT`` to favor consistency (win rate) or
+# magnitude of returns (avg PnL) when ordering candidates.
+WIN_RATE_WEIGHT = float(os.getenv("WIN_RATE_WEIGHT", "0.5"))
+
 # Minimum bars to wait after a trade before opening a new one in backtests.
 HOLDING_PERIOD_BARS = int(os.getenv("HOLDING_PERIOD_BARS", "0"))
 
