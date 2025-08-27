@@ -36,6 +36,27 @@ def mock_indicator_df():
     })
 
 
+def test_env_var_overrides_drawdown(monkeypatch):
+    import importlib
+    import config as config_module
+    import trade_manager as tm_module
+
+    monkeypatch.setenv("MAX_DRAWDOWN_PCT", "0.1")
+    monkeypatch.setenv("MAX_DAILY_LOSS_PCT", "0.02")
+
+    importlib.reload(config_module)
+    importlib.reload(tm_module)
+
+    tm = tm_module.TradeManager(starting_balance=1000, hold_period_sec=0, min_hold_bucket="<1m")
+    assert tm.max_drawdown_pct == pytest.approx(0.1)
+    assert tm.max_daily_loss_pct == pytest.approx(0.02)
+
+    monkeypatch.delenv("MAX_DRAWDOWN_PCT", raising=False)
+    monkeypatch.delenv("MAX_DAILY_LOSS_PCT", raising=False)
+    importlib.reload(config_module)
+    importlib.reload(tm_module)
+
+
 def test_calculate_allocation():
     tm = create_tm()
     alloc = tm.calculate_allocation(confidence=0.5)

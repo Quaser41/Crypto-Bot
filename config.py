@@ -73,6 +73,12 @@ SLIPPAGE_PCT = float(os.getenv("SLIPPAGE_PCT", "0.001"))
 # to model exchange fees and is used as the default fee in TradeManager.
 FEE_PCT = float(os.getenv("FEE_PCT", "0.001"))
 
+# Maximum allowable account drawdown before trading stops.
+MAX_DRAWDOWN_PCT = float(os.getenv("MAX_DRAWDOWN_PCT", "0.20"))
+
+# Maximum daily loss tolerated before halting trading.
+MAX_DAILY_LOSS_PCT = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.05"))
+
 # Minimum acceptable ratio of expected profit to total fees for a trade.
 # Trades falling below this profit-to-fee threshold will be skipped.
 # Bumped to a stricter default of 7.0 to demand greater edge over fees

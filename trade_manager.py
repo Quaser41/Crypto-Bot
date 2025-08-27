@@ -16,6 +16,8 @@ from config import (
     MIN_TRADE_USD,
     SLIPPAGE_PCT,
     FEE_PCT,
+    MAX_DRAWDOWN_PCT,
+    MAX_DAILY_LOSS_PCT,
     HOLDING_PERIOD_SECONDS,
     REVERSAL_CONF_DELTA,
     MIN_PROFIT_FEE_RATIO,  # Higher profit-to-fee requirement
@@ -78,7 +80,7 @@ class TradeManager:
                  trail_vol_mult=TRAIL_VOL_MULT,
                  atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
-                 max_drawdown_pct=0.20, max_daily_loss_pct=0.05,
+                 max_drawdown_pct=MAX_DRAWDOWN_PCT, max_daily_loss_pct=MAX_DAILY_LOSS_PCT,
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
                  reverse_conf_delta=REVERSAL_CONF_DELTA,
