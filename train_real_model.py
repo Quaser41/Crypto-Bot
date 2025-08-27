@@ -404,7 +404,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
         f.write(report)
     logger.info("📁 Saved diagnostics to analytics/")
 
-    return model
+    return model, le.classes_
 
 def main():
     parser = argparse.ArgumentParser(description="Train crypto classifier")
@@ -471,11 +471,13 @@ def main():
     X_all = pd.concat(X_list)
     y_all = pd.concat(y_list)
 
-    model = train_model(X_all, y_all, oversampler=args.oversampler)
+    model, labels = train_model(X_all, y_all, oversampler=args.oversampler)
     model.save_model("ml_model.json")
     with open("features.json", "w") as f:
         json.dump(X_all.columns.tolist(), f)
-    logger.info("💾 Saved multi-class model and feature list")
+    with open("labels.json", "w") as f:
+        json.dump([int(lbl) for lbl in labels], f)
+    logger.info("💾 Saved multi-class model, feature list, and labels")
 
 if __name__ == "__main__":
     main()
