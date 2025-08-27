@@ -132,9 +132,11 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     # ==== Merge sentiment and on-chain metrics ====
     df = df.sort_values("Timestamp")
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"]).dt.tz_localize(None)
 
     sentiment = fetch_fear_greed_index(limit=365)
     if not sentiment.empty:
+        sentiment["Timestamp"] = pd.to_datetime(sentiment["Timestamp"]).dt.tz_localize(None)
         sentiment = sentiment.sort_values("Timestamp")
         df = pd.merge_asof(df, sentiment, on="Timestamp", direction="backward")
         df["FearGreed"] = df["FearGreed"].ffill().bfill()
@@ -155,7 +157,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if not onchain.empty:
         # Ensure timestamps are timezone-naive before merging so ``pd.merge_asof``
         # doesn't complain about mismatched timezone-aware vs. naive data.
-        onchain["Timestamp"] = onchain["Timestamp"].dt.tz_localize(None)
+        onchain["Timestamp"] = pd.to_datetime(onchain["Timestamp"]).dt.tz_localize(None)
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
         for col in ["TxVolume", "ActiveAddresses"]:
