@@ -133,6 +133,9 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     # which previously resulted in 404 responses.
     onchain = fetch_onchain_metrics()
     if not onchain.empty:
+        # Ensure timestamps are timezone-naive before merging so ``pd.merge_asof``
+        # doesn't complain about mismatched timezone-aware vs. naive data.
+        onchain["Timestamp"] = onchain["Timestamp"].dt.tz_localize(None)
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
         for col in ["TxVolume", "ActiveAddresses"]:

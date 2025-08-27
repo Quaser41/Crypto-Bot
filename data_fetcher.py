@@ -90,7 +90,10 @@ def fetch_onchain_metrics(days=14):
     )
 
     def _default_df(col: str) -> pd.DataFrame:
-        end = pd.Timestamp.utcnow().normalize()
+        # ``pd.Timestamp.utcnow()`` returns a timezone-aware value.  Downstream
+        # code expects naive timestamps, so drop the timezone before building the
+        # placeholder date range.
+        end = pd.Timestamp.utcnow().normalize().tz_localize(None)
         dates = pd.date_range(end - pd.Timedelta(days=days - 1), end, freq="D")
         return pd.DataFrame({"Timestamp": dates, col: [0] * len(dates)})
 
