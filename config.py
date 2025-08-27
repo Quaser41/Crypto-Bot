@@ -151,5 +151,12 @@ EARLY_EXIT_FEE_MULT = float(os.getenv("EARLY_EXIT_FEE_MULT", "3"))
 REVERSAL_CONF_DELTA = float(os.getenv("REVERSAL_CONF_DELTA", "0"))
 
 
+# === Performance analytics configuration ===
+# Maximum acceptable fees relative to PnL before blacklisting a pair.
+PERF_FEE_RATIO_THRESHOLD = float(os.getenv("FEE_RATIO_THRESHOLD", "1.0"))
+
+# Minimum number of trades required before considering a pair for blacklisting.
+PERF_MIN_TRADE_COUNT = int(os.getenv("MIN_TRADE_COUNT", "3"))
+
 # Seconds before refreshing performance blacklist from analytics file.
 BLACKLIST_REFRESH_SEC = int(os.getenv("BLACKLIST_REFRESH_SEC", "3600"))

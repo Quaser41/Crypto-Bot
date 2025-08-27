@@ -1,11 +1,12 @@
 import analytics.performance as perf
+from config import PERF_MIN_TRADE_COUNT
 
 def test_blacklist_respects_trade_count_threshold(tmp_path):
     csv_path = tmp_path / "stats.csv"
     csv_path.write_text(
         "symbol,duration_bucket,trade_count,win_rate,avg_pnl,fee_ratio\n"
-        "AAA,1-5m,2,0.0,-0.5,0.0\n"
-        "BBB,1-5m,3,0.0,-0.5,0.0\n"
+        f"AAA,1-5m,{PERF_MIN_TRADE_COUNT - 1},0.0,-0.5,0.0\n"
+        f"BBB,1-5m,{PERF_MIN_TRADE_COUNT},0.0,-0.5,0.0\n"
     )
     perf.reset_cache()
     assert not perf.is_blacklisted("AAA", "1-5m", path=str(csv_path), refresh_seconds=0)
