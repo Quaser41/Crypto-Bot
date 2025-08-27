@@ -667,12 +667,19 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
     granularity = gran_map.get(interval, 900)
 
-    end = datetime.utcnow()
+    # ``pd.Timestamp.utcnow()`` returns a timezone-aware ``Timestamp``
+    # (UTC).  Convert both ``start`` and ``end`` to pandas ``Timestamp``
+    # objects and ensure they share the same timezone so comparisons don't
+    # raise ``TypeError`` when cached data carries tz info.
+    end = pd.Timestamp.utcnow()
     if cached is not None and not cached.empty:
-        start = cached["Timestamp"].max().to_pydatetime() + timedelta(seconds=granularity)
+        last = pd.Timestamp(cached["Timestamp"].max())
+        if last.tzinfo is None:
+            last = last.tz_localize("UTC")
+        start = last + pd.Timedelta(seconds=granularity)
     else:
-        start = end - timedelta(days=days)
-    max_span = timedelta(seconds=granularity * limit)
+        start = end - pd.Timedelta(days=days)
+    max_span = pd.Timedelta(seconds=granularity * limit)
     url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
 
     frames = []
