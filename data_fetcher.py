@@ -668,6 +668,9 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     ttl = kwargs.get("ttl", OHLCV_TTL)
     cache_limit = kwargs.get("cache_limit", limit)
     cached, age = load_ohlcv_cache(symbol, interval)
+    if cached is not None and not cached.empty:
+        # Normalize cached timestamps to UTC so subsequent comparisons work
+        cached["Timestamp"] = pd.to_datetime(cached["Timestamp"], utc=True)
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Coinbase OHLCV for {symbol}")
         return cached
@@ -680,15 +683,11 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     gran_map = {"1m": 60, "5m": 300, "15m": 900, "1h": 3600, "6h": 21600, "1d": 86400}
     granularity = gran_map.get(interval, 900)
 
-    # ``pd.Timestamp.utcnow()`` returns a timezone-aware ``Timestamp``
-    # (UTC).  Convert both ``start`` and ``end`` to pandas ``Timestamp``
-    # objects and ensure they share the same timezone so comparisons don't
-    # raise ``TypeError`` when cached data carries tz info.
-    end = pd.Timestamp.utcnow()
+    # Use timezone-aware timestamps (UTC) for start/end so comparisons with
+    # cached data do not raise ``TypeError``.
+    end = pd.Timestamp.utcnow().tz_convert("UTC")
     if cached is not None and not cached.empty:
-        last = pd.Timestamp(cached["Timestamp"].max())
-        if last.tzinfo is None:
-            last = last.tz_localize("UTC")
+        last = cached["Timestamp"].max().tz_convert("UTC")
         start = last + pd.Timedelta(seconds=granularity)
     else:
         start = end - pd.Timedelta(days=days)
@@ -732,13 +731,19 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
 
     try:
         df_new = pd.concat(frames, ignore_index=True)
-        df_new["Timestamp"] = pd.to_datetime(df_new["Timestamp"], unit="s")
+        df_new["Timestamp"] = pd.to_datetime(df_new["Timestamp"], unit="s", utc=True)
         df_new = df_new.sort_values("Timestamp")
         df_new = df_new[["Timestamp", "Open", "High", "Low", "Close", "Volume"]]
         if cached is not None:
             df = pd.concat([cached, df_new])
         else:
             df = df_new
+        # Ensure the concatenated frame retains UTC timezone information
+        tz = getattr(df["Timestamp"].dt, "tz", None)
+        if tz is None:
+            df["Timestamp"] = df["Timestamp"].dt.tz_localize("UTC")
+        else:
+            df["Timestamp"] = df["Timestamp"].dt.tz_convert("UTC")
         df = df.drop_duplicates("Timestamp").sort_values("Timestamp").tail(cache_limit)
         df.attrs["fetch_seconds"] = elapsed
         save_ohlcv_cache(symbol, interval, df, cache_limit)
