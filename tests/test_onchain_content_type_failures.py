@@ -7,6 +7,7 @@ import data_fetcher
 def _setup_cache(monkeypatch, tmp_path):
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
+    monkeypatch.setattr(data_fetcher, "SEEN_NON_JSON_URLS", set())
 
 
 def test_fetch_onchain_metrics_html_response(monkeypatch, tmp_path, caplog):
@@ -15,7 +16,7 @@ def test_fetch_onchain_metrics_html_response(monkeypatch, tmp_path, caplog):
     def fake_safe_request(
         url, params=None, retry_statuses=None, backoff_on_429=False, headers=None
     ):
-        calls.append(url)
+        calls.append((url, params))
         return None
 
     class HTMLResp:
@@ -36,7 +37,8 @@ def test_fetch_onchain_metrics_html_response(monkeypatch, tmp_path, caplog):
     assert not df.empty
     assert "Non-JSON response" in caplog.text
     assert len(calls) == 2
-    assert all("blockchain.info/charts" in c for c in calls)
+    assert all("api.blockchain.info/charts" in url for url, _ in calls)
+    assert all(p.get("cors") == "true" and p.get("format") == "json" for _, p in calls)
 
 
 def test_fetch_onchain_metrics_invalid_json(monkeypatch, tmp_path, caplog):
@@ -45,7 +47,7 @@ def test_fetch_onchain_metrics_invalid_json(monkeypatch, tmp_path, caplog):
     def fake_safe_request(
         url, params=None, retry_statuses=None, backoff_on_429=False, headers=None
     ):
-        calls.append(url)
+        calls.append((url, params))
         return None
 
     class BadJSONResp:
@@ -66,4 +68,5 @@ def test_fetch_onchain_metrics_invalid_json(monkeypatch, tmp_path, caplog):
     assert not df.empty
     assert "JSON decode error" in caplog.text
     assert len(calls) == 2
-    assert all("blockchain.info/charts" in c for c in calls)
+    assert all("api.blockchain.info/charts" in url for url, _ in calls)
+    assert all(p.get("cors") == "true" and p.get("format") == "json" for _, p in calls)
