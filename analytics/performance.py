@@ -7,10 +7,12 @@ from typing import Dict, Set, Tuple
 DEFAULT_STATS_FILE = os.path.join(os.path.dirname(__file__), "trade_stats.csv")
 
 # Maximum acceptable fees relative to PnL before blacklisting
-FEE_RATIO_THRESHOLD = 1.0
+# Allow override via ``FEE_RATIO_THRESHOLD`` environment variable.
+FEE_RATIO_THRESHOLD = float(os.getenv("FEE_RATIO_THRESHOLD", "1.0"))
 
 # Minimum number of trades required before considering a pair for blacklisting
-MIN_TRADE_COUNT = 3
+# Allow override via ``MIN_TRADE_COUNT`` environment variable.
+MIN_TRADE_COUNT = int(os.getenv("MIN_TRADE_COUNT", "3"))
 
 # Cached blacklist, trade counts, and timestamp of last refresh
 _blacklist: Set[Tuple[str, str]] = set()

@@ -12,7 +12,9 @@ from config import (
     ALLOCATION_MIN_FACTOR,
     STAGNATION_THRESHOLD_PCT,
     STAGNATION_DURATION_SEC,
+    PERF_MIN_TRADE_COUNT,
 )
+import analytics.performance as perf
 
 
 def create_tm(include_unrealized=False):
@@ -480,6 +482,11 @@ def test_blacklist_skips_trade(monkeypatch):
 
 
 def test_fee_ratio_blacklist(monkeypatch):
+    # Lower the trade count threshold so the LINK sample is eligible for blacklisting
+    monkeypatch.setattr("config.PERF_MIN_TRADE_COUNT", 1)
+    monkeypatch.setattr(perf, "MIN_TRADE_COUNT", max(1, PERF_MIN_TRADE_COUNT - 2))
+    perf.reset_cache()
+
     tm = TradeManager(starting_balance=1000, hold_period_sec=10, min_hold_bucket="30m-2h")
     tm.risk_per_trade = 1.0
     tm.min_trade_usd = 0
