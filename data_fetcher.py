@@ -54,7 +54,7 @@ def fetch_onchain_metrics(days=14):
     placeholder_key = f"{cache_key}:placeholder"
     placeholder = cached_fetch(placeholder_key, ttl=60)
     if placeholder is not None:
-        logger.info("📄 Using cached empty on-chain metrics")
+        logger.info("📄 Using cached fallback on-chain metrics")
         return placeholder
 
     cached = cached_fetch(cache_key, ttl=3600)
@@ -64,14 +64,13 @@ def fetch_onchain_metrics(days=14):
 
     logger.info(f"🌐 Fetching on-chain metrics for {days} days")
 
-    # Blockchair exposes public chart endpoints for several Bitcoin on-chain
-    # statistics. Data is returned under a ``data`` key and each item is a
-    # ``[timestamp, value]`` pair. ``days`` controls how much history to
-    # request.
-    base = "https://api.blockchair.com/bitcoin/charts"
-    params = {"days": days}
-    tx_url = f"{base}/transactions-per-day"
-    active_url = f"{base}/active-addresses"
+    # Blockchain.com exposes public chart endpoints for several Bitcoin
+    # on-chain statistics. Each response has a ``values`` array of
+    # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
+    # history to request.
+    tx_url = "https://api.blockchain.info/charts/transactions"
+    active_url = "https://api.blockchain.info/charts/active_addresses"
+    params = {"timespan": f"{days}days", "format": "json"}
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
@@ -90,50 +89,48 @@ def fetch_onchain_metrics(days=14):
         headers=headers,
     )
 
-    if not (
-        tx_data
-        and "data" in tx_data
-        and active_data
-        and "data" in active_data
-    ):
-        empty_df = pd.DataFrame()
-        update_cache(placeholder_key, empty_df)
-        return empty_df
+    def _default_df(col: str) -> pd.DataFrame:
+        end = pd.Timestamp.utcnow().normalize()
+        dates = pd.date_range(end - pd.Timedelta(days=days - 1), end, freq="D")
+        return pd.DataFrame({"Timestamp": dates, col: [0] * len(dates)})
 
-    def _parse_blockchair(data: dict, col: str) -> pd.DataFrame:
-        """Convert Blockchair chart data to a DataFrame."""
-        values = data.get("data", [])
-        if values and isinstance(values[0], (list, tuple)):
-            df = pd.DataFrame(values, columns=["Timestamp", col])
-        else:
-            df = pd.DataFrame(values)
-            ts_key = next(
-                (k for k in ["time", "date", "t", "timestamp"] if k in df.columns),
-                None,
-            )
-            val_key = next(
-                (k for k in ["value", "v", "volume", "count"] if k in df.columns),
-                None,
-            )
-            if ts_key is None or val_key is None:
-                return pd.DataFrame(columns=["Timestamp", col])
-            df.rename(columns={ts_key: "Timestamp", val_key: col}, inplace=True)
-
-        # Try to convert timestamps that may be numeric strings
-        ts_numeric = pd.to_numeric(df["Timestamp"], errors="coerce")
-        if ts_numeric.notna().all():
-            df["Timestamp"] = pd.to_datetime(ts_numeric, unit="s", errors="coerce")
-        else:
-            df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+    def _parse_blockchain_chart(data: dict, col: str) -> pd.DataFrame:
+        """Convert Blockchain.com chart data to a DataFrame."""
+        values = data.get("values", [])
+        if not values:
+            return _default_df(col)
+        df = pd.DataFrame(values)
+        if not {"x", "y"} <= set(df.columns):
+            return _default_df(col)
+        df.rename(columns={"x": "Timestamp", "y": col}, inplace=True)
+        df["Timestamp"] = pd.to_datetime(
+            pd.to_numeric(df["Timestamp"], errors="coerce"),
+            unit="s",
+            errors="coerce",
+        )
         return df[["Timestamp", col]]
 
-    df_tx = _parse_blockchair(tx_data, "TxVolume")
-    df_active = _parse_blockchair(active_data, "ActiveAddresses")
+    missing = False
+    if tx_data and "values" in tx_data:
+        df_tx = _parse_blockchain_chart(tx_data, "TxVolume")
+    else:
+        df_tx = _default_df("TxVolume")
+        missing = True
 
-    df = pd.merge(df_tx, df_active, on="Timestamp", how="outer")
+    if active_data and "values" in active_data:
+        df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
+    else:
+        df_active = _default_df("ActiveAddresses")
+        missing = True
 
-    df = df.sort_values("Timestamp")
-    update_cache(cache_key, df)
+    df = pd.merge(df_tx, df_active, on="Timestamp", how="outer").sort_values(
+        "Timestamp"
+    )
+
+    if missing:
+        update_cache(placeholder_key, df)
+    else:
+        update_cache(cache_key, df)
     return df
 
 
