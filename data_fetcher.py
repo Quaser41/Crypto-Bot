@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 # Status codes for which we retry by default (server errors)
 SERVER_ERROR_CODES = set(range(500, 600))
 SEEN_404_URLS = set()
+SEEN_NON_JSON_URLS = set()
 
 
 # =========================================================
@@ -73,11 +74,11 @@ def fetch_onchain_metrics(days=14):
     # ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass ``format=json`` to ensure
     # a JSON payload is returned.
     base_url = os.getenv(
-        "BLOCKCHAIN_CHARTS_BASE", "https://blockchain.info/charts"
+        "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.info/charts"
     )
     tx_url = f"{base_url}/n-transactions"
     active_url = f"{base_url}/active-addresses"
-    params = {"timespan": f"{days}days", "format": "json"}
+    params = {"timespan": f"{days}days", "format": "json", "cors": "true"}
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
@@ -96,18 +97,20 @@ def fetch_onchain_metrics(days=14):
                 resp = requests.get(url, params=params, headers=headers, timeout=10)
                 ctype = resp.headers.get("content-type", "")
                 snippet = resp.text[:200].replace("\n", " ")
-                if "application/json" not in ctype.lower():
-                    logger.warning(
-                        f"⚠️ Non-JSON response ({ctype}) {url}: {snippet}",
-                    )
-                else:
-                    try:
-                        resp.json()
+                if url not in SEEN_NON_JSON_URLS:
+                    SEEN_NON_JSON_URLS.add(url)
+                    if "application/json" not in ctype.lower():
                         logger.warning(
-                            f"⚠️ Invalid JSON content from {url}: {snippet}",
+                            f"⚠️ Non-JSON response ({ctype}) {url}: {snippet}",
                         )
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"⚠️ JSON decode error for {url}: {e}")
+                    else:
+                        try:
+                            resp.json()
+                            logger.warning(
+                                f"⚠️ Invalid JSON content from {url}: {snippet}",
+                            )
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"⚠️ JSON decode error for {url}: {e}")
             except Exception as e:  # pragma: no cover - network exceptions
                 logger.warning(f"⚠️ Exception fetching {url} for inspection: {e}")
         return data

@@ -22,7 +22,7 @@ def test_no_future_warning_on_timestamp_parsing(monkeypatch, tmp_path):
     def mock_safe_request(url, params=None, **kwargs):
         if "fng" in url:
             return fg_sample
-        if "transactions-per-day" in url:
+        if "n-transactions" in url:
             return tx_sample
         if "active-addresses" in url:
             return active_sample
