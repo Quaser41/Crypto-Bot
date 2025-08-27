@@ -217,8 +217,10 @@ def train_model(X, y):
     for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
         X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
         y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
-        y_tr = le.transform(y_tr_raw)
-        y_val = le.transform(y_val_raw)
+
+        fold_le = LabelEncoder()
+        y_tr = fold_le.fit_transform(y_tr_raw)
+        y_val = fold_le.transform(y_val_raw)
 
         present_classes = set(y_tr_raw.unique())
         missing_classes = set(le.classes_) - present_classes
@@ -226,8 +228,11 @@ def train_model(X, y):
             logger.warning(
                 "⚠️ Fold %d missing classes: %s", fold, list(missing_classes)
             )
-        if len(np.unique(y_tr)) < 2:
-            logger.warning("⚠️ Fold %d skipped due to insufficient class variety", fold)
+
+        if len(fold_le.classes_) < 2 or len(np.unique(y_val)) < 2:
+            logger.warning(
+                "⚠️ Fold %d skipped due to insufficient class variety", fold
+            )
             continue
 
         fold_weights = compute_sample_weight(class_weight="balanced", y=y_tr)
@@ -238,21 +243,25 @@ def train_model(X, y):
             subsample=0.8,
             colsample_bytree=0.8,
             objective='multi:softprob',
-            num_class=len(le.classes_),
+            num_class=len(fold_le.classes_),
             random_state=42,
             eval_metric='mlogloss'
         )
         try:
             cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
-            cv_preds = cv_model.predict(X_val)
+            cv_preds_enc = cv_model.predict(X_val)
+            cv_preds = fold_le.inverse_transform(cv_preds_enc)
+            fold_label_map = {
+                cls: original_label_names[cls] for cls in fold_le.classes_
+            }
             logger.info(
                 "📊 CV Fold %d classification report:\n%s",
                 fold,
                 classification_report(
-                    y_val,
+                    y_val_raw,
                     cv_preds,
-                    labels=list(range(len(le.classes_))),
-                    target_names=[label_map[i] for i in range(len(le.classes_))],
+                    labels=sorted(fold_le.classes_),
+                    target_names=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
                     digits=3,
                 ),
             )
