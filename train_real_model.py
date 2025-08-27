@@ -186,7 +186,7 @@ def prepare_training_data(
     y = df_aug["Target"]
     return X, y
 
-def train_model(X, y):
+def train_model(X, y, oversampler: Optional[str] = None):
     logger.info("\n🚀 Training multi-class classifier...")
 
     le = LabelEncoder()
@@ -225,7 +225,7 @@ def train_model(X, y):
     split_idx = int(len(df_xy) * 0.8)
     train_df, test_df = df_xy.iloc[:split_idx], df_xy.iloc[split_idx:]
 
-    # === No upsampling: rely on class weights for imbalance handling ===
+    # === Training/validation split ===
     X_train = train_df.drop(columns=["Target"])
     y_train_raw = train_df["Target"]
 
@@ -248,6 +248,21 @@ def train_model(X, y):
         fold_le = LabelEncoder()
         y_tr = fold_le.fit_transform(y_tr_raw)
         y_val = fold_le.transform(y_val_raw)
+
+        if oversampler in {"smote", "adasyn"}:
+            try:
+                from imblearn.over_sampling import ADASYN, SMOTE
+
+                sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+                sampler = sampler_cls(random_state=42)
+                X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
+                logger.info(
+                    "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
+                )
+            except Exception as e:
+                logger.warning(
+                    "⚠️ Fold %d %s oversampling failed: %s", fold, oversampler, e
+                )
 
         present_classes = set(y_tr_raw.unique())
         missing_classes = set(le.classes_) - present_classes
@@ -294,6 +309,22 @@ def train_model(X, y):
             )
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
+
+    # === Optional oversampling before final training ===
+    if oversampler in {"smote", "adasyn"}:
+        try:
+            from imblearn.over_sampling import ADASYN, SMOTE
+
+            sampler_cls = SMOTE if oversampler == "smote" else ADASYN
+            sampler = sampler_cls(random_state=42)
+            X_train, y_train = sampler.fit_resample(X_train, y_train)
+            logger.info("📈 Applied %s oversampling to training set", oversampler.upper())
+            logger.info(
+                "📊 Post-oversampling class distribution: %s",
+                pd.Series(y_train).value_counts().sort_index(),
+            )
+        except Exception as e:
+            logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
     # === Final model training with class weights ===
     sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
@@ -349,7 +380,7 @@ def main():
     parser.add_argument(
         "--oversampler",
         choices=["smote", "adasyn"],
-        default=None,
+        default="smote",
         help="Apply oversampling technique to minority classes",
     )
     parser.add_argument(
@@ -385,7 +416,7 @@ def main():
         X, y = prepare_training_data(
             symbol,
             coin_id,
-            oversampler=args.oversampler,
+            oversampler=None,
             min_unique_samples=args.min_unique_samples,
         )
         if X is not None and y is not None:
@@ -402,7 +433,7 @@ def main():
     X_all = pd.concat(X_list)
     y_all = pd.concat(y_list)
 
-    model = train_model(X_all, y_all)
+    model = train_model(X_all, y_all, oversampler=args.oversampler)
     model.save_model("ml_model.json")
     with open("features.json", "w") as f:
         json.dump(X_all.columns.tolist(), f)
