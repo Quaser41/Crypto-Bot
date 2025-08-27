@@ -133,9 +133,10 @@ def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
     # Fallback simple resampling for remaining minority classes
     class_counts = y.value_counts()
     for cls, cnt in class_counts.items():
-        if cnt < 50:
+        target = min(50, 2 * cnt)
+        if cnt < target:
             logger.info(
-                "⚠️ Class %d has %d samples; augmenting to reach 50", cls, cnt
+                "⚠️ Class %d has %d samples; augmenting to reach %d", cls, cnt, target
             )
             idx = y[y == cls].index
             if len(idx) == 0:
@@ -144,8 +145,14 @@ def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
                 )
                 return None, None
             subset = pd.concat([X.loc[idx], y.loc[idx]], axis=1)
+            unique_rows = subset.drop_duplicates().shape[0]
+            if unique_rows < 5:
+                logger.warning(
+                    "⚠️ Class %d has only %d unique rows; dropping %s", cls, unique_rows, coin_id
+                )
+                return None, None
             augmented = resample(
-                subset, replace=True, n_samples=50 - cnt, random_state=42
+                subset, replace=True, n_samples=target - cnt, random_state=42
             )
             X = pd.concat([X, augmented.drop(columns=["Target"])], ignore_index=True)
             y = pd.concat([y, augmented["Target"]], ignore_index=True)
