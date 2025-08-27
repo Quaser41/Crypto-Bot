@@ -546,7 +546,7 @@ def test_blacklist_skips_trade(monkeypatch):
 def test_fee_ratio_blacklist(monkeypatch):
     # Lower the trade count threshold so the LINK sample is eligible for blacklisting
     monkeypatch.setattr("config.PERF_MIN_TRADE_COUNT", 1)
-    monkeypatch.setattr(perf, "MIN_TRADE_COUNT", max(1, PERF_MIN_TRADE_COUNT - 2))
+    monkeypatch.setattr(perf, "PERF_MIN_TRADE_COUNT", max(1, PERF_MIN_TRADE_COUNT - 2))
     perf.reset_cache()
 
     tm = TradeManager(starting_balance=1000, hold_period_sec=10, min_hold_bucket="30m-2h")
