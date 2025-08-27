@@ -78,33 +78,51 @@ def fetch_onchain_metrics(days=14):
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
 
-    tx_data = None
-    active_data = None
-    try:
-        tx_data = safe_request(
-            tx_url,
+    def _fetch_chart(url: str):
+        """Fetch a Blockchain.com chart and ensure the response is JSON."""
+        data = safe_request(
+            url,
             params=params,
             retry_statuses=SERVER_ERROR_CODES,
             backoff_on_429=False,
             headers=headers,
         )
-    except Exception as e:  # pragma: no cover - network exceptions
-        logger.error(f"❌ Exception fetching {tx_url}: {e}")
+        if data is None:
+            try:
+                resp = requests.get(url, params=params, headers=headers, timeout=10)
+                ctype = resp.headers.get("content-type", "")
+                snippet = resp.text[:200].replace("\n", " " )
+                if "application/json" not in ctype.lower():
+                    logger.error(
+                        f"❌ Non-JSON response ({ctype}) {url}: {snippet}",
+                    )
+                else:
+                    try:
+                        resp.json()
+                        logger.error(
+                            f"❌ Invalid JSON content from {url}: {snippet}",
+                        )
+                    except json.JSONDecodeError as e:
+                        logger.error(f"❌ JSON decode error for {url}: {e}")
+            except Exception as e:  # pragma: no cover - network exceptions
+                logger.error(f"❌ Exception fetching {url} for inspection: {e}")
+        return data
 
-    try:
-        active_data = safe_request(
-            active_url,
-            params=params,
-            retry_statuses=SERVER_ERROR_CODES,
-            backoff_on_429=False,
-            headers=headers,
-        )
-    except Exception as e:  # pragma: no cover - network exceptions
-        logger.error(f"❌ Exception fetching {active_url}: {e}")
+    tx_data = _fetch_chart(tx_url)
+    active_data = _fetch_chart(active_url)
+
+    # If either request returned non-JSON or failed, try the legacy domain
+    if (tx_data is None or active_data is None) and base_url != "https://api.blockchain.info":
+        legacy_base = "https://api.blockchain.info"
+        logger.info("↪️ Retrying on-chain metrics via legacy endpoint")
+        if tx_data is None:
+            tx_data = _fetch_chart(tx_url.replace(base_url, legacy_base))
+        if active_data is None:
+            active_data = _fetch_chart(active_url.replace(base_url, legacy_base))
 
     if not tx_data and not active_data:
         logger.warning(
-            "⚠️ On-chain metrics API unavailable; returning placeholder data"
+            "⚠️ On-chain metrics API unavailable; returning placeholder data",
         )
 
     def _default_df(col: str) -> pd.DataFrame:

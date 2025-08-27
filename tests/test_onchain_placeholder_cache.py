@@ -20,7 +20,8 @@ def test_fetch_onchain_metrics_caches_fallback_df(monkeypatch, tmp_path):
     assert not df1.empty and not df2.empty
     assert (df1["TxVolume"] == 0).all()
     assert (df1["ActiveAddresses"] == 0).all()
-    assert calls["count"] == 2
+    # Two endpoints plus a legacy-domain retry for each
+    assert calls["count"] == 4
 
 
 def test_fetch_onchain_metrics_returns_data(monkeypatch, tmp_path):
