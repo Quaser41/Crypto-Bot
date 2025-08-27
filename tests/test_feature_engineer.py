@@ -64,3 +64,23 @@ def test_add_indicators_handles_all_nan_onchain(monkeypatch):
 
     result = add_indicators(df)
     assert len(result) >= 60
+
+
+def test_add_indicators_insufficient_4h_history(monkeypatch):
+    periods = 50
+    dates = pd.date_range('2023-01-01', periods=periods, freq='H')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 150, periods),
+        'High': np.linspace(101, 151, periods),
+        'Low': np.linspace(99, 149, periods)
+    })
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+
+    result = add_indicators(df, min_rows=20)
+    cols = {'SMA_4h', 'MACD_4h', 'Signal_4h', 'Hist_4h'}
+    assert result.empty
+    assert cols.issubset(result.columns)
+    assert result[list(cols)].isna().all().all()

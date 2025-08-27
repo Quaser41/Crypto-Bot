@@ -87,28 +87,43 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         agg = (
             df.sort_values("Timestamp")
             .set_index("Timestamp")["Close"]
-            .resample("4h")
+            .resample("4h", label="right")
             .last()
             .ffill()
             .to_frame()
         )
-        agg_sma = SMAIndicator(agg["Close"], window=20)
-        agg["SMA_4h"] = agg_sma.sma_indicator()
-        agg_macd = MACD(agg["Close"])
-        agg["MACD_4h"] = agg_macd.macd()
-        agg["Signal_4h"] = agg_macd.macd_signal()
-        agg["Hist_4h"] = agg_macd.macd_diff()
-        agg = agg[["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]].reset_index()
-        df = pd.merge_asof(
-            df.sort_values("Timestamp"),
-            agg.sort_values("Timestamp"),
-            on="Timestamp",
-            direction="backward",
-        )
+        required_points = 26  # longest 4h window needed (MACD slow period)
+        if len(agg) >= required_points:
+            agg_sma = SMAIndicator(agg["Close"], window=20)
+            agg["SMA_4h"] = agg_sma.sma_indicator()
+            agg_macd = MACD(agg["Close"])
+            agg["MACD_4h"] = agg_macd.macd()
+            agg["Signal_4h"] = agg_macd.macd_signal()
+            agg["Hist_4h"] = agg_macd.macd_diff()
+            agg = agg[["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]].reset_index()
+            df = pd.merge_asof(
+                df.sort_values("Timestamp"),
+                agg.sort_values("Timestamp"),
+                on="Timestamp",
+                direction="backward",
+            )
+        else:
+            logger.warning(
+                "⚠️ Not enough history for 4h aggregates: %d < %d", len(agg), required_points
+            )
+            for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
+                df[col] = np.nan
     except Exception as e:
         logger.warning("⚠️ Failed to compute 4h aggregates: %s", e)
         for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
             df[col] = np.nan
+
+    if {"SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"}.issubset(df.columns):
+        four_h_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
+        if df[four_h_cols].isna().all().any():
+            logger.warning(
+                "⚠️ 4h aggregates contain NaNs after merge; verify timestamp alignment"
+            )
 
     # ==== Merge sentiment and on-chain metrics ====
     df = df.sort_values("Timestamp")
@@ -173,7 +188,10 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         logger.info("Momentum tier distribution:\n%s", tier_counts.to_string())
 
     # Drop columns that are entirely NaN (e.g., failed on-chain metrics)
-    all_nan_cols = [col for col in df.columns if df[col].isna().all()]
+    optional_nan_cols = {"SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"}
+    all_nan_cols = [
+        col for col in df.columns if df[col].isna().all() and col not in optional_nan_cols
+    ]
     if all_nan_cols:
         logger.debug("Dropping all-NaN columns: %s", all_nan_cols)
         df = df.drop(columns=all_nan_cols)

@@ -99,13 +99,21 @@ def predict_signal(df, threshold, log_frequency=None):
         logger.warning("⚠️ No valid model available, skipping prediction.")
         return None, 0.0, None
 
+    four_hour_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
     missing = [f for f in expected_features if f not in df.columns]
-    if missing:
-        logger.warning("⚠️ Missing features in input: %s", missing)
+    missing_non_optional = [m for m in missing if m not in four_hour_cols]
+    if missing_non_optional:
+        logger.warning("⚠️ Missing features in input: %s", missing_non_optional)
         return None, 0.0, None
+    for col in set(missing) & set(four_hour_cols):
+        logger.debug("Filling missing %s with default 0.0", col)
+        df[col] = 0.0
 
-
-    X = df[expected_features].tail(1)
+    X = df[expected_features].tail(1).copy()
+    for col in four_hour_cols:
+        if col in X.columns and X[col].isna().any():
+            logger.debug("Replacing NaN %s with 0.0 for prediction", col)
+            X[col] = X[col].fillna(0.0)
     if X.isnull().any().any():
         logger.warning("⚠️ NaNs found in final feature row, skipping prediction.")
         return None, 0.0, None
