@@ -1,7 +1,10 @@
 import time
+import os
+import json
 import pandas as pd
 import threading
 import asyncio
+import argparse
 
 # ✅ Now use refactored fetchers
 from data_fetcher import (
@@ -66,7 +69,12 @@ FLAT_1D_THRESHOLD = 0.001
 FLAT_3D_THRESHOLD = 0.003
 
 # 🔍 Rotation audit logging (toggleable)
-ENABLE_ROTATION_AUDIT = True
+ENABLE_ROTATION_AUDIT = os.getenv("ENABLE_ROTATION_AUDIT", "1") not in ("0", "false", "False")
+PERSIST_ROTATION_AUDIT = os.getenv("PERSIST_ROTATION_AUDIT", "1") not in (
+    "0",
+    "false",
+    "False",
+)
 
 def log_rotation_decision(current, candidate):
     logger.info("\n🔁 ROTATION DECISION:")
@@ -83,6 +91,26 @@ def record_rotation_audit(current, candidate, pnl_before, pnl_after=None):
     })
     if len(ROTATION_AUDIT_LOG) > ROTATION_LOG_LIMIT:
         ROTATION_AUDIT_LOG.pop(0)
+
+
+def save_rotation_audit(filepath="rotation_audit.json", max_entries=100):
+    """Persist in-memory rotation audit to JSON, keeping the newest entries."""
+    if not ROTATION_AUDIT_LOG:
+        return
+    try:
+        existing = []
+        if os.path.exists(filepath):
+            with open(filepath, "r") as f:
+                existing = json.load(f)
+        existing.extend(ROTATION_AUDIT_LOG)
+        if len(existing) > max_entries:
+            existing = existing[-max_entries:]
+        with open(filepath, "w") as f:
+            json.dump(existing, f, indent=2)
+    except Exception as e:
+        logger.warning(f"Failed to save rotation audit: {e}")
+    finally:
+        ROTATION_AUDIT_LOG.clear()
 
 # ✅ TradeManager instance
 if TRADING_MODE == "paper":
@@ -413,6 +441,8 @@ def scan_for_breakouts():
                     },
                     pnl_before=net_unrealized,
                 )
+                if PERSIST_ROTATION_AUDIT:
+                    save_rotation_audit()
 
             logger.info(
                 f"💡 Rotation decision: {open_symbol} current=${current_price:.4f}, new pick={best_symbol} @${best_price:.4f}"
@@ -460,7 +490,17 @@ def main_loop():
             logger.exception("Scan iteration failed")
         time.sleep(210)
 
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--no-audit-file",
+        action="store_true",
+        help="Disable persistent rotation audit logging",
+    )
+    args = parser.parse_args()
+    if args.no_audit_file:
+        PERSIST_ROTATION_AUDIT = False
     try:
         main_loop()
     except Exception:
@@ -469,5 +509,7 @@ if __name__ == "__main__":
     finally:
         # Regenerate trade_stats.csv so future sessions pick up new blacklist data
         tm.summary()
+        if ENABLE_ROTATION_AUDIT and PERSIST_ROTATION_AUDIT:
+            save_rotation_audit()
 
 
