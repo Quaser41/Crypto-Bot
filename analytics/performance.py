@@ -3,16 +3,10 @@ import os
 import time
 from typing import Dict, Set, Tuple
 
+from config import PERF_FEE_RATIO_THRESHOLD, PERF_MIN_TRADE_COUNT
+
 # Default location for the trade statistics CSV
 DEFAULT_STATS_FILE = os.path.join(os.path.dirname(__file__), "trade_stats.csv")
-
-# Maximum acceptable fees relative to PnL before blacklisting
-# Allow override via ``FEE_RATIO_THRESHOLD`` environment variable.
-FEE_RATIO_THRESHOLD = float(os.getenv("FEE_RATIO_THRESHOLD", "1.0"))
-
-# Minimum number of trades required before considering a pair for blacklisting
-# Allow override via ``MIN_TRADE_COUNT`` environment variable.
-MIN_TRADE_COUNT = int(os.getenv("MIN_TRADE_COUNT", "3"))
 
 # Cached blacklist, trade counts, average fee ratios, and timestamp of last refresh
 _blacklist: Set[Tuple[str, str]] = set()
@@ -32,8 +26,8 @@ def _parse_stats(
 
     A pair ``(symbol, duration_bucket)`` is blacklisted when the win rate is 0,
     the average PnL is negative, or the ``fee_ratio`` exceeds
-    :data:`FEE_RATIO_THRESHOLD`, *and* it has at least
-    :data:`MIN_TRADE_COUNT` trades.
+    :data:`PERF_FEE_RATIO_THRESHOLD`, *and* it has at least
+    :data:`PERF_MIN_TRADE_COUNT` trades.
     """
     pairs: Set[Tuple[str, str]] = set()
     counts: Dict[Tuple[str, str], int] = {}
@@ -57,8 +51,12 @@ def _parse_stats(
             counts[key] = trade_count
             fee_ratios[key] = fee_ratio
             if (
-                trade_count >= MIN_TRADE_COUNT
-                and (win_rate == 0 or avg_pnl < 0 or fee_ratio > FEE_RATIO_THRESHOLD)
+                trade_count >= PERF_MIN_TRADE_COUNT
+                and (
+                    win_rate == 0
+                    or avg_pnl < 0
+                    or fee_ratio > PERF_FEE_RATIO_THRESHOLD
+                )
             ):
                 pairs.add(key)
     return pairs, counts, fee_ratios
