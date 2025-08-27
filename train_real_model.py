@@ -7,7 +7,6 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.utils import resample
 from xgboost import XGBClassifier
 import json
 import numpy as np
@@ -115,16 +114,11 @@ def train_model(X, y):
     split_idx = int(len(df_xy) * 0.8)
     train_df, test_df = df_xy.iloc[:split_idx], df_xy.iloc[split_idx:]
 
-    # === Balance classes via upsampling on training data only ===
-    max_size = train_df["Target"].value_counts().max()
-    balanced_parts = []
-    for cls, part in train_df.groupby("Target"):
-        balanced_parts.append(resample(part, replace=True, n_samples=max_size, random_state=42))
-    train_bal = pd.concat(balanced_parts).sample(frac=1, random_state=42)
-    X_train = train_bal.drop(columns=["Target"])
-    y_train = train_bal["Target"].astype(int)
+    # === No upsampling: rely on class weights for imbalance handling ===
+    X_train = train_df.drop(columns=["Target"])
+    y_train = train_df["Target"].astype(int)
 
-    logger.info("📊 Balanced training class distribution:")
+    logger.info("📊 Training class distribution:")
     logger.info("%s", y_train.value_counts().sort_index())
 
     X_test = test_df.drop(columns=["Target"])
@@ -159,7 +153,7 @@ def train_model(X, y):
     except Exception as e:
         logger.warning("⚠️ Time series cross-validation failed: %s", e)
 
-    # === Final model training on balanced training set ===
+    # === Final model training with class weights ===
     sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
     class_weights = (
         pd.Series(sample_weights, index=y_train)
