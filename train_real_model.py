@@ -496,8 +496,8 @@ def train_model(X, y, oversampler: Optional[str] = None):
     metrics_summary = {
         "macro_f1": report_dict["macro avg"]["f1-score"],
         "per_class_recall": {
-            name: report_dict[str(lbl)]["recall"]
-            for name, lbl in zip(target_names, labels_sorted)
+            name: report_dict.get(name, {}).get("recall", 0.0)
+            for name in target_names
         },
     }
 
