@@ -7,7 +7,7 @@ import numpy as np
 
 from data_fetcher import fetch_live_price
 from utils.prediction_class import PredictionClass
-from analytics.performance import is_blacklisted, get_duration_bucket
+from analytics.performance import is_blacklisted, get_duration_bucket, get_avg_fee_ratio
 
 from config import ATR_MULT_SL, ATR_MULT_TP
 
@@ -199,8 +199,12 @@ class TradeManager:
 
         return base * factor
 
-    def _estimate_rotation_gain(self, price, confidence, side="BUY", balance_override=None):
-        """Estimate net profit of a prospective trade for rotation decisions."""
+    def _estimate_rotation_gain(self, symbol, price, confidence, side="BUY", balance_override=None):
+        """Estimate net profit of a prospective trade for rotation decisions.
+
+        The minimum profit-to-fee threshold is scaled by the symbol's historical
+        fee ratio to avoid rotating into pairs with consistently high fees.
+        """
         base_balance = balance_override if balance_override is not None else self.balance
         allocation = base_balance * self.risk_per_trade
         if confidence is not None:
@@ -230,7 +234,15 @@ class TradeManager:
         profit_fee_ratio = (
             expected_profit / total_est_fees if total_est_fees > 0 else float("inf")
         )
-        if profit_fee_ratio < self.min_profit_fee_ratio:
+        hist_fee_ratio = get_avg_fee_ratio(symbol, self.min_hold_bucket)
+        adjusted_threshold = self.min_profit_fee_ratio * (1 + hist_fee_ratio)
+        logger.info(
+            "Adjusted min_profit_fee_ratio for %s: %.2f (fee_ratio %.2f)",
+            symbol,
+            adjusted_threshold,
+            hist_fee_ratio,
+        )
+        if profit_fee_ratio < adjusted_threshold:
             return 0.0
 
         return expected_profit - total_est_fees
@@ -648,6 +660,7 @@ class TradeManager:
         rotation_net_gain_est = None
         if reason == "Rotated to better candidate" and candidate:
             rotation_projected_gain = self._estimate_rotation_gain(
+                candidate.get("symbol"),
                 candidate.get("price"),
                 candidate.get("confidence", 1.0),
                 candidate.get("side", "BUY"),

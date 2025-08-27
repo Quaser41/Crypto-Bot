@@ -1,5 +1,6 @@
 import analytics.performance as perf
 from config import PERF_MIN_TRADE_COUNT
+import pytest
 
 def test_blacklist_respects_trade_count_threshold(tmp_path):
     csv_path = tmp_path / "stats.csv"
@@ -16,3 +17,9 @@ def test_blacklist_respects_trade_count_threshold(tmp_path):
 def test_get_trade_count_reads_from_stats():
     perf.reset_cache()
     assert perf.get_trade_count("INJ", "5-30m", refresh_seconds=0) == 3
+
+
+def test_get_avg_fee_ratio_reads_from_stats():
+    perf.reset_cache()
+    ratio = perf.get_avg_fee_ratio("LINK", "30m-2h", refresh_seconds=0)
+    assert ratio == pytest.approx(6.519, rel=1e-3)
