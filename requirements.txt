@@ -8,3 +8,4 @@ joblib
 ta
 TA-Lib
 xgboost  # Required for loading the ML model
+imbalanced-learn

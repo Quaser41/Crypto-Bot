@@ -38,6 +38,17 @@ To enable machine-learning based predictions you can train an XGBoost model:
    It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
 3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
 
+### Handling Class Imbalance
+
+The training pipeline now applies **SMOTE** oversampling by default to
+improve recall for rare classes.  You can switch to **ADASYN** with:
+
+```bash
+python train_real_model.py --oversampler adasyn
+```
+Cross‑validation shows that SMOTE yielded the best minority‑class recall in
+our experiments.
+
 ## Running the Bot
 
 ### Unix-like systems
