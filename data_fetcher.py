@@ -283,16 +283,11 @@ def safe_request(
     else:
         retry_statuses = set(retry_statuses)
 
-    api_key = os.getenv("COINGECKO_API_KEY")
-
     for attempt in range(1, max_retries + 1):
         wait_for_slot(url)  # throttle
 
         try:
-            req_headers = headers.copy() if headers else {}
-            if "coingecko.com" in url and api_key:
-                req_headers.setdefault("x-cg-pro-api-key", api_key)
-
+            req_headers = headers.copy() if headers else None
             if req_headers:
                 r = requests.get(
                     url,
@@ -783,17 +778,47 @@ def fetch_coingecko_ohlcv(coin_id, days=1, headers=None):
 
     url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
     params = {"vs_currency": "usd", "days": days}
+    api_key = os.getenv("COINGECKO_API_KEY", "CG-DEMO-API-KEY")
 
-    data = safe_request(url, params=params, max_retries=3, retry_delay=5, headers=headers)
-    if data and "prices" in data:
-        df = pd.DataFrame(data["prices"], columns=["Timestamp", "Close"])
-        df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms")
-        update_cache(cache_key, df)
-        logger.info(f"✅ Coingecko OHLCV loaded for {coin_id}")
-        return df
+    combined_headers = headers.copy() if headers else {}
+    # First attempt without the API key header
+    for attempt in range(2):
+        req_headers = combined_headers.copy()
+        if attempt == 1:
+            req_headers["x-cg-demo-api-key"] = api_key
 
-    logger.error(f"❌ Coingecko OHLCV fetch failed for {coin_id}")
-    return pd.DataFrame()
+        try:
+            wait_for_slot(url)
+            r = requests.get(url, params=params, timeout=10, headers=req_headers or None)
+        except Exception as e:  # pragma: no cover - network exceptions
+            logger.error(f"❌ Exception fetching Coingecko OHLCV: {e}")
+            return pd.DataFrame()
+
+        if r.status_code == 401 and attempt == 0:
+            logger.warning("⚠️ Coingecko 401 Unauthorized, retrying with API key")
+            continue
+
+        if r.status_code != 200:
+            logger.error(
+                f"❌ Coingecko OHLCV fetch failed ({r.status_code}) for {coin_id}"
+            )
+            return pd.DataFrame()
+
+        try:
+            data = r.json()
+        except Exception as e:
+            logger.error(f"❌ JSON decode error for Coingecko OHLCV: {e}")
+            return pd.DataFrame()
+
+        if data and "prices" in data:
+            df = pd.DataFrame(data["prices"], columns=["Timestamp", "Close"])
+            df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms")
+            update_cache(cache_key, df)
+            logger.info(f"✅ Coingecko OHLCV loaded for {coin_id}")
+            return df
+
+        logger.error(f"❌ Coingecko OHLCV fetch failed for {coin_id}")
+        return pd.DataFrame()
 
 
 # =========================================================
