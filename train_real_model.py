@@ -125,53 +125,88 @@ def train_model(X, y):
         logger.warning("⚠️ Dropping rare classes: %s", rare_classes)
         keep_idx = ~pd.Series(y_encoded).isin(rare_classes).values
         X = X[keep_idx]
-        y_encoded = y_encoded[keep_idx]
+        y = y[keep_idx]
+        le = LabelEncoder()
+        y_encoded = le.fit_transform(y)
+        class_count = len(le.classes_)
+        logger.info("✅ Using %d classes after drop: %s", class_count, list(le.classes_))
         class_dist = pd.Series(y_encoded).value_counts().sort_index()
+
+    original_label_names = {
+        0: "big_loss",
+        1: "small_loss",
+        2: "neutral",
+        3: "small_gain",
+        4: "big_gain",
+    }
+    label_map = {i: original_label_names[cls] for i, cls in enumerate(le.classes_)}
 
     # === Time-based train/test split (chronological) ===
     df_xy = X.copy()
-    df_xy["Target"] = y_encoded
+    df_xy["Target"] = y
     split_idx = int(len(df_xy) * 0.8)
     train_df, test_df = df_xy.iloc[:split_idx], df_xy.iloc[split_idx:]
 
     # === No upsampling: rely on class weights for imbalance handling ===
     X_train = train_df.drop(columns=["Target"])
-    y_train = train_df["Target"].astype(int)
+    y_train_raw = train_df["Target"]
+
+    y_train = le.transform(y_train_raw)
 
     logger.info("📊 Training class distribution:")
-    logger.info("%s", y_train.value_counts().sort_index())
+    logger.info("%s", pd.Series(y_train).value_counts().sort_index())
 
     X_test = test_df.drop(columns=["Target"])
-    y_test = test_df["Target"].astype(int)
+    y_test_raw = test_df["Target"]
+    y_test = le.transform(y_test_raw)
 
     # === Walk-forward cross-validation ===
-    try:
-        n_splits = min(5, max(2, len(X_train) // 50))
-        tscv = TimeSeriesSplit(n_splits=n_splits)
-        for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
-            X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
-            y_tr, y_val = y_train.iloc[tr_idx], y_train.iloc[val_idx]
-            fold_weights = compute_sample_weight(class_weight="balanced", y=y_tr)
-            cv_model = XGBClassifier(
-                n_estimators=200,
-                max_depth=4,
-                learning_rate=0.05,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                objective='multi:softprob',
-                num_class=len(np.unique(y_encoded)),
-                random_state=42,
-                eval_metric='mlogloss'
+    n_splits = min(5, max(2, len(X_train) // 50))
+    tscv = TimeSeriesSplit(n_splits=n_splits)
+    for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
+        X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
+        y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
+        y_tr = le.transform(y_tr_raw)
+        y_val = le.transform(y_val_raw)
+
+        present_classes = set(y_tr_raw.unique())
+        missing_classes = set(le.classes_) - present_classes
+        if missing_classes:
+            logger.warning(
+                "⚠️ Fold %d missing classes: %s", fold, list(missing_classes)
             )
+        if len(np.unique(y_tr)) < 2:
+            logger.warning("⚠️ Fold %d skipped due to insufficient class variety", fold)
+            continue
+
+        fold_weights = compute_sample_weight(class_weight="balanced", y=y_tr)
+        cv_model = XGBClassifier(
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective='multi:softprob',
+            num_class=len(le.classes_),
+            random_state=42,
+            eval_metric='mlogloss'
+        )
+        try:
             cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
             cv_preds = cv_model.predict(X_val)
             logger.info(
                 "📊 CV Fold %d classification report:\n%s",
                 fold,
-                classification_report(y_val, cv_preds, digits=3),
+                classification_report(
+                    y_val,
+                    cv_preds,
+                    labels=list(range(len(le.classes_))),
+                    target_names=[label_map[i] for i in range(len(le.classes_))],
+                    digits=3,
+                ),
             )
-    except Exception as e:
-        logger.warning("⚠️ Time series cross-validation failed: %s", e)
+        except Exception as e:
+            logger.warning("⚠️ CV fold %d failed: %s", fold, e)
 
     # === Final model training with class weights ===
     sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
@@ -190,7 +225,7 @@ def train_model(X, y):
         subsample=0.8,
         colsample_bytree=0.8,
         objective='multi:softprob',
-        num_class=len(np.unique(y_encoded)),
+        num_class=len(le.classes_),
         random_state=42,
         eval_metric='mlogloss'
     )
@@ -198,14 +233,7 @@ def train_model(X, y):
     model.fit(X_train, y_train, sample_weight=sample_weights)
     preds = model.predict(X_test)
 
-    label_map = {
-        0: "big_loss",
-        1: "small_loss",
-        2: "neutral",
-        3: "small_gain",
-        4: "big_gain",
-    }
-    labels_sorted = sorted(np.unique(np.concatenate([y_test.values, preds])))
+    labels_sorted = sorted(np.unique(np.concatenate([y_test, preds])))
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
 
     report = classification_report(
