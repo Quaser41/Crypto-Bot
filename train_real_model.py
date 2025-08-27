@@ -290,6 +290,7 @@ def train_model(X, y):
                     labels=sorted(fold_le.classes_),
                     target_names=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
                     digits=3,
+                    zero_division=0,
                 ),
             )
         except Exception as e:
@@ -324,7 +325,12 @@ def train_model(X, y):
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
 
     report = classification_report(
-        y_test, preds, labels=labels_sorted, target_names=target_names, digits=3
+        y_test,
+        preds,
+        labels=labels_sorted,
+        target_names=target_names,
+        digits=3,
+        zero_division=0,
     )
     cm = confusion_matrix(y_test, preds, labels=labels_sorted)
 
