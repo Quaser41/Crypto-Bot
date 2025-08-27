@@ -181,6 +181,20 @@ def test_rotation_executes_when_gain_covers_cost(monkeypatch):
     assert record['rotation_net_gain'] == pytest.approx(80.0)
 
 
+def test_rotation_gain_scaled_by_fee_ratio(caplog):
+    tm = create_tm()
+    tm.trade_fee_pct = 0.05
+    tm.min_profit_fee_ratio = 1.0
+    tm.min_hold_bucket = "30m-2h"
+    perf.reset_cache()
+    with caplog.at_level(logging.INFO, logger="trade_manager"):
+        gain = tm._estimate_rotation_gain("LINK", 10.0, confidence=1.0)
+    assert gain == 0.0
+    fee_ratio = perf.get_avg_fee_ratio("LINK", "30m-2h", refresh_seconds=0)
+    expected_threshold = tm.min_profit_fee_ratio * (1 + fee_ratio)
+    assert f"{expected_threshold:.2f}" in caplog.text
+
+
 def test_slippage_applied_to_trade(monkeypatch):
     tm = create_tm()
     tm.risk_per_trade = 1.0
