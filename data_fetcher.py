@@ -71,8 +71,8 @@ def fetch_onchain_metrics(days=14):
     # to the modern ``blockchain.info`` domain by default. Users may override the
     # base URL via ``BLOCKCHAIN_CHARTS_BASE``.
     base_url = os.getenv("BLOCKCHAIN_CHARTS_BASE", "https://blockchain.info")
-    tx_url = f"{base_url}/charts/transactions"
-    active_url = f"{base_url}/charts/active_addresses"
+    tx_url = f"{base_url}/charts/n-transactions"
+    active_url = f"{base_url}/charts/active-addresses"
     params = {"timespan": f"{days}days", "format": "json"}
 
     # Only retry on server errors for these endpoints
