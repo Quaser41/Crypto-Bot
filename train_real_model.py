@@ -8,6 +8,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import data_fetcher
 from data_fetcher import fetch_ohlcv_smart
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
@@ -98,14 +99,58 @@ def prepare_training_data(
     min_unique_samples: int, default ``3``
         Minimum number of unique rows required in a class before simple
         resampling. Classes with fewer unique samples are dropped to avoid
-        training on duplicated data.
+        training on duplicated data. When fewer than 60 historical rows are
+        available, the threshold is lowered by one after retrying additional
+        data sources.
     """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
+    effective_min_unique = min_unique_samples
+
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
+
+    if len(df) < 60:
+        logger.warning(
+            "⚠️ Only %d rows fetched for %s; attempting extended history",
+            len(df),
+            coin_id,
+        )
+        df_ext = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=1460)
+        if len(df_ext) > len(df):
+            df = df_ext
+        if len(df) < 60:
+            original_sources = data_fetcher.DATA_SOURCES[:]
+            for i in range(1, len(original_sources)):
+                data_fetcher.DATA_SOURCES = (
+                    original_sources[i:] + original_sources[:i]
+                )
+                df_retry = fetch_ohlcv_smart(
+                    symbol=symbol, coin_id=coin_id, days=1460
+                )
+                if len(df_retry) > len(df):
+                    df = df_retry
+                if len(df) >= 60:
+                    break
+            data_fetcher.DATA_SOURCES = original_sources
+        if len(df) < 60:
+            effective_min_unique = max(1, min_unique_samples - 1)
+            logger.info(
+                "📉 Thin history for %s (%d rows); lowering min_unique_samples to %d",
+                coin_id,
+                len(df),
+                effective_min_unique,
+            )
 
     if df.empty:
         logger.warning("⚠️ No data for %s", coin_id)
         return None, None
+
+    if "Timestamp" in df.columns:
+        span_days = (df["Timestamp"].max() - df["Timestamp"].min()).days
+        logger.info(
+            "📆 %s: fetched %d rows spanning ~%d days", coin_id, len(df), span_days
+        )
+    else:
+        logger.info("📆 %s: fetched %d rows", coin_id, len(df))
 
     df = add_indicators(df)
     df = df.copy()
@@ -181,9 +226,12 @@ def prepare_training_data(
                 return None, None
             subset = pd.concat([X.loc[idx], y.loc[idx]], axis=1)
             unique_rows = subset.drop_duplicates().shape[0]
-            if unique_rows < min_unique_samples:
+            if unique_rows < effective_min_unique:
                 logger.warning(
-                    "⚠️ Class %d has only %d unique rows; dropping %s", cls, unique_rows, coin_id
+                    "⚠️ Class %d has only %d unique rows; dropping %s",
+                    cls,
+                    unique_rows,
+                    coin_id,
                 )
                 return None, None
             augmented = resample(
