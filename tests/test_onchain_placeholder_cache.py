@@ -3,7 +3,7 @@ import os
 import data_fetcher
 
 
-def test_fetch_onchain_metrics_caches_empty_df(monkeypatch, tmp_path):
+def test_fetch_onchain_metrics_caches_fallback_df(monkeypatch, tmp_path):
     calls = {"count": 0}
 
     def mock_safe_request(*args, **kwargs):
@@ -14,16 +14,28 @@ def test_fetch_onchain_metrics_caches_empty_df(monkeypatch, tmp_path):
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
 
-    df1 = data_fetcher.fetch_onchain_metrics()
-    df2 = data_fetcher.fetch_onchain_metrics()
+    df1 = data_fetcher.fetch_onchain_metrics(days=3)
+    df2 = data_fetcher.fetch_onchain_metrics(days=3)
 
-    assert df1.empty and df2.empty
+    assert not df1.empty and not df2.empty
+    assert (df1["TxVolume"] == 0).all()
+    assert (df1["ActiveAddresses"] == 0).all()
     assert calls["count"] == 2
 
 
 def test_fetch_onchain_metrics_returns_data(monkeypatch, tmp_path):
-    sample_tx = {"data": [["2024-07-01", 1000], ["2024-07-02", 1500]]}
-    sample_active = {"data": [["2024-07-01", 200], ["2024-07-02", 250]]}
+    sample_tx = {
+        "values": [
+            {"x": 1722384000, "y": 1000},
+            {"x": 1722470400, "y": 1500},
+        ]
+    }
+    sample_active = {
+        "values": [
+            {"x": 1722384000, "y": 200},
+            {"x": 1722470400, "y": 250},
+        ]
+    }
     responses = [sample_tx, sample_active]
 
     def mock_safe_request(*args, **kwargs):
