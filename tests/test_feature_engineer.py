@@ -107,3 +107,26 @@ def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):
 
     assert result.empty
     assert any('Skipping symbol' in r.message for r in caplog.records)
+
+
+def test_add_indicators_skips_constant_price(monkeypatch, caplog):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': [100] * periods,
+        'High': [101] * periods,
+        'Low': [99] * periods,
+    })
+
+    def fail_fetch(*args, **kwargs):
+        raise AssertionError('fetch should not be called')
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', fail_fetch)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', fail_fetch)
+
+    with caplog.at_level('WARNING'):
+        result = add_indicators(df)
+
+    assert result.empty
+    assert any('Volatility_7d is zero for all points' in r.message for r in caplog.records)
