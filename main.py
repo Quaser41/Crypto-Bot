@@ -5,6 +5,8 @@ import pandas as pd
 import threading
 import asyncio
 import argparse
+import signal
+import sys
 
 # ✅ Now use refactored fetchers
 from data_fetcher import (
@@ -140,6 +142,18 @@ def monitor_thread():
 
 t = threading.Thread(target=monitor_thread, daemon=True)
 t.start()
+
+
+def handle_exit(signum, frame):
+    logger.info(f"Received signal {signum}, exiting...")
+    tm.save_state()
+    if ENABLE_ROTATION_AUDIT and PERSIST_ROTATION_AUDIT:
+        save_rotation_audit()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, handle_exit)
+signal.signal(signal.SIGTERM, handle_exit)
 
 
 def scan_for_breakouts():
