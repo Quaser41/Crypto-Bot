@@ -67,13 +67,16 @@ def fetch_onchain_metrics(days=14):
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
     # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
-    # history to request.  The older ``blockchain.info`` endpoints have been
-    # phased out in favour of the ``api.blockchain.com`` domain.  Users may
-    # override the base URL via ``BLOCKCHAIN_CHARTS_BASE``.  Requests always pass
-    # ``format=json`` to ensure a JSON payload is returned.
-    base_url = os.getenv("BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.com")
-    tx_url = f"{base_url}/charts/n-transactions"
-    active_url = f"{base_url}/charts/active-addresses"
+    # history to request.  Older ``api.blockchain.com`` and
+    # ``api.blockchain.info`` domains have been deprecated in favour of the
+    # primary ``blockchain.info`` chart API. Users may override the base URL via
+    # ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass ``format=json`` to ensure
+    # a JSON payload is returned.
+    base_url = os.getenv(
+        "BLOCKCHAIN_CHARTS_BASE", "https://blockchain.info/charts"
+    )
+    tx_url = f"{base_url}/n-transactions"
+    active_url = f"{base_url}/active-addresses"
     params = {"timespan": f"{days}days", "format": "json"}
 
     # Only retry on server errors for these endpoints
@@ -111,15 +114,6 @@ def fetch_onchain_metrics(days=14):
 
     tx_data = _fetch_chart(tx_url)
     active_data = _fetch_chart(active_url)
-
-    # If either request returned non-JSON or failed, try the legacy domain
-    if (tx_data is None or active_data is None) and base_url != "https://api.blockchain.info":
-        legacy_base = "https://api.blockchain.info"
-        logger.info("↪️ Retrying on-chain metrics via legacy endpoint")
-        if tx_data is None:
-            tx_data = _fetch_chart(tx_url.replace(base_url, legacy_base))
-        if active_data is None:
-            active_data = _fetch_chart(active_url.replace(base_url, legacy_base))
 
     if not tx_data and not active_data:
         logger.warning(
@@ -350,7 +344,7 @@ def safe_request(
 
             if r.status_code == 404:
                 if url not in SEEN_404_URLS:
-                    logger.error(f"❌ 404 Not Found {url}")
+                    logger.warning(f"⚠️ 404 Not Found {url}")
                     SEEN_404_URLS.add(url)
                 return None
       

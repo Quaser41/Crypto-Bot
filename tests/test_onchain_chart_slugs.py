@@ -23,7 +23,7 @@ def test_fetch_onchain_metrics_uses_new_chart_slugs(monkeypatch, tmp_path):
     assert any("n-transactions" in url for url, _ in captured)
     assert any("active-addresses" in url for url, _ in captured)
     assert all(params.get("format") == "json" for _, params in captured)
-    assert any("api.blockchain.com" in url for url, _ in captured)
+    assert any("blockchain.info/charts" in url for url, _ in captured)
     assert list(df.columns) == ["Timestamp", "TxVolume", "ActiveAddresses"]
     assert len(df) == 1
     assert df["TxVolume"].iloc[0] == 123
