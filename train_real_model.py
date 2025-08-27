@@ -2,6 +2,7 @@
 
 import os
 import json
+import argparse
 from typing import Optional
 
 import numpy as np
@@ -70,7 +71,26 @@ def return_bucket(r):
         return 4  # Big gain
 
 
-def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
+def prepare_training_data(
+    symbol,
+    coin_id,
+    oversampler: Optional[str] = None,
+    min_unique_samples: int = 3,
+):
+    """Prepare feature matrix and labels for a single symbol.
+
+    Parameters
+    ----------
+    symbol, coin_id: str
+        Asset identifiers used for data fetching.
+    oversampler: {"smote", "adasyn"}, optional
+        Technique for oversampling minority classes.  ``None`` disables
+        oversampling.
+    min_unique_samples: int, default ``3``
+        Minimum number of unique rows required in a class before simple
+        resampling. Classes with fewer unique samples are dropped to avoid
+        training on duplicated data.
+    """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
 
@@ -146,7 +166,7 @@ def prepare_training_data(symbol, coin_id, oversampler: Optional[str] = None):
                 return None, None
             subset = pd.concat([X.loc[idx], y.loc[idx]], axis=1)
             unique_rows = subset.drop_duplicates().shape[0]
-            if unique_rows < 5:
+            if unique_rows < min_unique_samples:
                 logger.warning(
                     "⚠️ Class %d has only %d unique rows; dropping %s", cls, unique_rows, coin_id
                 )
@@ -325,6 +345,21 @@ def train_model(X, y):
     return model
 
 def main():
+    parser = argparse.ArgumentParser(description="Train crypto classifier")
+    parser.add_argument(
+        "--oversampler",
+        choices=["smote", "adasyn"],
+        default=None,
+        help="Apply oversampling technique to minority classes",
+    )
+    parser.add_argument(
+        "--min-unique-samples",
+        type=int,
+        default=3,
+        help="Minimum unique rows required per class before resampling",
+    )
+    args = parser.parse_args()
+
     coins = [
         ("btc", "bitcoin"),
         ("eth", "ethereum"),
@@ -347,7 +382,12 @@ def main():
     y_list = []
 
     for symbol, coin_id in coins:
-        X, y = prepare_training_data(symbol, coin_id)
+        X, y = prepare_training_data(
+            symbol,
+            coin_id,
+            oversampler=args.oversampler,
+            min_unique_samples=args.min_unique_samples,
+        )
         if X is not None and y is not None:
             X_list.append(X)
             y_list.append(y)
