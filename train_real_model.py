@@ -49,13 +49,13 @@ def load_feature_list():
 
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r):
-    if r <= -0.06:
+    if r <= -0.05:
         return 0  # Big loss
     elif r <= -0.02:
         return 1  # Small loss
     elif r < 0.01:
         return 2  # Neutral
-    elif r < 0.05:
+    elif r < 0.04:
         return 3  # Small gain
     else:
         return 4  # Big gain
@@ -80,6 +80,24 @@ def prepare_training_data(symbol, coin_id):
     df = df.dropna()
 
     df["Target"] = df["Return"].apply(return_bucket)
+
+    class_counts = df["Target"].value_counts()
+    for cls in [0, 3]:
+        cnt = class_counts.get(cls, 0)
+        if cnt < 50:
+            logger.info(
+                "⚠️ Class %d has %d samples; augmenting to reach 50", cls, cnt
+            )
+            subset = df[df["Target"] == cls]
+            if not subset.empty:
+                augmented = resample(subset, replace=True, n_samples=50 - cnt, random_state=42)
+                df = pd.concat([df, augmented], ignore_index=True)
+            else:
+                logger.warning("⚠️ No data available to augment class %d", cls)
+    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+    logger.info(
+        "📊 Class distribution after augmentation: %s", df["Target"].value_counts().sort_index()
+    )
 
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
