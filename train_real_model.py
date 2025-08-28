@@ -22,6 +22,10 @@ from sklearn.utils import resample
 from xgboost import XGBClassifier
 from analytics.calibration_utils import calibrate_and_analyze
 
+import joblib
+from joblib.externals.loky.process_executor import TerminatedWorkerError
+BackendError = getattr(joblib.parallel, "BackendError", Exception)
+
 from utils.logging import get_logger
 from threshold_utils import compute_return_thresholds
 
@@ -513,7 +517,20 @@ def train_model(X, y, oversampler: Optional[str] = None):
         n_jobs=-1,
         refit=True,
     )
-    grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+    try:
+        grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+    except (BackendError, TerminatedWorkerError) as e:
+        logger.error(
+            "❌ Parallel training failed: %s. Reduce n_jobs or run on a different platform.",
+            e,
+        )
+        logger.info("Retrying grid search with n_jobs=1...")
+        try:
+            grid.set_params(n_jobs=1)
+            grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+        except Exception as retry_exc:
+            logger.error("❌ Retry with n_jobs=1 failed: %s", retry_exc)
+            sys.exit(1)
     model = grid.best_estimator_
     logger.info(
         "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
