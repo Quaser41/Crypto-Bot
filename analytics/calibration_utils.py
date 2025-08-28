@@ -31,7 +31,22 @@ def calibrate_and_analyze(model, X_val, y_val, label_names) -> Tuple[CalibratedC
         The calibrated wrapper around ``model``.
     thresholds : Dict[str, float]
         Mapping of class name to recommended probability cutoff.
+
+    Notes
+    -----
+    Calibration is skipped and the original ``model`` returned when the
+    number of predicted probabilities differs from the number of true
+    labels.
     """
+    # Ensure predicted probabilities and labels have matching lengths.
+    raw_probas = model.predict_proba(X_val)
+    if len(raw_probas) != len(y_val):
+        print(
+            "Skipping calibration: predicted probabilities length",
+            f"{len(raw_probas)} != labels length {len(y_val)}",
+        )
+        return model, {}
+
     calibrator = CalibratedClassifierCV(model, cv="prefit", method="isotonic")
     calibrator.fit(X_val, y_val)
     probas = calibrator.predict_proba(X_val)
