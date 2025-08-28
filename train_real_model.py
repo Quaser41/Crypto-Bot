@@ -8,8 +8,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import requests
 import data_fetcher
 from data_fetcher import fetch_ohlcv_smart
+import symbol_resolver
+from config import MIN_24H_VOLUME
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
@@ -63,6 +66,32 @@ def load_feature_list():
     except (json.JSONDecodeError, ValueError) as e:
         logger.warning("⚠️ Could not parse features.json (%s); using default feature set", e)
     return DEFAULT_FEATURES
+
+
+def get_volume_ranked_symbols(limit: int | None = None):
+    """Return Binance.US symbols ordered by 24h quote volume."""
+    symbol_resolver.load_binance_us_symbols()
+    try:
+        r = requests.get("https://api.binance.us/api/v3/ticker/24hr", timeout=10)
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:  # pragma: no cover - network
+        logger.error("❌ Failed to fetch Binance.US volume data: %s", e)
+        return []
+
+    volumes = []
+    for item in data:
+        sym = item.get("symbol", "")
+        if sym.endswith("USDT"):
+            base = sym[:-4].lower()
+            try:
+                vol = float(item.get("quoteVolume", 0))
+            except (TypeError, ValueError):
+                vol = 0
+            volumes.append((base, vol))
+
+    volumes.sort(key=lambda x: x[1], reverse=True)
+    return volumes if limit is None else volumes[:limit]
 
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r):
@@ -536,6 +565,12 @@ def main():
         default=50,
         help="Target sample size for minority classes during augmentation",
     )
+    parser.add_argument(
+        "--max-assets",
+        type=int,
+        default=10,
+        help="Target number of symbols to include in training",
+    )
     args = parser.parse_args()
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
@@ -545,28 +580,29 @@ def main():
         )
         sys.exit(1)
 
-    coins = [
-        ("btc", "bitcoin"),
-        ("eth", "ethereum"),
-        ("sol", "solana"),
-        ("doge", "dogecoin"),
-        ("pepe", "pepe"),
-        ("bonk", "bonk"),
-        ("floki", "floki"),
-        ("avax", "avalanche-2"),
-        ("link", "chainlink"),
-        # Removed INJ due to failure
-        # Added short-trading friendly alts
-        ("ada", "cardano"),
-        ("sui", "sui"),
-        ("apt", "aptos"),
-        ("arb", "arbitrum")
-    ]
+    candidates = get_volume_ranked_symbols()
+    X_list: list[pd.DataFrame] = []
+    y_list: list[pd.Series] = []
 
-    X_list = []
-    y_list = []
+    for symbol, volume in candidates:
+        if volume < MIN_24H_VOLUME:
+            logger.info(
+                "⏭️ Skipping %s: volume %.0f below %s", symbol.upper(), volume, MIN_24H_VOLUME
+            )
+            continue
 
-    for symbol, coin_id in coins:
+        coin_id = data_fetcher.resolve_coin_id(symbol, symbol)
+        if not coin_id:
+            logger.info("⏭️ Skipping %s: unable to resolve coin id", symbol.upper())
+            continue
+
+        df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=730)
+        if len(df) < 60:
+            logger.info(
+                "⏭️ Skipping %s: only %d rows of data", symbol.upper(), len(df)
+            )
+            continue
+
         X, y = prepare_training_data(
             symbol,
             coin_id,
@@ -575,8 +611,11 @@ def main():
             augment_target=args.augment_target,
         )
         if X is not None and y is not None:
+            logger.info("✅ Selected %s for training", symbol.upper())
             X_list.append(X)
             y_list.append(y)
+        if len(X_list) >= args.max_assets:
+            break
 
     X_list = [x for x in X_list if x is not None and not x.empty]
     y_list = [y for y in y_list if y is not None and not y.empty]
