@@ -113,15 +113,19 @@ Several environment variables control how aggressively the bot enters trades.
 Lowering these thresholds allows more trades, while raising them makes the bot
 more selective:
 
+- `CONFIDENCE_THRESHOLD`: Baseline confidence required before a prediction is
+  considered tradable. Defaults to `0.78`.
 - `MIN_VOLATILITY_7D`: Minimum 7‑day volatility required to analyze a symbol.
   Defaults to `0.0001`.
 - `SUPPRESS_CLASS1_CONF`: If a prediction indicates a small loss and the
-  confidence is below this value (default `0.85`), the trade is suppressed.
+  confidence is below this value (default `0.88`), the trade is suppressed.
 - `HIGH_CONF_BUY_OVERRIDE`: Confidence needed to upgrade small/big gain
-  predictions to BUY signals. Defaults to `0.75`.
+  predictions to BUY signals. Defaults to `0.84`.
 - `VERY_HIGH_CONF_BUY_OVERRIDE`: Strongest BUY override for gain predictions.
   Defaults to `0.90`.
 
-By adjusting these values, users can tune the bot's sensitivity to predictions
-and market volatility without modifying the source code.
+These defaults were derived from isotonic probability calibration and analysis
+of ROC and precision-recall curves on the expanded validation set. By adjusting
+them, users can further tune the bot's sensitivity to predictions and market
+volatility without modifying the source code.
 

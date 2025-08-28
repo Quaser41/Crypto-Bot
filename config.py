@@ -116,14 +116,17 @@ EXECUTION_DELAY_BARS = int(os.getenv("EXECUTION_DELAY_BARS", "0"))
 EXECUTION_PRICE_WEIGHT = float(os.getenv("EXECUTION_PRICE_WEIGHT", "1.0"))
 
 # Baseline minimum model confidence required to consider a trade.
-CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
+# Raised after calibration analysis to favor higher quality signals.
+CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.78"))
 
 # --- Trade aggressiveness controls ---
 # Minimum confidence below which a predicted small-loss trade is suppressed.
-SUPPRESS_CLASS1_CONF = float(os.getenv("SUPPRESS_CLASS1_CONF", "0.85"))
+# Calibrated probability curves suggest a stricter threshold.
+SUPPRESS_CLASS1_CONF = float(os.getenv("SUPPRESS_CLASS1_CONF", "0.88"))
 
 # Confidence at which small/big gain predictions are treated as high conviction buys.
-HIGH_CONF_BUY_OVERRIDE = float(os.getenv("HIGH_CONF_BUY_OVERRIDE", "0.75"))
+# Slightly higher after calibration to reduce false positives.
+HIGH_CONF_BUY_OVERRIDE = float(os.getenv("HIGH_CONF_BUY_OVERRIDE", "0.84"))
 
 # Confidence required for the strongest BUY override.
 VERY_HIGH_CONF_BUY_OVERRIDE = float(os.getenv("VERY_HIGH_CONF_BUY_OVERRIDE", "0.90"))

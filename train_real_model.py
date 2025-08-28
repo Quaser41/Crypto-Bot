@@ -17,6 +17,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
 from xgboost import XGBClassifier
+from analytics.calibration_utils import calibrate_and_analyze
 
 from utils.logging import get_logger
 
@@ -510,6 +511,12 @@ def train_model(X, y, oversampler: Optional[str] = None):
     with open(os.path.join("analytics", "metrics_summary.json"), "w") as f:
         json.dump(metrics_summary, f, indent=2)
     logger.info("📁 Saved diagnostics to analytics/")
+
+    try:
+        _, thresholds = calibrate_and_analyze(model, X_test, y_test, target_names)
+        logger.info("📈 Recommended thresholds: %s", thresholds)
+    except Exception as e:
+        logger.warning("⚠️ Calibration/threshold analysis failed: %s", e)
 
     return model, le.classes_
 
