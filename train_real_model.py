@@ -52,6 +52,10 @@ DEFAULT_FEATURES = [
     "OBV", "Volume_vs_SMA20", "RelStrength_BTC"
 ]
 
+# Optional columns that may not be present for all assets (e.g., higher timeframe
+# metrics). Missing these will be tolerated.
+OPTIONAL_FEATURES = {"MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h"}
+
 
 def load_feature_list():
     """Load feature column names from ``features.json`` if available.
@@ -236,7 +240,13 @@ def prepare_training_data(
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
     if missing:
-        logger.warning("⚠️ Missing features in data: %s", missing)
+        optional_missing = [c for c in missing if c in OPTIONAL_FEATURES]
+        missing_non_optional = [c for c in missing if c not in OPTIONAL_FEATURES]
+        if missing_non_optional:
+            msg = f"Missing required features in data: {missing_non_optional}"
+            logger.error("❌ %s", msg)
+            raise ValueError(msg)
+        logger.warning("⚠️ Missing optional features in data: %s", optional_missing)
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
