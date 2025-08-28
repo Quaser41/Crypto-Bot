@@ -7,6 +7,7 @@ import pandas as pd
 import yfinance as yf
 import asyncio
 import json
+import re
 from datetime import datetime, timedelta
 from rate_limiter import wait_for_slot
 from symbol_resolver import (
@@ -64,6 +65,8 @@ def fetch_onchain_metrics(days=14):
         return cached
 
     logger.info(f"🌐 Fetching on-chain metrics for {days} days")
+    if not os.getenv("GLASSNODE_API_KEY"):
+        logger.info("🔓 GLASSNODE_API_KEY missing – using public data sources")
 
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
@@ -195,22 +198,49 @@ def fetch_onchain_metrics(days=14):
         )
         return df[["Timestamp", col]]
 
+    def _scrape_chart(slug: str, col: str) -> pd.DataFrame | None:
+        """Scrape Blockchain.com explorer HTML as a fallback."""
+        url = f"https://www.blockchain.com/charts/{slug}"
+        html_params = {"timespan": f"{days}days"}
+        try:
+            resp = requests.get(url, params=html_params, timeout=10, headers=headers)
+            if resp.status_code != 200:
+                return None
+            match = re.search(r"var\s+data\s*=\s*(\[\[.*?\]\]);", resp.text, re.DOTALL)
+            if not match:
+                return None
+            arr = json.loads(match.group(1))
+            df = pd.DataFrame(arr, columns=["Timestamp", col])
+            df["Timestamp"] = pd.to_datetime(
+                pd.to_numeric(df["Timestamp"], errors="coerce"),
+                unit="ms",
+                errors="coerce",
+            )
+            return df[["Timestamp", col]]
+        except Exception as e:  # pragma: no cover - network exceptions
+            logger.warning(f"⚠️ HTML scrape failed for {url}: {e}")
+            return None
+
     missing = False
     if tx_data and (
         ("values" in tx_data and tx_data["values"]) or ("data" in tx_data and tx_data["data"])
     ):
         df_tx = _parse_blockchain_chart(tx_data, "TxVolume")
     else:
-        df_tx = _default_df("TxVolume")
-        missing = True
+        df_tx = _scrape_chart("n-transactions", "TxVolume")
+        if df_tx is None or df_tx.empty:
+            df_tx = _default_df("TxVolume")
+            missing = True
 
     if active_data and (
         ("values" in active_data and active_data["values"]) or ("data" in active_data and active_data["data"])
     ):
         df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
     else:
-        df_active = _default_df("ActiveAddresses")
-        missing = True
+        df_active = _scrape_chart("active-addresses", "ActiveAddresses")
+        if df_active is None or df_active.empty:
+            df_active = _default_df("ActiveAddresses")
+            missing = True
 
     df = pd.merge(df_tx, df_active, on="Timestamp", how="outer").sort_values(
         "Timestamp"
