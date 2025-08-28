@@ -9,7 +9,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import data_fetcher
-from data_fetcher import fetch_ohlcv_smart
+from data_fetcher import fetch_ohlcv_smart, get_top_gainers
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
@@ -87,6 +87,8 @@ def prepare_training_data(
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
     augment_target: int = 50,
+    df_override: Optional[pd.DataFrame] = None,
+    fallback_attempted: bool = False,
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -112,7 +114,9 @@ def prepare_training_data(
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
 
-    df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
+    df = df_override if df_override is not None else fetch_ohlcv_smart(
+        symbol=symbol, coin_id=coin_id, days=730
+    )
 
     if len(df) < 60:
         logger.warning(
@@ -241,11 +245,50 @@ def prepare_training_data(
             unique_rows = subset.drop_duplicates().shape[0]
             if unique_rows < effective_min_unique:
                 logger.warning(
-                    "⚠️ Class %d has only %d unique rows; dropping %s",
+                    "⚠️ Class %d has only %d unique rows for %s",
                     cls,
                     unique_rows,
                     coin_id,
                 )
+                if not fallback_attempted:
+                    logger.info(
+                        "🔄 Attempting alternate exchange for %s (days=1460, limit=1000)",
+                        symbol,
+                    )
+                    df_alt = data_fetcher.fetch_binance_us_ohlcv(
+                        symbol, limit=1000
+                    )
+                    source = "Binance.US"
+                    if df_alt.empty:
+                        logger.info(
+                            "🔁 Binance.US returned no data for %s; trying DexScreener",
+                            symbol,
+                        )
+                        df_alt = data_fetcher.fetch_dexscreener_ohlcv(symbol)
+                        source = "DexScreener"
+                    if not df_alt.empty:
+                        logger.info(
+                            "✅ Using %s fallback for %s with %d rows",
+                            source,
+                            coin_id,
+                            len(df_alt),
+                        )
+                        return prepare_training_data(
+                            symbol,
+                            coin_id,
+                            oversampler=oversampler,
+                            min_unique_samples=min_unique_samples,
+                            augment_target=augment_target,
+                            df_override=df_alt,
+                            fallback_attempted=True,
+                        )
+                    logger.warning(
+                        "⚠️ Alternate exchanges provided no usable data for %s",
+                        coin_id,
+                    )
+                else:
+                    logger.info("🔁 Fallback already attempted for %s", coin_id)
+                logger.warning("⚠️ Dropping %s after fallback attempts", coin_id)
                 return None, None
             augmented = resample(
                 subset, replace=True, n_samples=target - cnt, random_state=42
@@ -542,23 +585,8 @@ def main():
         )
         sys.exit(1)
 
-    coins = [
-        ("btc", "bitcoin"),
-        ("eth", "ethereum"),
-        ("sol", "solana"),
-        ("doge", "dogecoin"),
-        ("pepe", "pepe"),
-        ("bonk", "bonk"),
-        ("floki", "floki"),
-        ("avax", "avalanche-2"),
-        ("link", "chainlink"),
-        # Removed INJ due to failure
-        # Added short-trading friendly alts
-        ("ada", "cardano"),
-        ("sui", "sui"),
-        ("apt", "aptos"),
-        ("arb", "arbitrum")
-    ]
+    gainers = get_top_gainers(limit=30)
+    coins = [(sym.lower(), cid) for cid, sym, *_ in gainers]
 
     X_list = []
     y_list = []
@@ -574,6 +602,10 @@ def main():
         if X is not None and y is not None:
             X_list.append(X)
             y_list.append(y)
+        else:
+            logger.info(
+                "⏭️ Insufficient data for %s; moving to next candidate", symbol.upper()
+            )
 
     X_list = [x for x in X_list if x is not None and not x.empty]
     y_list = [y for y in y_list if y is not None and not y.empty]

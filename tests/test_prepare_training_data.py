@@ -31,6 +31,16 @@ def test_prepare_training_data_augment(monkeypatch):
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
     monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+    monkeypatch.setattr(
+        train_real_model.data_fetcher,
+        "fetch_binance_us_ohlcv",
+        lambda *a, **k: pd.DataFrame(),
+    )
+    monkeypatch.setattr(
+        train_real_model.data_fetcher,
+        "fetch_dexscreener_ohlcv",
+        lambda *a, **k: pd.DataFrame(),
+    )
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
     assert X is not None and y is not None
