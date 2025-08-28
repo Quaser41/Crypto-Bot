@@ -29,13 +29,16 @@ _last_logged_class = None
 
 
 def _load_model_from_disk():
-    """Load the XGBoost model, expected feature list, and label mapping from disk."""
+    """Load the XGBoost model, its feature list, and label mapping from disk."""
     try:
         model = xgb.Booster()
         model.load_model(MODEL_PATH)
+        model_features = list(model.feature_names or [])
     except ModuleNotFoundError as e:
         if e.name == "xgboost":
-            logger.error("❌ Missing dependency 'xgboost'. Install it with 'pip install xgboost' to load the ML model.")
+            logger.error(
+                "❌ Missing dependency 'xgboost'. Install it with 'pip install xgboost' to load the ML model."
+            )
         else:
             logger.error("❌ Required module not found: %s", e.name)
         return None, [], []
@@ -46,19 +49,29 @@ def _load_model_from_disk():
         logger.error("❌ Failed to load model from %s: %s", MODEL_PATH, e)
         return None, [], []
 
-    try:
-        with open(FEATURES_PATH, "r") as f:
-            expected_features = json.load(f)
-    except FileNotFoundError:
-        logger.error("❌ Feature list file not found at %s", FEATURES_PATH)
-        return None, [], []
-    except json.JSONDecodeError as e:
-        logger.error("❌ Failed to parse feature list: %s", e)
+    if not model_features:
+        logger.error("❌ Model did not provide feature names; cannot validate inputs")
         return None, [], []
 
-    if not isinstance(expected_features, (list, tuple)) or not all(isinstance(f, str) for f in expected_features):
-        logger.error("❌ Expected features missing or malformed in feature list")
-        return None, [], []
+    # Optional cross-check against features.json for debugging only
+    try:
+        with open(FEATURES_PATH, "r") as f:
+            file_features = json.load(f)
+        if isinstance(file_features, (list, tuple)) and all(
+            isinstance(f, str) for f in file_features
+        ):
+            if list(file_features) != model_features:
+                logger.debug(
+                    "ℹ️ features.json differs from model feature names. Model: %s File: %s",
+                    model_features,
+                    file_features,
+                )
+        else:
+            logger.debug("ℹ️ features.json is malformed; ignoring")
+    except FileNotFoundError:
+        logger.debug("ℹ️ features.json not found; relying on model feature names")
+    except json.JSONDecodeError as e:
+        logger.debug("ℹ️ Failed to parse features.json (%s); ignoring", e)
 
     try:
         with open(LABELS_PATH, "r") as f:
@@ -75,11 +88,11 @@ def _load_model_from_disk():
         return None, [], []
 
     logger.info(
-        "🔄 Loaded ML model expecting %d features: %s",
-        len(expected_features),
-        expected_features,
+        "🔄 Loaded ML model with %d features from model metadata: %s",
+        len(model_features),
+        model_features,
     )
-    return model, list(expected_features), list(labels)
+    return model, model_features, list(labels)
 
 
 @lru_cache(maxsize=1)
