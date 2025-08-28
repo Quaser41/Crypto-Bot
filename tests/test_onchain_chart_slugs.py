@@ -23,10 +23,12 @@ def test_fetch_onchain_metrics_uses_new_chart_slugs(monkeypatch, tmp_path):
     assert any("n-transactions" in url for url, _ in captured)
     assert any("active-addresses" in url for url, _ in captured)
     assert all(
-        params.get("format") == "json" and params.get("cors") == "true"
+        params.get("format") == "json"
+        and params.get("cors") == "true"
+        and params.get("timespan") == "1days"
         for _, params in captured
     )
-    assert any("api.blockchain.com/charts" in url for url, _ in captured)
+    assert any("api.blockchain.info/charts" in url for url, _ in captured)
     assert list(df.columns) == ["Timestamp", "TxVolume", "ActiveAddresses"]
     assert len(df) == 1
     assert df["TxVolume"].iloc[0] == 123

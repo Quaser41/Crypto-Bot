@@ -71,12 +71,12 @@ def fetch_onchain_metrics(days=14):
     # Blockchain.com exposes public chart endpoints for several Bitcoin
     # on-chain statistics. Each response has a ``values`` array of
     # ``{"x": timestamp, "y": value}`` entries. ``days`` controls how much
-    # history to request. The legacy ``api.blockchain.info`` domain has been
-    # deprecated in favour of ``api.blockchain.com``. Users may override the base
-    # URL via ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass ``format=json`` to
-    # ensure a JSON payload is returned.
+    # history to request. As of today the charts API is served from the legacy
+    # ``api.blockchain.info`` domain. If a new path is introduced, callers may
+    # override the base URL via ``BLOCKCHAIN_CHARTS_BASE``. Requests always pass
+    # ``format=json`` to ensure a JSON payload is returned.
     base_url = os.getenv(
-        "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.com/charts"
+        "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.info/charts"
     )
     tx_url = f"{base_url}/n-transactions"
     active_url = f"{base_url}/active-addresses"
