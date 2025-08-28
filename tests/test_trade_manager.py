@@ -377,7 +377,7 @@ def test_trailing_stop_scales_with_atr_and_logging(monkeypatch, caplog):
     assert f"{expected_trail:.4f}" in caplog.text
 
 
-def test_adaptive_stagnation_logs_scaled_threshold(caplog):
+def test_adaptive_stagnation_logs_scaled_threshold(monkeypatch, caplog):
     tm = TradeManager(
         stagnation_threshold_pct=0.01,
         stagnation_duration_sec=10,
@@ -409,6 +409,16 @@ def test_adaptive_stagnation_logs_scaled_threshold(caplog):
     expected_threshold = tm.stagnation_threshold_pct * mult
     expected_duration = tm.stagnation_duration_sec * mult
     pos['last_movement_time'] = now - expected_duration - 1
+
+    dummy_df = pd.DataFrame({
+        'Close': [100, 101, 102],
+        'Return_1d': [0.01, 0.01, 0.01],
+        'Return_3d': [0.02, 0.02, 0.02],
+        'RSI': [50, 50, 50],
+        'Hist': [0.1, 0.1, 0.1],
+    })
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: dummy_df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
 
     with caplog.at_level(logging.INFO, logger='trade_manager'):
         tm.manage('ABC', current_price)

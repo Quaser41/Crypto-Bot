@@ -35,8 +35,8 @@ def test_prepare_training_data_augment(monkeypatch):
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
     assert X is not None and y is not None
     counts = y.value_counts().to_dict()
-    assert counts[0] == 20
-    assert counts[4] == 50
+    assert counts[0] == 28
+    assert counts[4] == 32
 
 
 def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):

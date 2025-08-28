@@ -23,6 +23,7 @@ from xgboost import XGBClassifier
 from analytics.calibration_utils import calibrate_and_analyze
 
 from utils.logging import get_logger
+from threshold_utils import compute_return_thresholds
 
 logger = get_logger(__name__)
 
@@ -95,20 +96,25 @@ def get_volume_ranked_symbols(limit: int | None = None):
     return volumes if limit is None else volumes[:limit]
 
 # === Label encoding function (tight, short-term focused) ===
-def return_bucket(r):
-    """Bucket returns into coarse performance classes.
+def return_bucket(r, thresholds):
+    """Bucket returns into performance classes using dynamic thresholds.
 
-    The thresholds are deliberately moderate to avoid creating extremely rare
-    classes which complicate training.  Extreme buckets may be merged later if
-    the dataset lacks examples.
+    Parameters
+    ----------
+    r : float
+        Return value to bucket.
+    thresholds : dict
+        Mapping with keys ``"big_loss"``, ``"loss"``, ``"gain"`` and
+        ``"big_gain"`` defining the boundary points.
     """
-    if r <= -0.04:
+
+    if r <= thresholds["big_loss"]:
         return 0  # Big loss
-    elif r <= -0.015:
+    elif r <= thresholds["loss"]:
         return 1  # Loss
-    elif r < 0.015:
+    elif r < thresholds["gain"]:
         return 2  # Neutral
-    elif r < 0.04:
+    elif r < thresholds["big_gain"]:
         return 3  # Gain
     else:
         return 4  # Big gain
@@ -202,7 +208,9 @@ def prepare_training_data(
     df = df[df["Return"].abs() > 0.005]
     df = df.dropna()
 
-    df["Target"] = df["Return"].apply(return_bucket)
+    thresholds = compute_return_thresholds(df["Return"])
+    logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
+    df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
 
     # Merge extreme buckets if completely absent
     class_counts = df["Target"].value_counts()
@@ -218,6 +226,10 @@ def prepare_training_data(
     if class_counts.get(0, 0) == 0 or class_counts.get(4, 0) == 0:
         logger.warning("⚠️ Missing extreme classes for %s; skipping", coin_id)
         return None, None
+
+    # Adjust oversampling target based on distribution
+    augment_target = max(augment_target, int(class_counts.max() * 0.8))
+    logger.info("🎯 Using augment_target=%d", augment_target)
 
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
