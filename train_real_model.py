@@ -22,6 +22,10 @@ from sklearn.utils import resample
 from xgboost import XGBClassifier
 from analytics.calibration_utils import calibrate_and_analyze
 
+import joblib
+from joblib.externals.loky.process_executor import TerminatedWorkerError
+BackendError = getattr(joblib.parallel, "BackendError", Exception)
+
 from utils.logging import get_logger
 from threshold_utils import compute_return_thresholds
 
@@ -500,14 +504,18 @@ def train_model(X, y, oversampler: Optional[str] = None):
         "subsample": [0.8, 1.0],
         "colsample_bytree": [0.8, 1.0],
     }
+
     # Use a single worker process and single-threaded fits for Windows stability
+
     grid = GridSearchCV(
         XGBClassifier(
             objective="multi:softprob",
             num_class=len(le.classes_),
             random_state=42,
             eval_metric="mlogloss",
+
             n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+
         ),
         param_grid,
         scoring="f1_macro",

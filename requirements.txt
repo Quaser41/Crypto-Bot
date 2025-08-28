@@ -7,5 +7,5 @@ numpy
 joblib
 ta
 TA-Lib
-xgboost  # Required for loading the ML model
+xgboost==1.7.6  # Required for loading the ML model
 imbalanced-learn>=0.11
