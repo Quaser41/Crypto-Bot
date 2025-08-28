@@ -587,6 +587,23 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
     params.setdefault("cache_limit", cache_limit)
     if limit is not None:
         params.setdefault("limit", limit)
+    # Some data providers (e.g. Coinbase, Coingecko, yfinance) expect a
+    # start time derived from the number of requested rows.  If the caller
+    # supplies ``limit`` but not ``days``, those providers would otherwise
+    # default to their own origins (often the Unix epoch) which returns far
+    # more history than needed.  Estimate the number of days from ``limit``
+    # and ``interval`` so the start date is anchored relative to
+    # ``datetime.utcnow()``.
+    if "days" not in params and limit is not None:
+        try:
+            # ``pd.to_timedelta`` understands strings like "15m", "1h", "1d".
+            interval_delta = pd.to_timedelta(interval)
+        except Exception:
+            # Fallback to a conservative 1 day if the interval is unknown.
+            interval_delta = pd.Timedelta("1d")
+        span = interval_delta * limit
+        # Always request at least one day to avoid zero-length ranges.
+        params["days"] = max(int(span / pd.Timedelta("1d")), 1)
 
     global DATA_SOURCES
 
