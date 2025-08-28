@@ -500,17 +500,19 @@ def train_model(X, y, oversampler: Optional[str] = None):
         "subsample": [0.8, 1.0],
         "colsample_bytree": [0.8, 1.0],
     }
+    # Use a single worker process and single-threaded fits for Windows stability
     grid = GridSearchCV(
         XGBClassifier(
             objective="multi:softprob",
             num_class=len(le.classes_),
             random_state=42,
             eval_metric="mlogloss",
+            n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
         ),
         param_grid,
         scoring="f1_macro",
         cv=TimeSeriesSplit(n_splits=n_splits),
-        n_jobs=-1,
+        n_jobs=1,  # single process to avoid Windows multiprocessing issues
         refit=True,
     )
     grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
