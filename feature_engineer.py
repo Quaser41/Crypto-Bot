@@ -9,10 +9,11 @@ import numpy as np
 import pandas as pd
 import asyncio
 from ta.momentum import RSIIndicator
-from ta.trend import MACD, SMAIndicator
-from ta.volatility import AverageTrueRange
+from ta.trend import MACD, SMAIndicator, EMAIndicator
+from ta.volatility import AverageTrueRange, BollingerBands
+from ta.volume import OnBalanceVolumeIndicator
 from config import LOG_MOMENTUM_DISTRIBUTION, MOMENTUM_SCORE_CONFIG
-from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics
+from data_fetcher import fetch_fear_greed_index, fetch_onchain_metrics, fetch_ohlcv_smart
 
 from utils.logging import get_logger
 
@@ -52,6 +53,33 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     sma_50 = SMAIndicator(df["Close"], window=50)
     df["SMA_20"] = sma_20.sma_indicator()
     df["SMA_50"] = sma_50.sma_indicator()
+
+    # Bollinger Bands (20-period)
+    bb = BollingerBands(close=df["Close"], window=20)
+    df["BB_Upper"] = bb.bollinger_hband()
+    df["BB_Middle"] = bb.bollinger_mavg()
+    df["BB_Lower"] = bb.bollinger_lband()
+    for col in ["BB_Upper", "BB_Middle", "BB_Lower"]:
+        df[col] = df[col].ffill().bfill()
+
+    # Exponential Moving Averages
+    ema9 = EMAIndicator(df["Close"], window=9)
+    ema26 = EMAIndicator(df["Close"], window=26)
+    df["EMA_9"] = ema9.ema_indicator().ffill().bfill()
+    df["EMA_26"] = ema26.ema_indicator().ffill().bfill()
+
+    # On-Balance Volume and volume SMA ratios
+    if "Volume" in df.columns:
+        df["Volume"] = pd.to_numeric(df["Volume"], errors="coerce")
+        obv_ind = OnBalanceVolumeIndicator(close=df["Close"], volume=df["Volume"])
+        df["OBV"] = obv_ind.on_balance_volume()
+        vol_sma20 = df["Volume"].rolling(window=20, min_periods=1).mean()
+        df["Volume_vs_SMA20"] = (df["Volume"] - vol_sma20) / vol_sma20
+        df["OBV"] = df["OBV"].ffill().bfill()
+        df["Volume_vs_SMA20"] = df["Volume_vs_SMA20"].ffill().bfill()
+    else:
+        df["OBV"] = 0.0
+        df["Volume_vs_SMA20"] = 0.0
 
     # Average True Range (ATR) as a volatility measure. If High/Low are not
     # provided by the data source, fall back to a rolling standard deviation of
@@ -94,6 +122,27 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     # Normalized MACD histogram
     df.loc[:, "MACD_Hist_norm"] = df["Hist"] / df["Close"]
+
+    # Relative Strength vs BTC
+    try:
+        btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=max(len(df) * 2, 60))
+        if not btc.empty and "Close" in btc.columns:
+            btc["Timestamp"] = pd.to_datetime(btc["Timestamp"]).dt.tz_localize(None)
+            btc = btc.sort_values("Timestamp")
+            df = pd.merge_asof(
+                df.sort_values("Timestamp"),
+                btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
+                on="Timestamp",
+                direction="backward",
+            )
+            df["RelStrength_BTC"] = df["Close"] / df["BTC_Close"]
+            df.drop(columns=["BTC_Close"], inplace=True)
+            df["RelStrength_BTC"] = df["RelStrength_BTC"].ffill().bfill()
+        else:
+            df["RelStrength_BTC"] = 1.0
+    except Exception as e:
+        logger.warning("⚠️ Failed to compute relative strength vs BTC: %s", e)
+        df["RelStrength_BTC"] = 1.0
 
     # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
     try:

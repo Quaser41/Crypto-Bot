@@ -17,5 +17,13 @@
   "MACD_4h",
   "Signal_4h",
   "Hist_4h",
-  "SMA_4h"
+  "SMA_4h",
+  "BB_Upper",
+  "BB_Middle",
+  "BB_Lower",
+  "EMA_9",
+  "EMA_26",
+  "OBV",
+  "Volume_vs_SMA20",
+  "RelStrength_BTC"
 ]

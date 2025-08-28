@@ -37,7 +37,10 @@ DEFAULT_FEATURES = [
     "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
     "Price_vs_SMA20", "Price_vs_SMA50",
     "Volatility_7d", "MACD_Hist_norm",
-    "MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h"
+    "MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h",
+    "BB_Upper", "BB_Middle", "BB_Lower",
+    "EMA_9", "EMA_26",
+    "OBV", "Volume_vs_SMA20", "RelStrength_BTC"
 ]
 
 
