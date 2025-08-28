@@ -309,7 +309,7 @@ def prepare_training_data(
     y = df_aug["Target"]
     return X, y
 
-def train_model(X, y, oversampler: Optional[str] = None):
+def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
         0: "big_loss",
@@ -497,13 +497,23 @@ def train_model(X, y, oversampler: Optional[str] = None):
     )
     logger.info("⚖️ Class weights: %s", class_weights)
 
-    param_grid = {
-        "n_estimators": [100, 200],
-        "max_depth": [3, 4, 5],
-        "learning_rate": [0.01, 0.05, 0.1],
-        "subsample": [0.8, 1.0],
-        "colsample_bytree": [0.8, 1.0],
-    }
+    fast = fast or os.environ.get("FAST")
+    if fast:
+        param_grid = {
+            "n_estimators": [100],
+            "max_depth": [3],
+            "learning_rate": [0.1],
+            "subsample": [1.0],
+            "colsample_bytree": [1.0],
+        }
+    else:
+        param_grid = {
+            "n_estimators": [100, 200],
+            "max_depth": [3, 4, 5],
+            "learning_rate": [0.01, 0.05, 0.1],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
+        }
 
     # Use a single worker process and single-threaded fits for Windows stability
 
@@ -522,6 +532,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
         cv=TimeSeriesSplit(n_splits=n_splits),
         n_jobs=1,  # single process to avoid Windows multiprocessing issues
         refit=True,
+        verbose=1,
     )
     grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
     model = grid.best_estimator_
@@ -611,6 +622,11 @@ def main():
         default=10,
         help="Target number of symbols to include in training",
     )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use a smaller hyperparameter grid for quicker runs",
+    )
     args = parser.parse_args()
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
@@ -667,7 +683,12 @@ def main():
     X_all = pd.concat(X_list)
     y_all = pd.concat(y_list)
 
-    model, labels = train_model(X_all, y_all, oversampler=args.oversampler)
+    model, labels = train_model(
+        X_all,
+        y_all,
+        oversampler=args.oversampler,
+        fast=args.fast,
+    )
     model.save_model("ml_model.json")
     with open("features.json", "w") as f:
         json.dump(X_all.columns.tolist(), f)
