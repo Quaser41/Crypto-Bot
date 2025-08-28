@@ -269,15 +269,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         logger.debug("Dropping all-NaN columns: %s", all_nan_cols)
         df = df.drop(columns=all_nan_cols)
 
-    # Replace infinities with NaN and drop any resulting NaNs
-    before = len(df)
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df.dropna(inplace=True)
-    dropped = before - len(df)
-    if dropped > 0:
-        logger.warning("⚠️ Dropped %d rows due to non-finite values", dropped)
-
-    # Only drop rows missing essential indicators
+    # Replace infinities with NaN and drop rows missing essential indicators
     essential_cols = [
         "Close",
         "RSI",
@@ -286,8 +278,15 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         "SMA_20",
         "SMA_50",
     ]
+    before = len(df)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
     subset_cols = [c for c in essential_cols if c in df.columns]
     df = df.dropna(subset=subset_cols)
+    dropped = before - len(df)
+    if dropped > 0:
+        logger.warning(
+            "⚠️ Dropped %d rows due to non-finite or missing essential values", dropped
+        )
     remaining = df.shape[0]
     if remaining < min_rows:
         logger.warning(
