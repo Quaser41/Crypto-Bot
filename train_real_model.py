@@ -597,7 +597,12 @@ def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
     return model, le.classes_
 
 def main():
-    parser = argparse.ArgumentParser(description="Train crypto classifier")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Train crypto classifier and overwrite features.json with the "
+            "feature names used during training"
+        )
+    )
     parser.add_argument(
         "--oversampler",
         choices=["smote", "adasyn", "borderline"],
@@ -689,9 +694,10 @@ def main():
         oversampler=args.oversampler,
         fast=args.fast,
     )
-    model.save_model("ml_model.json")
+    feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
-        json.dump(X_all.columns.tolist(), f)
+        json.dump(feature_list, f, indent=2)
+    model.save_model("ml_model.json")
     with open("labels.json", "w") as f:
         json.dump([int(lbl) for lbl in labels], f)
     logger.info("💾 Saved multi-class model, feature list, and labels")
