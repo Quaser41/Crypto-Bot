@@ -8,6 +8,7 @@ except ImportError:
 import numpy as np
 import pandas as pd
 import asyncio
+from datetime import datetime
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, SMAIndicator, EMAIndicator
 from ta.volatility import AverageTrueRange, BollingerBands
@@ -28,6 +29,8 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         return pd.DataFrame()
 
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
+    # Ensure timestamps are timezone-aware (UTC) for downstream merges
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
 
     required = max(min_rows, 50)
     if len(df) < required:
@@ -125,9 +128,15 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
 
     # Relative Strength vs BTC
     try:
-        btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=max(len(df) * 2, 60))
+        # Determine how many days of BTC history are needed based on the
+        # earliest timestamp in ``df``.  This anchors the start date relative
+        # to ``datetime.utcnow()`` instead of defaulting to the Unix epoch.
+        earliest = df["Timestamp"].min().to_pydatetime().replace(tzinfo=None)
+        span_days = (datetime.utcnow() - earliest).days + 1
+        span_days = max(span_days, 60)
+        btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=span_days)
         if not btc.empty and "Close" in btc.columns:
-            btc["Timestamp"] = pd.to_datetime(btc["Timestamp"]).dt.tz_localize(None)
+            btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
             btc = btc.sort_values("Timestamp")
             df = pd.merge_asof(
                 df.sort_values("Timestamp"),
