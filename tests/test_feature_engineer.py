@@ -11,7 +11,8 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
         'Timestamp': dates,
         'Close': np.linspace(100, 170, periods),
         'High': np.linspace(101, 171, periods),
-        'Low': np.linspace(99, 169, periods)
+        'Low': np.linspace(99, 169, periods),
+        'Volume': np.linspace(1000, 2000, periods)
     })
 
     sentiment = pd.DataFrame({
@@ -26,6 +27,8 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+    btc = pd.DataFrame({'Timestamp': dates, 'Close': np.linspace(20000, 20100, periods)})
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: btc)
 
     result = add_indicators(df, min_rows=20)
     assert 'Momentum_Tier' in result.columns
@@ -38,6 +41,9 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
     assert 'SMA_4h' in result.columns
     assert result['MACD_4h'].notna().all()
     assert result['SMA_4h'].notna().all()
+    for col in ['BB_Upper', 'BB_Middle', 'BB_Lower', 'EMA_9', 'EMA_26', 'OBV', 'Volume_vs_SMA20', 'RelStrength_BTC']:
+        assert col in result.columns
+        assert result[col].notna().all()
 
 
 def test_add_indicators_handles_all_nan_onchain(monkeypatch):
@@ -61,6 +67,7 @@ def test_add_indicators_handles_all_nan_onchain(monkeypatch):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: pd.DataFrame())
 
     result = add_indicators(df)
     assert len(result) >= 60
@@ -78,6 +85,7 @@ def test_add_indicators_insufficient_4h_history(monkeypatch):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: pd.DataFrame())
 
     result = add_indicators(df, min_rows=20)
     cols = {'SMA_4h', 'MACD_4h', 'Signal_4h', 'Hist_4h'}
@@ -101,6 +109,7 @@ def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', fail_fetch)
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', fail_fetch)
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', fail_fetch)
 
     with caplog.at_level('WARNING'):
         result = add_indicators(df)
@@ -124,6 +133,7 @@ def test_add_indicators_skips_constant_price(monkeypatch, caplog):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', fail_fetch)
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', fail_fetch)
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', fail_fetch)
 
     with caplog.at_level('WARNING'):
         result = add_indicators(df)
@@ -155,6 +165,8 @@ def test_add_indicators_no_settingwithcopy_warning(monkeypatch):
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+    btc = pd.DataFrame({'Timestamp': dates, 'Close': np.linspace(20000, 20100, periods)})
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: btc)
 
     from pandas.errors import SettingWithCopyWarning
     import warnings

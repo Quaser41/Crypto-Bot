@@ -40,7 +40,7 @@ To enable machine-learning based predictions you can train an XGBoost model:
    ```bash
    python train_real_model.py
    ```
-   It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
+It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
 3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
 
 ### Handling Class Imbalance
@@ -54,6 +54,25 @@ python train_real_model.py --oversampler adasyn
 ```
 Cross‑validation shows that SMOTE yielded the best minority‑class recall in
 our experiments.
+
+## Engineered Features
+
+The feature engineering pipeline expands raw OHLCV data with a variety of
+technical indicators and sentiment/on‑chain metrics.  Notable features
+include:
+
+- RSI, MACD (and signal/histogram)
+- SMA 20 & 50, plus 4‑hour equivalents
+- Bollinger Bands (20‑period)
+- EMA(9) and EMA(26)
+- On‑Balance Volume and volume vs. 20‑day SMA ratios
+- Daily through 7‑day returns and volatility measures
+- Price position vs. moving averages and normalized MACD histogram
+- Fear & Greed index and normalized on‑chain activity
+- Relative strength versus Bitcoin
+
+The full set is listed in `features.json` and mirrored in
+`train_real_model.DEFAULT_FEATURES`.
 
 ## Running the Bot
 
