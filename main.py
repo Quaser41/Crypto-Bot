@@ -184,7 +184,7 @@ def scan_for_breakouts():
 
     logger.info("📡 Fetching OHLCV data for candidates...")
     ohlcvs = [
-        fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=200)
+        fetch_ohlcv_smart(symbol, coin_id=coin_id, days=10, limit=500)
         for coin_id, symbol, _ in fetch_meta
     ] if fetch_meta else []
 
