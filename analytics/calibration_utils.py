@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import precision_recall_curve, roc_curve
+from sklearn.base import is_classifier
 
 
 def calibrate_and_analyze(model, X_val, y_val, label_names) -> Tuple[CalibratedClassifierCV, Dict[str, float]]:
@@ -46,6 +47,9 @@ def calibrate_and_analyze(model, X_val, y_val, label_names) -> Tuple[CalibratedC
             f"{len(raw_probas)} != labels length {len(y_val)}",
         )
         return model, {}
+
+    if not is_classifier(model) and hasattr(model, "predict_proba"):
+        setattr(model, "_estimator_type", "classifier")
 
     calibrator = CalibratedClassifierCV(model, cv="prefit", method="isotonic")
     calibrator.fit(X_val, y_val)
