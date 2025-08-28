@@ -46,7 +46,8 @@ To enable machine-learning based predictions you can train an XGBoost model:
    ```bash
    python train_real_model.py
    ```
-It writes the trained model to `ml_model.json` and the expected feature list to `features.json`.
+It writes the trained model to `ml_model.json` and overwrites `features.json` with the exact
+feature names used, keeping inference and training in sync.
 3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
 
 ### Handling Class Imbalance
