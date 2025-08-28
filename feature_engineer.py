@@ -269,6 +269,14 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         logger.debug("Dropping all-NaN columns: %s", all_nan_cols)
         df = df.drop(columns=all_nan_cols)
 
+    # Replace infinities with NaN and drop any resulting NaNs
+    before = len(df)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+    dropped = before - len(df)
+    if dropped > 0:
+        logger.warning("⚠️ Dropped %d rows due to non-finite values", dropped)
+
     # Only drop rows missing essential indicators
     essential_cols = [
         "Close",
