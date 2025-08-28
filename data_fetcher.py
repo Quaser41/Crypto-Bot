@@ -721,7 +721,9 @@ async def fetch_ohlcv_smart_async(symbol, **kwargs):
 
 def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
+    cache_limit = kwargs.get(
+        "cache_limit", kwargs.get("limit") or OHLCV_CACHE_LIMIT
+    )
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance OHLCV for {symbol}")
@@ -774,7 +776,9 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
 
 def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
+    cache_limit = kwargs.get(
+        "cache_limit", kwargs.get("limit") or OHLCV_CACHE_LIMIT
+    )
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance.US OHLCV for {symbol}")
@@ -821,8 +825,10 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     """Fetch OHLCV data from Coinbase with caching and incremental updates."""
 
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
-    chunk_limit = min(limit, 300)
+    cache_limit = kwargs.get(
+        "cache_limit", kwargs.get("limit") or OHLCV_CACHE_LIMIT
+    )
+    chunk_limit = min(limit or 300, 300)
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and not cached.empty:
         # Normalize cached timestamps to UTC so subsequent comparisons work
