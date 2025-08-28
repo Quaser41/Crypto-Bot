@@ -107,6 +107,20 @@ source code by setting environment variables:
 
 These options allow fine-tuning of momentum evaluation without code changes.
 
+### OHLCV Data Source Fallback
+
+Candlestick data is pulled from several providers in order of preference:
+
+1. **Coinbase** – primary source
+2. **Binance.US**
+3. **Binance**
+4. **Yahoo Finance**
+5. **CoinGecko**
+6. **DexScreener**
+
+If Coinbase returns fewer than 60 rows for a request, the Binance sources are
+moved to the front of the list so they are tried first on subsequent attempts.
+
 ### Tuning Trade Aggressiveness
 
 Several environment variables control how aggressively the bot enters trades.

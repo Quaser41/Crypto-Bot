@@ -543,7 +543,18 @@ def is_symbol_on_coinbase(symbol):
 # =========================================================
 # ✅ MULTI-SOURCE OHLCV FETCHING
 # =========================================================
-DATA_SOURCES = ["coinbase", "yfinance", "coingecko", "dexscreener"]
+# Order matters: sources earlier in this list are preferred and later ones act
+# as fallbacks.  Coinbase is attempted first, followed by Binance.US and
+# Binance.  If these fail, the fetcher falls back to YFinance, CoinGecko and
+# finally DexScreener.
+DATA_SOURCES = [
+    "coinbase",
+    "binance_us",
+    "binance",
+    "yfinance",
+    "coingecko",
+    "dexscreener",
+]
 
 
 def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
@@ -561,11 +572,36 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
     params.setdefault("ttl", ttl)
     params.setdefault("cache_limit", cache_limit)
 
+    global DATA_SOURCES
+
     for source in DATA_SOURCES:
         try:
             if source == "coinbase":
                 logger.info(f"⚡ Trying Coinbase for {symbol}")
                 df = fetch_coinbase_ohlcv(symbol, **params)
+                if len(df) >= 60:
+                    return df
+                logger.warning(
+                    f"⚠️ Coinbase returned {len(df)} rows for {symbol}; prioritizing Binance"
+                )
+                DATA_SOURCES = [
+                    "binance_us",
+                    "binance",
+                    "coinbase",
+                    "yfinance",
+                    "coingecko",
+                    "dexscreener",
+                ]
+
+            elif source == "binance_us":
+                logger.info(f"⚡ Trying Binance.US for {symbol}")
+                df = fetch_binance_us_ohlcv(symbol, **params)
+                if not df.empty:
+                    return df
+
+            elif source == "binance":
+                logger.info(f"⚡ Trying Binance for {symbol}")
+                df = fetch_binance_ohlcv(symbol, **params)
                 if not df.empty:
                     return df
 
