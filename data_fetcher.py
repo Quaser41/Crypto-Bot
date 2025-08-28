@@ -287,7 +287,8 @@ def clear_old_cache(cache_dir="cache", max_age=600):
 # =========================================================
 OHLCV_MEMORY_CACHE = {}
 OHLCV_TTL = 60  # seconds
-OHLCV_CACHE_LIMIT = 1000
+# Increased default cache limit so longer histories aren't truncated
+OHLCV_CACHE_LIMIT = 20000
 
 
 def _ohlcv_key(symbol: str, interval: str) -> str:
@@ -546,10 +547,23 @@ def is_symbol_on_coinbase(symbol):
 DATA_SOURCES = ["coinbase", "yfinance", "coingecko", "dexscreener"]
 
 
-def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
-    """Smart OHLCV fetcher that tries all sources in order per token."""
+def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kwargs):
+    """Smart OHLCV fetcher that tries all sources in order per token.
+
+    Parameters
+    ----------
+    symbol : str
+        Trading pair symbol.
+    interval : str, default ``"15m"``
+        Candle interval to request.
+    limit, cache_limit : int, optional
+        Maximum number of rows to return/persist.  ``cache_limit`` defaults to
+        ``limit`` and ultimately :data:`OHLCV_CACHE_LIMIT`.
+    """
+
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
+    if cache_limit is None:
+        cache_limit = limit if limit is not None else OHLCV_CACHE_LIMIT
 
     cached_df, age = load_ohlcv_cache(symbol, interval)
     if cached_df is not None and age is not None and age < ttl:
@@ -560,6 +574,8 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
     params["interval"] = interval
     params.setdefault("ttl", ttl)
     params.setdefault("cache_limit", cache_limit)
+    if limit is not None:
+        params.setdefault("limit", limit)
 
     for source in DATA_SOURCES:
         try:
@@ -572,7 +588,10 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
             elif source == "yfinance":
                 logger.info(f"⚡ Trying YFinance for {symbol}")
                 df = fetch_from_yfinance(
-                    symbol, interval=interval, days=params.get("days", 1)
+                    symbol,
+                    interval=interval,
+                    days=params.get("days", 1),
+                    limit=params.get("limit"),
                 )
                 if not df.empty:
                     save_ohlcv_cache(symbol, interval, df, cache_limit)
@@ -580,7 +599,7 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
 
             elif source == "dexscreener":
                 logger.info(f"⚡ Trying DexScreener for {symbol}")
-                df = fetch_dexscreener_ohlcv(symbol)
+                df = fetch_dexscreener_ohlcv(symbol, limit=params.get("limit"))
                 if not df.empty:
                     save_ohlcv_cache(symbol, interval, df, cache_limit)
                     return df
@@ -592,6 +611,7 @@ def fetch_ohlcv_smart(symbol, interval="15m", **kwargs):
                 df = fetch_coingecko_ohlcv(
                     params.get("coin_id", symbol),
                     days=params.get("days", 1),
+                    limit=params.get("limit"),
                     headers=params.get("headers"),
                 )
                 if not df.empty:
@@ -618,7 +638,7 @@ async def fetch_ohlcv_smart_async(symbol, **kwargs):
 
 def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", limit)
+    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance OHLCV for {symbol}")
@@ -632,7 +652,7 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     url = f"https://api.binance.com/api/v3/klines"
     params = {"symbol": binance_symbol, "interval": interval}
     if cached is None:
-        params["limit"] = limit
+        params["limit"] = min(limit, 1000)
     else:
         last_ts = cached["Timestamp"].max()
         params["startTime"] = int((last_ts.to_pydatetime().timestamp() + 1) * 1000)
@@ -671,7 +691,7 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
 
 def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", limit)
+    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance.US OHLCV for {symbol}")
@@ -685,7 +705,7 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     url = "https://api.binance.us/api/v3/klines"
     params = {"symbol": binance_symbol, "interval": interval}
     if cached is None:
-        params["limit"] = limit
+        params["limit"] = min(limit, 1000)
     else:
         last_ts = cached["Timestamp"].max()
         params["startTime"] = int((last_ts.to_pydatetime().timestamp() + 1) * 1000)
@@ -718,7 +738,8 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
     """Fetch OHLCV data from Coinbase with caching and incremental updates."""
 
     ttl = kwargs.get("ttl", OHLCV_TTL)
-    cache_limit = kwargs.get("cache_limit", limit)
+    cache_limit = kwargs.get("cache_limit", kwargs.get("limit", OHLCV_CACHE_LIMIT))
+    chunk_limit = min(limit, 300)
     cached, age = load_ohlcv_cache(symbol, interval)
     if cached is not None and not cached.empty:
         # Normalize cached timestamps to UTC so subsequent comparisons work
@@ -743,7 +764,7 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
         start = last + pd.Timedelta(seconds=granularity)
     else:
         start = end - pd.Timedelta(days=days)
-    max_span = pd.Timedelta(seconds=granularity * limit)
+    max_span = pd.Timedelta(seconds=granularity * chunk_limit)
     url = f"https://api.exchange.coinbase.com/products/{product_id}/candles"
 
     frames = []
@@ -807,7 +828,8 @@ def fetch_coinbase_ohlcv(symbol, interval="15m", days=1, limit=300, **kwargs):
         return df
 
 
-def fetch_dexscreener_ohlcv(symbol):
+def fetch_dexscreener_ohlcv(symbol, limit=None):
+    """DexScreener only provides the latest price; ``limit`` is ignored."""
     url = f"https://api.dexscreener.com/latest/dex/search?q={symbol.lower()}"
     data = safe_request(url)
     if not data or "pairs" not in data:
@@ -817,7 +839,7 @@ def fetch_dexscreener_ohlcv(symbol):
     return pd.DataFrame({"Timestamp": [ts], "Close": [price]})
 
 
-def fetch_from_yfinance(symbol, interval="1h", days=10):
+def fetch_from_yfinance(symbol, interval="1h", days=10, limit=None):
     yf_candidates = [
         f"{symbol.upper()}-USD",
         f"{symbol.upper()}-CRYPTO",
@@ -851,6 +873,8 @@ def fetch_from_yfinance(symbol, interval="1h", days=10):
                 )[["Open", "High", "Low", "Close", "Volume"]]
                 df = df.rename_axis("Timestamp").reset_index()
                 df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
+                if limit is not None:
+                    df = df.sort_values("Timestamp").tail(limit)
                 logger.info(f"✅ YFinance data loaded for {yf_symbol}")
                 return df
         except Exception as e:
@@ -860,7 +884,7 @@ def fetch_from_yfinance(symbol, interval="1h", days=10):
     return pd.DataFrame()
 
 
-def fetch_coingecko_ohlcv(coin_id, days=1, headers=None):
+def fetch_coingecko_ohlcv(coin_id, days=1, limit=None, headers=None):
     cache_key = f"cg_ohlcv:{coin_id}:{days}"
     cached = cached_fetch(cache_key, ttl=180)  # 3 min TTL
     if cached is not None:
@@ -904,6 +928,8 @@ def fetch_coingecko_ohlcv(coin_id, days=1, headers=None):
         if data and "prices" in data:
             df = pd.DataFrame(data["prices"], columns=["Timestamp", "Close"])
             df["Timestamp"] = pd.to_datetime(df["Timestamp"], unit="ms")
+            if limit is not None:
+                df = df.sort_values("Timestamp").tail(limit)
             update_cache(cache_key, df)
             logger.info(f"✅ Coingecko OHLCV loaded for {coin_id}")
             return df

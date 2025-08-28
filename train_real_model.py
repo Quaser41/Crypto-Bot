@@ -112,7 +112,7 @@ def prepare_training_data(
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
 
-    df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730)
+    df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730, limit=20000)
 
     if len(df) < 60:
         logger.warning(
@@ -120,7 +120,7 @@ def prepare_training_data(
             len(df),
             coin_id,
         )
-        df_ext = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=1460)
+        df_ext = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=1460, limit=20000)
         if len(df_ext) > len(df):
             df = df_ext
         if len(df) < 60:
@@ -130,7 +130,7 @@ def prepare_training_data(
                     original_sources[i:] + original_sources[:i]
                 )
                 df_retry = fetch_ohlcv_smart(
-                    symbol=symbol, coin_id=coin_id, days=1460
+                    symbol=symbol, coin_id=coin_id, days=1460, limit=20000
                 )
                 if len(df_retry) > len(df):
                     df = df_retry
