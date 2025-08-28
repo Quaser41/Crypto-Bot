@@ -361,6 +361,13 @@ def train_model(X, y, oversampler: Optional[str] = None):
         y_tr = fold_le.fit_transform(y_tr_raw)
         y_val = fold_le.transform(y_val_raw)
 
+        val_dist = pd.Series(y_val_raw).value_counts().sort_index()
+        logger.info(
+            "📊 Fold %d validation class distribution (unchanged): %s",
+            fold,
+            val_dist,
+        )
+
         if oversampler in {"smote", "adasyn", "borderline"}:
             if SMOTE is None:
                 logger.warning(
@@ -379,6 +386,11 @@ def train_model(X, y, oversampler: Optional[str] = None):
                     X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
                     logger.info(
                         "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
+                    )
+                    logger.info(
+                        "📊 Fold %d training distribution after resampling: %s",
+                        fold,
+                        pd.Series(y_tr).value_counts().sort_index(),
                     )
                 except Exception as e:
                     logger.warning(
@@ -432,7 +444,8 @@ def train_model(X, y, oversampler: Optional[str] = None):
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
 
-    # === Optional oversampling before final training ===
+    # === Final model training with class weights & hyperparameter search ===
+    X_train_bal, y_train_bal = X_train, y_train
     if oversampler in {"smote", "adasyn", "borderline"}:
         if SMOTE is None:
             logger.warning(
@@ -448,21 +461,21 @@ def train_model(X, y, oversampler: Optional[str] = None):
                 }
                 sampler_cls = sampler_map[oversampler]
                 sampler = sampler_cls(random_state=42)
-                X_train, y_train = sampler.fit_resample(X_train, y_train)
+                X_train_bal, y_train_bal = sampler.fit_resample(X_train_bal, y_train_bal)
                 logger.info(
-                    "📈 Applied %s oversampling to training set", oversampler.upper()
+                    "📈 Applied %s oversampling to full training set",
+                    oversampler.upper(),
                 )
                 logger.info(
                     "📊 Post-oversampling class distribution: %s",
-                    pd.Series(y_train).value_counts().sort_index(),
+                    pd.Series(y_train_bal).value_counts().sort_index(),
                 )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
-    # === Final model training with class weights & hyperparameter search ===
-    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train)
+    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train_bal)
     class_weights = (
-        pd.Series(sample_weights, index=y_train)
+        pd.Series(sample_weights, index=y_train_bal)
         .groupby(level=0)
         .mean()
         .to_dict()
@@ -489,7 +502,7 @@ def train_model(X, y, oversampler: Optional[str] = None):
         n_jobs=-1,
         refit=True,
     )
-    grid.fit(X_train, y_train, sample_weight=sample_weights)
+    grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
     model = grid.best_estimator_
     logger.info(
         "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
