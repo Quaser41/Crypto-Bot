@@ -14,6 +14,13 @@ if %errorlevel% neq 0 (
     goto end
 )
 
+echo Installing dependencies...
+pip install --upgrade -r requirements.txt
+if %errorlevel% neq 0 (
+    echo Failed to install dependencies.
+    goto end
+)
+
 echo Update of main branch complete.
 :end
 pause

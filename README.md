@@ -26,6 +26,12 @@ This repository contains utilities for analyzing cryptocurrency markets and auto
    ```bash
    pip install -r requirements.txt
    ```
+   If the repository is updated later, reinstall dependencies to ensure pinned
+   versions are used:
+   ```bash
+   pip install --upgrade -r requirements.txt
+   ```
+   The `update_repo.bat` script performs this step automatically.
 
 ## Training the Model
 
