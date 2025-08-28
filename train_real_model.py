@@ -504,33 +504,26 @@ def train_model(X, y, oversampler: Optional[str] = None):
         "subsample": [0.8, 1.0],
         "colsample_bytree": [0.8, 1.0],
     }
+
+    # Use a single worker process and single-threaded fits for Windows stability
+
     grid = GridSearchCV(
         XGBClassifier(
             objective="multi:softprob",
             num_class=len(le.classes_),
             random_state=42,
             eval_metric="mlogloss",
+
+            n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+
         ),
         param_grid,
         scoring="f1_macro",
         cv=TimeSeriesSplit(n_splits=n_splits),
-        n_jobs=-1,
+        n_jobs=1,  # single process to avoid Windows multiprocessing issues
         refit=True,
     )
-    try:
-        grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
-    except (BackendError, TerminatedWorkerError) as e:
-        logger.error(
-            "❌ Parallel training failed: %s. Reduce n_jobs or run on a different platform.",
-            e,
-        )
-        logger.info("Retrying grid search with n_jobs=1...")
-        try:
-            grid.set_params(n_jobs=1)
-            grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
-        except Exception as retry_exc:
-            logger.error("❌ Retry with n_jobs=1 failed: %s", retry_exc)
-            sys.exit(1)
+    grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
     model = grid.best_estimator_
     logger.info(
         "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
