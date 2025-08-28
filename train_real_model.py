@@ -144,9 +144,8 @@ def prepare_training_data(
     augment_target: int, default ``50``
         Target size for minority classes during augmentation.
 
-        When fewer than 60 historical rows are
-        available, the threshold is lowered by one after retrying additional
-        data sources.
+        Symbols with fewer than 60 historical rows after retrying all data
+        sources are dropped before indicator computation.
     """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
@@ -177,13 +176,12 @@ def prepare_training_data(
                     break
             data_fetcher.DATA_SOURCES = original_sources
         if len(df) < 60:
-            effective_min_unique = max(1, min_unique_samples - 1)
-            logger.info(
-                "📉 Thin history for %s (%d rows); lowering min_unique_samples to %d",
+            logger.warning(
+                "⚠️ %s has only %d rows after extended fetch; dropping symbol",
                 coin_id,
                 len(df),
-                effective_min_unique,
             )
+            return None, None
 
     if df.empty:
         logger.warning("⚠️ No data for %s", coin_id)

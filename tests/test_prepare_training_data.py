@@ -45,9 +45,13 @@ def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):
         + [-0.02] * 10
         + [0.01] * 10
         + [0.02] * 10
-        + [0.05] * 10
+        + [0.05] * 30
     )
-    features_first = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1] + list(range(10, 50))
+    features_first = list(range(70))
+    dup_idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16, 17]
+    dup_vals = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 0, 1, 2, 3]
+    for i, v in zip(dup_idx, dup_vals):
+        features_first[i] = v
     df = _make_df(returns, features_first)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
     monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
@@ -65,9 +69,13 @@ def test_prepare_training_data_passes_when_threshold_lowered(monkeypatch):
         + [-0.02] * 10
         + [0.01] * 10
         + [0.02] * 10
-        + [0.05] * 10
+        + [0.05] * 30
     )
-    features_first = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1] + list(range(10, 50))
+    features_first = list(range(70))
+    dup_idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 15, 16, 17]
+    dup_vals = [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 0, 1, 2, 3]
+    for i, v in zip(dup_idx, dup_vals):
+        features_first[i] = v
     df = _make_df(returns, features_first)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
     monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
@@ -75,3 +83,35 @@ def test_prepare_training_data_passes_when_threshold_lowered(monkeypatch):
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
     assert X is not None and y is not None
+
+
+def test_prepare_training_data_drops_when_insufficient_rows(monkeypatch, caplog):
+    returns = (
+        [-0.05] * 10
+        + [-0.02] * 10
+        + [0.01] * 10
+        + [0.02] * 10
+        + [0.05] * 10
+    )
+    df = _make_df(returns)
+
+    def fake_fetch(*a, **k):
+        return df
+
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", fake_fetch)
+
+    called = {"add": False}
+
+    def fake_add(d):
+        called["add"] = True
+        return d
+
+    monkeypatch.setattr(train_real_model, "add_indicators", fake_add)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+
+    with caplog.at_level("WARNING", logger=train_real_model.logger.name):
+        X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
+
+    assert X is None and y is None
+    assert not called["add"]
+    assert any("dropping symbol" in r.getMessage().lower() for r in caplog.records)
