@@ -333,8 +333,21 @@ def prepare_training_data(
             return None, None
 
 
-    df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
+    df.loc[:, "Future_Close"] = df["Close"].shift(-horizon)
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
+    if len(df) > horizon:
+        aligned = np.allclose(
+            df["Future_Close"].values[:-horizon],
+            df["Close"].values[horizon:],
+        )
+        if not aligned:
+            logger.error(
+                "❌ Future_Close misalignment for %s (horizon=%d)", coin_id, horizon
+            )
+            raise AssertionError("Future_Close shift misalignment")
+        logger.debug(
+            "✅ Verified Future_Close alignment for %s (horizon=%d)", coin_id, horizon
+        )
     if min_return > 0:
         df = df[df["Return"].abs() > min_return]
     df = df.dropna()
@@ -693,21 +706,8 @@ def train_model(
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
 
-    # === Scale full training and test sets ===
-    scaler = StandardScaler()
-    X_train = pd.DataFrame(
-        scaler.fit_transform(X_train_raw),
-        columns=X_train_raw.columns,
-        index=X_train_raw.index,
-    )
-    X_test = pd.DataFrame(
-        scaler.transform(X_test_raw),
-        columns=X_test_raw.columns,
-        index=X_test_raw.index,
-    )
-
     # === Final model training with class weights & hyperparameter search ===
-    X_train_bal, y_train_bal = X_train, y_train
+    X_train_bal, y_train_bal = X_train_raw.copy(), y_train
     if oversampler in {"smote", "adasyn", "borderline", "random"}:
         if SMOTE is None:
             logger.warning(
@@ -787,33 +787,49 @@ def train_model(
             list(label_map.keys()),
         )
 
+    final_pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "model",
+                XGBClassifier(
+                    objective="multi:softprob",
+                    num_class=len(le.classes_),
+                    random_state=42,
+                    eval_metric="mlogloss",
+                    n_jobs=1,
+                ),
+            ),
+        ]
+    )
+
     scale = (param_scale or "medium").lower()
     if scale == "small":
         param_grid = {
-            "n_estimators": [100],
-            "max_depth": [3],
-            "learning_rate": [0.1],
-            "subsample": [1.0],
-            "colsample_bytree": [1.0],
-            "min_child_weight": [1],
+            "model__n_estimators": [100],
+            "model__max_depth": [3],
+            "model__learning_rate": [0.1],
+            "model__subsample": [1.0],
+            "model__colsample_bytree": [1.0],
+            "model__min_child_weight": [1],
         }
     elif scale == "medium":
         param_grid = {
-            "n_estimators": [100, 200],
-            "max_depth": [3, 4],
-            "learning_rate": [0.03, 0.1],
-            "subsample": [0.8, 1.0],
-            "colsample_bytree": [0.8, 1.0],
-            "min_child_weight": [1, 3],
+            "model__n_estimators": [100, 200],
+            "model__max_depth": [3, 4],
+            "model__learning_rate": [0.03, 0.1],
+            "model__subsample": [0.8, 1.0],
+            "model__colsample_bytree": [0.8, 1.0],
+            "model__min_child_weight": [1, 3],
         }
     else:
         param_grid = {
-            "n_estimators": [100, 200, 300],
-            "max_depth": [3, 4, 5, 6],
-            "learning_rate": [0.01, 0.03, 0.05, 0.1],
-            "subsample": [0.6, 0.8, 1.0],
-            "colsample_bytree": [0.6, 0.8, 1.0],
-            "min_child_weight": [1, 3, 5],
+            "model__n_estimators": [100, 200, 300],
+            "model__max_depth": [3, 4, 5, 6],
+            "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
+            "model__subsample": [0.6, 0.8, 1.0],
+            "model__colsample_bytree": [0.6, 0.8, 1.0],
+            "model__min_child_weight": [1, 3, 5],
         }
 
     # Use user-specified parallelism for cross-validation. The estimator itself
@@ -821,15 +837,7 @@ def train_model(
 
     if random_search:
         search = RandomizedSearchCV(
-            XGBClassifier(
-                objective="multi:softprob",
-                num_class=len(le.classes_),
-                random_state=42,
-                eval_metric="mlogloss",
-
-                n_jobs=1,  # keep fits single-threaded
-
-            ),
+            final_pipeline,
             param_grid,
             n_iter=random_iter,
             scoring="f1_macro",
@@ -841,15 +849,7 @@ def train_model(
         )
     else:
         search = GridSearchCV(
-            XGBClassifier(
-                objective="multi:softprob",
-                num_class=len(le.classes_),
-                random_state=42,
-                eval_metric="mlogloss",
-
-                n_jobs=1,  # keep fits single-threaded
-
-            ),
+            final_pipeline,
             param_grid,
             scoring="f1_macro",
             cv=TimeSeriesSplit(n_splits=cv_splits),
@@ -867,7 +867,11 @@ def train_model(
 
     with contextlib.redirect_stdout(_LogStream()):
         if sample_weights is not None:
-            search.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+            search.fit(
+                X_train_bal,
+                y_train_bal,
+                model__sample_weight=sample_weights,
+            )
         else:
             search.fit(X_train_bal, y_train_bal)
     model = search.best_estimator_
@@ -875,13 +879,13 @@ def train_model(
         "🔍 Best params: %s (macro-F1=%.3f)", search.best_params_, search.best_score_
     )
 
-    preds = model.predict(X_test)
+    preds = model.predict(X_test_raw)
     if len(np.unique(preds)) < 2:
         logger.warning(
             "⚠️ Test predictions contain only one class: %s",
             label_map.get(int(preds[0]), int(preds[0])) if len(preds) else "n/a",
         )
-    proba = model.predict_proba(X_test)
+    proba = model.predict_proba(X_test_raw)
 
     labels_sorted = sorted(np.unique(np.concatenate([y_test, preds])))
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
@@ -935,11 +939,11 @@ def train_model(
         f.write(report)
     with open(os.path.join("analytics", "metrics_summary.json"), "w") as f:
         json.dump(metrics_summary, f, indent=2)
-    joblib.dump(scaler, os.path.join("analytics", "scaler.pkl"))
+    joblib.dump(model.named_steps["scaler"], os.path.join("analytics", "scaler.pkl"))
     logger.info("📁 Saved diagnostics to analytics/")
 
     try:
-        _, thresholds = calibrate_and_analyze(model, X_test, y_test, target_names)
+        _, thresholds = calibrate_and_analyze(model, X_test_raw, y_test, target_names)
         logger.info("📈 Recommended thresholds: %s", thresholds)
     except Exception as e:
         logger.warning("⚠️ Calibration/threshold analysis failed: %s", e)
@@ -1168,7 +1172,7 @@ def main():
     feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
         json.dump(feature_list, f, indent=2)
-    model.save_model("ml_model.json")
+    model.named_steps["model"].save_model("ml_model.json")
     with open("labels.json", "w") as f:
         json.dump([int(lbl) for lbl in labels], f)
     logger.info("💾 Saved multi-class model, feature list, and labels")
