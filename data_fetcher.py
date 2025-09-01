@@ -604,8 +604,23 @@ DATA_SOURCES = [
 ]
 DATA_SOURCES = [s for s in DATA_SOURCES if s]
 
+# ``fetch_ohlcv_smart`` may reorder :data:`DATA_SOURCES` for subsequent calls.
+# To avoid race conditions when multiple threads attempt to persist such
+# reordering, updates to the module-level list are protected by a lock.
+from threading import Lock
 
-def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kwargs):
+_DATA_SOURCES_LOCK = Lock()
+
+
+def fetch_ohlcv_smart(
+    symbol,
+    interval="15m",
+    limit=None,
+    cache_limit=None,
+    *,
+    reorder_global: bool = False,
+    **kwargs,
+):
     """Smart OHLCV fetcher that tries all sources in order per token.
 
     Parameters
@@ -617,6 +632,11 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
     limit, cache_limit : int, optional
         Maximum number of rows to return/persist.  ``cache_limit`` defaults to
         ``limit`` and ultimately :data:`OHLCV_CACHE_LIMIT`.
+    reorder_global : bool, optional
+        When ``True``, a detected source reordering (e.g. deprioritising
+        Coinbase) also updates the module-level :data:`DATA_SOURCES`.  This
+        mutates global state and affects subsequent calls; updates are
+        synchronized via a lock to avoid race conditions.
     """
 
     ttl = kwargs.get("ttl", OHLCV_TTL)
@@ -652,9 +672,14 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
         # Always request at least one day to avoid zero-length ranges.
         params["days"] = max(int(span / pd.Timedelta("1d")), 1)
 
-    global DATA_SOURCES
+    # Snapshot of preferred order for this invocation.  ``sources`` is mutated
+    # locally so that concurrent calls do not interfere with one another.
+    sources = list(DATA_SOURCES)
 
-    for source in DATA_SOURCES:
+    # Iterate with a while-loop so ``sources`` can be reordered on the fly for
+    # this specific call.
+    while sources:
+        source = sources.pop(0)
         try:
             if source == "coinbase":
                 if not resolve_symbol_coinbase(symbol):
@@ -668,7 +693,14 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
                     f"⚠️ Coinbase returned {len(df)} rows for {symbol}; prioritizing Binance"
                 )
                 if ENABLE_BINANCE_GLOBAL:
-                    DATA_SOURCES = [
+                    remaining = [
+                        "binance_us",
+                        "binance",
+                        "yfinance",
+                        "coingecko",
+                        "dexscreener",
+                    ]
+                    new_global = [
                         "binance_us",
                         "binance",
                         "coinbase",
@@ -677,13 +709,28 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
                         "dexscreener",
                     ]
                 else:
-                    DATA_SOURCES = [
+                    remaining = [
+                        "binance_us",
+                        "yfinance",
+                        "coingecko",
+                        "dexscreener",
+                    ]
+                    new_global = [
                         "binance_us",
                         "coinbase",
                         "yfinance",
                         "coingecko",
                         "dexscreener",
                     ]
+
+                # Reorder for this call so Binance is attempted before Coinbase
+                # on the remaining iterations.
+                sources = remaining + [s for s in sources if s not in remaining]
+
+                if reorder_global:
+                    with _DATA_SOURCES_LOCK:
+                        DATA_SOURCES[:] = new_global
+                continue
 
             elif source == "binance_us":
                 if not resolve_symbol_binance_us(symbol):
