@@ -176,3 +176,32 @@ def test_add_indicators_no_settingwithcopy_warning(monkeypatch):
         result = add_indicators(df, min_rows=20)
 
     assert not result.empty
+
+
+def test_add_indicators_merges_cached_btc(monkeypatch):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 170, periods),
+        'High': np.linspace(101, 171, periods),
+        'Low': np.linspace(99, 169, periods),
+        'Volume': np.linspace(1000, 2000, periods),
+    })
+
+    # Simulate cached BTC data with a MultiIndex
+    btc = pd.DataFrame({'Timestamp': dates, 'Close': np.linspace(20000, 20100, periods)})
+    btc.index = pd.MultiIndex.from_arrays([
+        ['cached'] * periods,
+        btc.index,
+    ])
+
+    import data_fetcher
+    monkeypatch.setattr(data_fetcher, 'load_ohlcv_cache', lambda *a, **k: (btc, 0))
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+
+    result = add_indicators(df, min_rows=20)
+
+    assert 'RelStrength_BTC' in result.columns
+    assert result['RelStrength_BTC'].notna().all()
