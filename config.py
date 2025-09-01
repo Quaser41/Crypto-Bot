@@ -58,6 +58,14 @@ ERROR_DELAY = float(os.getenv("ERROR_DELAY", "0"))
 ATR_MULT_SL = float(os.getenv("ATR_MULT_SL", "2.0"))
 ATR_MULT_TP = float(os.getenv("ATR_MULT_TP", "3.0"))
 
+# Additional buffer applied beyond the stop-loss based on ATR or volatility.
+# Provides flexibility for wider stops on more volatile assets.
+SL_BUFFER_ATR_MULT = float(os.getenv("SL_BUFFER_ATR_MULT", "0.2"))
+
+# Factor to reduce the stop-loss buffer once break-even is reached.
+# Values below 1.0 tighten the stop to lock in profits.
+BREAKEVEN_BUFFER_MULT = float(os.getenv("BREAKEVEN_BUFFER_MULT", "0.5"))
+
 # === Risk management and trade sizing ===
 # Percentage of account equity risked per trade (e.g. 0.01 = 1%)
 RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))

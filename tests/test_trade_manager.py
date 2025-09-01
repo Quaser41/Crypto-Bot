@@ -240,6 +240,7 @@ def test_hold_period_delays_exits(monkeypatch):
     tm.risk_per_trade = 1.0
     tm.slippage_pct = 0.0
     tm.trade_fee_pct = 0.0
+    tm.sl_buffer_atr_mult = 0.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
