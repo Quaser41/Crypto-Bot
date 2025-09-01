@@ -6,6 +6,39 @@ from symbol_resolver import filter_candidates
 import analytics.performance as perf_utils
 
 
+def test_binance_global_451_warning_logged_once(monkeypatch, caplog):
+    """Ensure 451 status is logged only once and subsequent calls stop retrying."""
+
+    class MockResp:
+        status_code = 451
+
+        def raise_for_status(self):
+            pass
+
+    calls = {}
+
+    def mock_get(*args, **kwargs):
+        calls["count"] = calls.get("count", 0) + 1
+        return MockResp()
+
+    # Reset globals and patch request
+    monkeypatch.setattr(symbol_resolver, "BINANCE_GLOBAL_SYMBOLS", {})
+    monkeypatch.setattr(symbol_resolver, "BINANCE_GLOBAL_UNAVAILABLE", False)
+    monkeypatch.setattr(symbol_resolver.requests, "get", mock_get)
+
+    with caplog.at_level("WARNING"):
+        symbol_resolver.resolve_symbol_binance_global("BTC")
+        symbol_resolver.resolve_symbol_binance_global("ETH")
+
+    warnings = [
+        rec
+        for rec in caplog.records
+        if "Binance Global blocked (451)" in rec.message
+    ]
+    assert len(warnings) == 1
+    assert calls.get("count", 0) == 1
+
+
 def test_filter_candidates_enforces_thresholds():
     movers = [
         ("id1", "AAA", "AAA Coin", 10.0, 2_000_000),

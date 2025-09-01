@@ -15,6 +15,7 @@ logger = get_logger(__name__)
 BINANCE_GLOBAL_SYMBOLS = {}
 BINANCE_US_SYMBOLS = {}
 COINBASE_SYMBOLS = {}
+BINANCE_GLOBAL_UNAVAILABLE = False
 
 # Duration bucket ordering used when enforcing minimum hold requirements.
 DURATION_BUCKETS = ["<1m", "1-5m", "5-30m", "30m-2h", ">2h"]
@@ -28,8 +29,8 @@ def _bucket_index(bucket: str) -> int:
         return len(DURATION_BUCKETS)
 
 def load_binance_global_symbols():
-    global BINANCE_GLOBAL_SYMBOLS
-    if BINANCE_GLOBAL_SYMBOLS:
+    global BINANCE_GLOBAL_SYMBOLS, BINANCE_GLOBAL_UNAVAILABLE
+    if BINANCE_GLOBAL_UNAVAILABLE or BINANCE_GLOBAL_SYMBOLS:
         return
 
     url = "https://api.binance.com/api/v3/exchangeInfo"
@@ -37,6 +38,7 @@ def load_binance_global_symbols():
         r = requests.get(url, timeout=10)
         if r.status_code == 451:
             logger.warning("⚠️ Binance Global blocked (451) – skipping global symbols.")
+            BINANCE_GLOBAL_UNAVAILABLE = True
             return
         r.raise_for_status()
         data = r.json()
