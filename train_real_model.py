@@ -214,6 +214,25 @@ def prepare_training_data(
         return None, None
 
     if "Timestamp" in df.columns:
+        try:
+            df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
+            interval = (
+                df.sort_values("Timestamp")["Timestamp"].diff().median()
+            )
+            if pd.isna(interval) or interval <= pd.Timedelta(0):
+                raise ValueError
+            ratio = max(pd.Timedelta("4h") / interval, 1)
+        except Exception:
+            ratio = 16
+        required_4h = int(26 * ratio)
+        if len(df) < required_4h:
+            logger.warning(
+                "⚠️ %s: %d rows (<%d needed for 4h aggregates)",
+                coin_id,
+                len(df),
+                required_4h,
+            )
+            return None, None
         span_days = (df["Timestamp"].max() - df["Timestamp"].min()).days
         logger.info(
             "📆 %s: fetched %d rows spanning ~%d days", coin_id, len(df), span_days
