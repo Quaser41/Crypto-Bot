@@ -156,9 +156,15 @@ def add_indicators(
         span_days = max(span_days, 60)
         btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=span_days)
         if not btc.empty and "Close" in btc.columns:
+            # ``fetch_ohlcv_smart`` may return cached data with a MultiIndex on
+            # either the rows or columns.  ``pd.merge_asof`` requires
+            # single-index DataFrames, so flatten any MultiIndex columns and
+            # reset the indices on both frames before merging.
+            btc.columns = [c[-1] if isinstance(c, tuple) else c for c in btc.columns]
             btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
             btc = btc.sort_values("Timestamp").reset_index(drop=True)
             df = df.reset_index(drop=True)
+
             df = pd.merge_asof(
                 df.sort_values("Timestamp"),
                 btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
