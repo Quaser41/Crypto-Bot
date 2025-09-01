@@ -18,7 +18,14 @@ def test_train_model_runs_with_smote():
         "feat2": np.arange(len(y)) * 2,
     })
 
-    model, labels = train_model(X, y, oversampler="smote")
+    model, labels = train_model(
+        X,
+        y,
+        oversampler="smote",
+        param_scale="small",
+        cv_splits=2,
+        verbose=0,
+    )
 
     # Model should be returned and all classes should be preserved
     assert model is not None
