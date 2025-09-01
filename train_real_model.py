@@ -37,9 +37,14 @@ logger = get_logger(__name__)
 _SHORT_HISTORY_LOGGED: set[str] = set()
 
 try:
-    from imblearn.over_sampling import SMOTE, ADASYN, BorderlineSMOTE
+    from imblearn.over_sampling import (
+        SMOTE,
+        ADASYN,
+        BorderlineSMOTE,
+        RandomOverSampler,
+    )
 except ImportError:  # pragma: no cover - handled gracefully at runtime
-    SMOTE = ADASYN = BorderlineSMOTE = None
+    SMOTE = ADASYN = BorderlineSMOTE = RandomOverSampler = None
     logger.warning(
         "imbalanced-learn is not installed. Run 'pip install imbalanced-learn' to enable oversampling"
     )
@@ -149,7 +154,7 @@ def prepare_training_data(
     ----------
     symbol, coin_id: str
         Asset identifiers used for data fetching.
-    oversampler: {"smote", "adasyn", "borderline"}, optional
+    oversampler: {"smote", "adasyn", "borderline", "random"}, optional
         Technique for oversampling minority classes.  ``None`` disables
         oversampling.
     min_unique_samples: int, default ``3``
@@ -333,7 +338,7 @@ def prepare_training_data(
     # Optional oversampling with SMOTE variants
     class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
-    if oversampler in {"smote", "adasyn", "borderline"} and rare_classes:
+    if oversampler in {"smote", "adasyn", "borderline", "random"} and rare_classes:
         if SMOTE is None:
             logger.warning(
                 "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -345,6 +350,7 @@ def prepare_training_data(
                     "smote": SMOTE,
                     "adasyn": ADASYN,
                     "borderline": BorderlineSMOTE,
+                    "random": RandomOverSampler,
                 }
                 sampler_cls = sampler_map[oversampler]
                 strategy = {
@@ -406,6 +412,7 @@ def train_model(
     param_scale: str = "full",
     cv_splits: int = 3,
     verbose: int = 1,
+    class_weight: str = "balanced",
 ):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
@@ -481,6 +488,7 @@ def train_model(
         fold_le = LabelEncoder()
         y_tr = fold_le.fit_transform(y_tr_raw)
         y_val = fold_le.transform(y_val_raw)
+        fold_label_map = {cls: original_label_names[cls] for cls in fold_le.classes_}
 
         val_dist = pd.Series(y_val_raw).value_counts().sort_index()
         logger.info(
@@ -489,7 +497,7 @@ def train_model(
             val_dist,
         )
 
-        if oversampler in {"smote", "adasyn", "borderline"}:
+        if oversampler in {"smote", "adasyn", "borderline", "random"}:
             if SMOTE is None:
                 logger.warning(
                     "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -501,6 +509,7 @@ def train_model(
                         "smote": SMOTE,
                         "adasyn": ADASYN,
                         "borderline": BorderlineSMOTE,
+                        "random": RandomOverSampler,
                     }
                     sampler_cls = sampler_map[oversampler]
                     sampler = sampler_cls(random_state=42)
@@ -540,7 +549,11 @@ def train_model(
             )
             continue
 
-        fold_weights = compute_sample_weight(class_weight="balanced", y=y_tr)
+        fold_weights = (
+            compute_sample_weight(class_weight=class_weight, y=y_tr)
+            if class_weight != "none"
+            else None
+        )
         cv_model = XGBClassifier(
             n_estimators=200,
             max_depth=4,
@@ -553,12 +566,18 @@ def train_model(
             eval_metric='mlogloss'
         )
         try:
-            cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
+            if fold_weights is not None:
+                cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
+            else:
+                cv_model.fit(X_tr, y_tr)
             cv_preds_enc = cv_model.predict(X_val)
             cv_preds = fold_le.inverse_transform(cv_preds_enc)
-            fold_label_map = {
-                cls: original_label_names[cls] for cls in fold_le.classes_
-            }
+            if len(np.unique(cv_preds)) < 2:
+                logger.warning(
+                    "⚠️ Fold %d predictions contain only one class: %s",
+                    fold,
+                    fold_label_map.get(cv_preds[0], cv_preds[0]),
+                )
             logger.info(
                 "📊 CV Fold %d classification report:\n%s",
                 fold,
@@ -587,7 +606,7 @@ def train_model(
 
     # === Final model training with class weights & hyperparameter search ===
     X_train_bal, y_train_bal = X_train, y_train
-    if oversampler in {"smote", "adasyn", "borderline"}:
+    if oversampler in {"smote", "adasyn", "borderline", "random"}:
         if SMOTE is None:
             logger.warning(
                 "⚠️ imbalanced-learn is required for %s oversampling. Run 'pip install imbalanced-learn'",
@@ -599,6 +618,7 @@ def train_model(
                     "smote": SMOTE,
                     "adasyn": ADASYN,
                     "borderline": BorderlineSMOTE,
+                    "random": RandomOverSampler,
                 }
                 sampler_cls = sampler_map[oversampler]
                 sampler = sampler_cls(random_state=42)
@@ -618,13 +638,20 @@ def train_model(
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
-    sample_weights = compute_sample_weight(class_weight="balanced", y=y_train_bal)
-    class_weights = (
-        pd.Series(sample_weights, index=y_train_bal)
-        .groupby(level=0)
-        .mean()
-        .to_dict()
+    sample_weights = (
+        compute_sample_weight(class_weight=class_weight, y=y_train_bal)
+        if class_weight != "none"
+        else None
     )
+    if sample_weights is not None:
+        class_weights = (
+            pd.Series(sample_weights, index=y_train_bal)
+            .groupby(level=0)
+            .mean()
+            .to_dict()
+        )
+    else:
+        class_weights = {cls: 1.0 for cls in np.unique(y_train_bal)}
     logger.info("⚖️ Class weights: %s", class_weights)
 
     scale = (param_scale or "full").lower()
@@ -639,21 +666,21 @@ def train_model(
         }
     elif scale == "medium":
         param_grid = {
-            "n_estimators": [100, 200],
-            "max_depth": [3, 4],
-            "learning_rate": [0.05, 0.1],
+            "n_estimators": [100, 200, 300],
+            "max_depth": [3, 4, 5],
+            "learning_rate": [0.03, 0.05, 0.1],
             "subsample": [0.8, 1.0],
             "colsample_bytree": [0.8, 1.0],
             "min_child_weight": [1, 3],
         }
     else:
         param_grid = {
-            "n_estimators": [100, 200],
-            "max_depth": [3, 4, 5],
-            "learning_rate": [0.01, 0.05, 0.1],
-            "subsample": [0.8, 1.0],
-            "colsample_bytree": [0.8, 1.0],
-            "min_child_weight": [1, 3],
+            "n_estimators": [100, 200, 300],
+            "max_depth": [3, 4, 5, 6],
+            "learning_rate": [0.01, 0.03, 0.05, 0.1],
+            "subsample": [0.6, 0.8, 1.0],
+            "colsample_bytree": [0.6, 0.8, 1.0],
+            "min_child_weight": [1, 3, 5],
         }
 
     # Use a single worker process and single-threaded fits for Windows stability
@@ -684,13 +711,21 @@ def train_model(
             pass
 
     with contextlib.redirect_stdout(_LogStream()):
-        grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+        if sample_weights is not None:
+            grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+        else:
+            grid.fit(X_train_bal, y_train_bal)
     model = grid.best_estimator_
     logger.info(
         "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
     )
 
     preds = model.predict(X_test)
+    if len(np.unique(preds)) < 2:
+        logger.warning(
+            "⚠️ Test predictions contain only one class: %s",
+            label_map.get(int(preds[0]), int(preds[0])) if len(preds) else "n/a",
+        )
     proba = model.predict_proba(X_test)
 
     labels_sorted = sorted(np.unique(np.concatenate([y_test, preds])))
@@ -765,9 +800,15 @@ def main():
     )
     parser.add_argument(
         "--oversampler",
-        choices=["smote", "adasyn", "borderline"],
+        choices=["smote", "adasyn", "borderline", "random", "none"],
         default="smote",
         help="Apply oversampling technique to minority classes",
+    )
+    parser.add_argument(
+        "--class-weight",
+        choices=["balanced", "none"],
+        default="balanced",
+        help="Class weight strategy during training",
     )
     parser.add_argument(
         "--min-unique-samples",
@@ -837,7 +878,7 @@ def main():
     min_volume = 0 if args.ignore_volume else args.min_volume
 
 
-    if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
+    if args.oversampler in {"smote", "adasyn", "borderline", "random"} and SMOTE is None:
         logger.error(
             "imbalanced-learn is required for %s oversampling. Run 'pip install -r requirements.txt' to install it.",
             args.oversampler,
@@ -904,10 +945,11 @@ def main():
     model, labels = train_model(
         X_all,
         y_all,
-        oversampler=args.oversampler,
+        oversampler=None if args.oversampler == "none" else args.oversampler,
         param_scale=args.param_scale,
         cv_splits=args.cv_splits,
         verbose=args.verbose,
+        class_weight=args.class_weight,
     )
     feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
