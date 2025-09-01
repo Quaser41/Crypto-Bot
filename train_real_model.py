@@ -145,6 +145,7 @@ def prepare_training_data(
     min_unique_samples: int = 3,
     augment_target: int = 50,
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
+    min_return: float = 0.005,
     min_rows: int = 60,
     min_rows_ratio: float = 0.6,
 ):
@@ -167,6 +168,9 @@ def prepare_training_data(
     quantiles: iterable of float, optional
         Percentiles for :func:`compute_return_thresholds`. Adjust to
         influence how return buckets are defined.
+    min_return : float, default ``0.005``
+        Minimum absolute future return required for a row to be kept.
+        Set to ``0`` to retain all rows.
     min_rows : int, default ``60``
         Baseline minimum number of rows desired before indicator computation.
     min_rows_ratio : float, default ``0.6``
@@ -296,7 +300,8 @@ def prepare_training_data(
 
     df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
-    df = df[df["Return"].abs() > 0.005]
+    if min_return > 0:
+        df = df[df["Return"].abs() > min_return]
     df = df.dropna()
 
     thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
@@ -832,6 +837,12 @@ def main():
         help="Quantiles for return thresholds (four floats between 0 and 1)",
     )
     parser.add_argument(
+        "--min-return",
+        type=float,
+        default=0.005,
+        help="Minimum absolute return required to keep a row; 0 disables filtering",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
@@ -924,6 +935,7 @@ def main():
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
             quantiles=args.quantiles,
+            min_return=args.min_return,
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())

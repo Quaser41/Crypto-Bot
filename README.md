@@ -61,6 +61,12 @@ customised via the ``min_rows_ratio`` argument to
 ``train_real_model.prepare_training_data`` when integrating the training
 utilities programmatically.
 
+The label preparation step drops rows whose future return is smaller than
+0.5 % in magnitude.  This threshold can be tweaked with ``--min-return`` on the
+command line or the corresponding ``min_return`` argument when calling
+``train_real_model.prepare_training_data`` directly.  Set it to ``0`` to keep
+all rows for experimentation.
+
 ### Handling Class Imbalance
 
 The training pipeline now applies **SMOTE** oversampling by default to

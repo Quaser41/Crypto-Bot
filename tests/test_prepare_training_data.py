@@ -178,3 +178,33 @@ def test_prepare_training_data_skips_insufficient_4h(monkeypatch, caplog):
     assert X is None and y is None
     assert not called["add"]
     assert any("4h" in r.getMessage() for r in caplog.records)
+
+
+def test_prepare_training_data_min_return_zero_keeps_rows(monkeypatch):
+    returns = [0.001, -0.002, 0.003, -0.004] + (
+        [-0.05] * 10
+        + [-0.02] * 10
+        + [0.01] * 10
+        + [0.02] * 10
+        + [0.05] * 30
+    )
+    df = _make_df(returns)
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df.copy())
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+    monkeypatch.setattr(train_real_model.data_fetcher, "has_min_history", lambda *a, **k: (True, 1000))
+    monkeypatch.setattr(train_real_model, "resample", lambda subset, **k: subset.iloc[:0])
+
+    df2 = df.copy()
+    df2["Future_Close"] = df2["Close"].shift(-3)
+    df2["Return"] = (df2["Future_Close"] - df2["Close"]) / df2["Close"]
+    df2 = df2.dropna()
+    expected_diff = (df2["Return"].abs() <= 0.005).sum()
+
+    X_def, y_def = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
+    X_all, y_all = train_real_model.prepare_training_data(
+        "SYM", "coin", min_unique_samples=3, min_return=0
+    )
+    assert X_def is not None and y_def is not None
+    assert X_all is not None and y_all is not None
+    assert len(X_all) == len(X_def) + expected_diff
