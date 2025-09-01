@@ -17,6 +17,7 @@ from symbol_resolver import (
 )
 from extract_gainers import extract_gainers
 from utils.logging import get_logger
+from config import ENABLE_BINANCE_GLOBAL
 
 logger = get_logger(__name__)
 
@@ -577,15 +578,16 @@ def is_symbol_on_coinbase(symbol):
 # Order matters: sources earlier in this list are preferred and later ones act
 # as fallbacks.  Coinbase is attempted first, followed by Binance.US and
 # Binance.  If these fail, the fetcher falls back to YFinance, CoinGecko and
-# finally DexScreener.
+# finally DexScreener. Binance Global can be disabled via configuration.
 DATA_SOURCES = [
     "coinbase",
     "binance_us",
-    "binance",
+    "binance" if ENABLE_BINANCE_GLOBAL else None,
     "yfinance",
     "coingecko",
     "dexscreener",
 ]
+DATA_SOURCES = [s for s in DATA_SOURCES if s]
 
 
 def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kwargs):
@@ -650,14 +652,23 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
                 logger.warning(
                     f"⚠️ Coinbase returned {len(df)} rows for {symbol}; prioritizing Binance"
                 )
-                DATA_SOURCES = [
-                    "binance_us",
-                    "binance",
-                    "coinbase",
-                    "yfinance",
-                    "coingecko",
-                    "dexscreener",
-                ]
+                if ENABLE_BINANCE_GLOBAL:
+                    DATA_SOURCES = [
+                        "binance_us",
+                        "binance",
+                        "coinbase",
+                        "yfinance",
+                        "coingecko",
+                        "dexscreener",
+                    ]
+                else:
+                    DATA_SOURCES = [
+                        "binance_us",
+                        "coinbase",
+                        "yfinance",
+                        "coingecko",
+                        "dexscreener",
+                    ]
 
             elif source == "binance_us":
                 if not resolve_symbol_binance_us(symbol):
@@ -737,6 +748,8 @@ def fetch_binance_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance OHLCV for {symbol}")
         return cached
+    if not ENABLE_BINANCE_GLOBAL:
+        return cached if cached is not None else pd.DataFrame()
 
     binance_symbol = resolve_symbol_binance_global(symbol)
     if not binance_symbol:

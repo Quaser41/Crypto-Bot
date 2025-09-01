@@ -7,6 +7,7 @@ from config import (
     MIN_HOLD_BUCKET,
     MIN_24H_VOLUME,
     WIN_RATE_WEIGHT,
+    ENABLE_BINANCE_GLOBAL,
 )
 from analytics import performance as perf_utils
 
@@ -30,6 +31,12 @@ def _bucket_index(bucket: str) -> int:
 
 def load_binance_global_symbols():
     global BINANCE_GLOBAL_SYMBOLS, BINANCE_GLOBAL_UNAVAILABLE
+    if not ENABLE_BINANCE_GLOBAL:
+        if not BINANCE_GLOBAL_UNAVAILABLE:
+            logger.info("ℹ️ Binance Global disabled via config")
+            BINANCE_GLOBAL_UNAVAILABLE = True
+        return
+
     if BINANCE_GLOBAL_UNAVAILABLE or BINANCE_GLOBAL_SYMBOLS:
         return
 
@@ -46,7 +53,9 @@ def load_binance_global_symbols():
             if sym["status"] == "TRADING" and sym["quoteAsset"] == "USDT":
                 BINANCE_GLOBAL_SYMBOLS[sym["baseAsset"]] = sym["symbol"]
     except Exception as e:
-        logger.error("❌ Failed to load Binance Global symbols: %s - %s", type(e).__name__, e)
+        logger.error(
+            "❌ Failed to load Binance Global symbols: %s - %s", type(e).__name__, e
+        )
 
 def load_binance_us_symbols():
     global BINANCE_US_SYMBOLS
