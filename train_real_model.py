@@ -1059,7 +1059,9 @@ def main():
         help="Number of parameter settings sampled in randomized search",
     )
     parser.add_argument(
+        "--gs-verbose",
         "--verbose",
+        dest="gs_verbose",
         type=int,
         default=1,
         help="Grid search verbosity level",
@@ -1081,7 +1083,7 @@ def main():
     min_volume = 0 if args.ignore_volume else args.min_volume
 
     if sys.platform.startswith("win") and args.n_jobs != 1:
-        logger.warning("n_jobs > 1 is not supported on Windows; using 1")
+        logger.warning("n_jobs != 1 is not supported on Windows; using 1")
     n_jobs = 1 if sys.platform.startswith("win") else args.n_jobs
 
     if args.fast:
@@ -1163,7 +1165,7 @@ def main():
         oversampler=None if args.oversampler == "none" else args.oversampler,
         param_scale=args.param_scale,
         cv_splits=args.cv_splits,
-        verbose=args.verbose,
+        verbose=args.gs_verbose,
         n_jobs=n_jobs,
         class_weight=args.class_weight,
         random_search=args.random_search,
