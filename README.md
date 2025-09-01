@@ -63,6 +63,12 @@ utilities programmatically.  The prediction horizon defaults to three future
 15‑minute bars (45 minutes) but can be adjusted with the ``horizon`` argument
 or ``--horizon`` CLI flag (e.g. ``--horizon 288`` for roughly three days).
 
+The label preparation step drops rows whose future return is smaller than
+0.5 % in magnitude.  This threshold can be tweaked with ``--min-return`` on the
+command line or the corresponding ``min_return`` argument when calling
+``train_real_model.prepare_training_data`` directly.  Set it to ``0`` to keep
+all rows for experimentation.
+
 ### Handling Class Imbalance
 
 Time‑series data makes synthetic sampling tricky. By default the training
