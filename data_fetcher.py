@@ -79,7 +79,7 @@ def fetch_onchain_metrics(days=14):
         "BLOCKCHAIN_CHARTS_BASE", "https://api.blockchain.info/charts"
     )
     tx_url = f"{base_url}/n-transactions"
-    active_url = f"{base_url}/active-addresses"
+    active_url = f"{base_url}/activeaddresses"
     params = {"timespan": f"{days}days", "format": "json", "cors": "true"}
 
     # Only retry on server errors for these endpoints
@@ -237,7 +237,7 @@ def fetch_onchain_metrics(days=14):
     ):
         df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
     else:
-        df_active = _scrape_chart("active-addresses", "ActiveAddresses")
+        df_active = _scrape_chart("activeaddresses", "ActiveAddresses")
         if df_active is None or df_active.empty:
             df_active = _default_df("ActiveAddresses")
             missing = True

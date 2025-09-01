@@ -10,7 +10,7 @@ def test_fetch_onchain_metrics_uses_new_chart_slugs(monkeypatch, tmp_path):
         captured.append((url, params))
         if "n-transactions" in url:
             return sample_tx
-        if "active-addresses" in url:
+        if "activeaddresses" in url:
             return sample_active
         return None
 
@@ -21,7 +21,7 @@ def test_fetch_onchain_metrics_uses_new_chart_slugs(monkeypatch, tmp_path):
     df = data_fetcher.fetch_onchain_metrics(days=1)
 
     assert any("n-transactions" in url for url, _ in captured)
-    assert any("active-addresses" in url for url, _ in captured)
+    assert any("activeaddresses" in url for url, _ in captured)
     assert all(
         params.get("format") == "json"
         and params.get("cors") == "true"

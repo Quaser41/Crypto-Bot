@@ -24,4 +24,4 @@ def test_transactions_chart_endpoint():
 
 
 def test_active_addresses_chart_endpoint():
-    _get_chart("active-addresses")
+    _get_chart("activeaddresses")
