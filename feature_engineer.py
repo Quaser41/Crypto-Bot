@@ -146,7 +146,8 @@ def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
         btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=span_days)
         if not btc.empty and "Close" in btc.columns:
             btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
-            btc = btc.sort_values("Timestamp")
+            btc = btc.sort_values("Timestamp").reset_index(drop=True)
+            df = df.reset_index(drop=True)
             df = pd.merge_asof(
                 df.sort_values("Timestamp"),
                 btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
