@@ -650,3 +650,31 @@ def test_fee_ratio_blacklist(monkeypatch):
     # LINK in the 30m-2h bucket is blacklisted due to historical fee ratio
     tm.open_trade('LINK', 10.0, confidence=1.0)
     assert 'LINK' not in tm.positions
+
+
+def test_symbol_pnl_threshold_skips_symbol(monkeypatch, caplog):
+    tm = TradeManager(
+        starting_balance=1000,
+        hold_period_sec=0,
+        min_hold_bucket="<1m",
+        max_drawdown_pct=1.0,
+        max_daily_loss_pct=1.0,
+        symbol_pnl_threshold=-5.0,
+    )
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+    tm.close_trade('ABC', 5.0, reason='Stop-Loss')
+    assert tm.symbol_pnl['ABC'] < 0
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger='trade_manager'):
+        tm.open_trade('ABC', 10.0, confidence=1.0)
+    assert 'cumulative PnL' in caplog.text
+    assert 'ABC' not in tm.positions
