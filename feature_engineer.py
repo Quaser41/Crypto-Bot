@@ -48,7 +48,9 @@ def add_indicators(
         return pd.DataFrame()
 
     df["Close"] = pd.to_numeric(df["Close"], errors="coerce")
-    # Ensure timestamps are timezone-aware (UTC) for downstream merges
+    # Ensure "Timestamp" exists as a column and is timezone-aware (UTC)
+    if "Timestamp" not in df.columns:
+        df = df.reset_index().rename(columns={"index": "Timestamp"})
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
 
     min_rows = int(min(min_rows, len(df) * min_rows_ratio))
