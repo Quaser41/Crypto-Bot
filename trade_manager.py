@@ -78,6 +78,8 @@ class TradeManager:
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=FEE_PCT,
                  trail_pct=0.03, trail_atr_mult=None,
                  trail_vol_mult=TRAIL_VOL_MULT,
+                 trail_activation_pct=5.0,
+                 trail_activation_atr_mult=1.0,
                  atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
                  max_drawdown_pct=MAX_DRAWDOWN_PCT, max_daily_loss_pct=MAX_DAILY_LOSS_PCT,
@@ -105,6 +107,8 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.trail_atr_mult = trail_atr_mult
         self.trail_vol_mult = trail_vol_mult
+        self.trail_activation_pct = trail_activation_pct
+        self.trail_activation_atr_mult = trail_activation_atr_mult
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
         self.slippage_pct = slippage_pct
@@ -300,9 +304,10 @@ class TradeManager:
         """Return trailing stop distance using ATR or volatility scaling.
 
         Trailing stops should only activate on trades that are net profitable
-        after accounting for fees.  If the current unrealized PnL does not
-        exceed the estimated entry+exit fees, ``None`` is returned to signal
-        that a trailing stop should not yet be applied.
+        after accounting for fees *and* have moved sufficiently in our favor.
+        If the current unrealized PnL does not exceed the estimated fees or
+        the price move fails to clear a profit/ATR threshold, ``None`` is
+        returned to signal that a trailing stop should not yet be applied.
 
         If ``trail_atr_mult`` is set and an ATR value is available, the
         distance is ``ATR * trail_atr_mult``.  Otherwise fall back to the
@@ -318,11 +323,16 @@ class TradeManager:
         if entry is not None and qty > 0:
             if side == "BUY":
                 unrealized = (current_price - entry) * qty
+                price_move = current_price - entry
             else:
                 unrealized = (entry - current_price) * qty
+                price_move = entry - current_price
             est_exit_fee = current_price * qty * self.trade_fee_pct
             total_fees = pos.get("entry_fee", 0) + est_exit_fee
-            if unrealized <= total_fees:
+            atr_val = pos.get("atr")
+            atr_thresh = atr_val * self.trail_activation_atr_mult if atr_val else 0
+            profit_thresh = entry * self.trail_activation_pct / 100
+            if unrealized <= total_fees or price_move < max(profit_thresh, atr_thresh):
                 return None
 
         if self.trail_atr_mult:
@@ -336,15 +346,15 @@ class TradeManager:
                 vol_pct = 0.0
                 if len(prices) >= 2 and current_price > 0:
                     vol_pct = float(np.std(prices)) / current_price
-                mult = 1 + vol_pct * self.trail_vol_mult
+                mult = max(1.0, vol_pct * self.trail_vol_mult)
                 return atr_val * self.trail_atr_mult * mult
 
         prices = pos.get("recent_prices", [])
         if len(prices) >= 2 and current_price > 0:
             vol = float(np.std(prices))
             vol_pct = vol / current_price
-            mult = 1 + vol_pct * self.trail_vol_mult
-            return current_price * self.trail_pct * mult
+            dynamic_pct = max(self.trail_pct, vol_pct * self.trail_vol_mult)
+            return current_price * dynamic_pct
 
         return current_price * self.trail_pct
 
@@ -850,6 +860,13 @@ class TradeManager:
                         f"⏱️ Holding period active for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s)"
                     )
                 else:
+                    atr_val = pos.get("atr")
+                    atr_trigger_pct = (
+                        (atr_val / last_price) * 100 * self.trail_activation_atr_mult
+                        if atr_val and last_price > 0
+                        else 0
+                    )
+                    activation_pct = max(self.trail_activation_pct, atr_trigger_pct)
                     # Hard take-profit at 10–12%
                     if pnl_pct >= 10:
                         logger.info(
@@ -858,8 +875,8 @@ class TradeManager:
                         self.close_trade(symbol, last_price, reason="Take Profit Hit")
                         continue  # skip further checks on this trade
 
-                    # Trailing stop trigger at 3% gain with ATR/volatility sizing
-                    elif pnl_pct >= 3:
+                    # Trailing stop trigger using dynamic gain/ATR confirmation
+                    elif pnl_pct >= activation_pct:
                         qty = pos.get("qty", 0)
                         side = pos.get("side", "BUY")
                         if qty > 0:
