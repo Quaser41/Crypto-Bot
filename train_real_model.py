@@ -571,6 +571,17 @@ def train_model(
                     zero_division=0,
                 ),
             )
+            cm = confusion_matrix(
+                y_val_raw,
+                cv_preds,
+                labels=sorted(fold_le.classes_),
+            )
+            cm_df = pd.DataFrame(
+                cm,
+                index=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
+                columns=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
+            )
+            logger.info("🧮 CV Fold %d confusion matrix:\n%s", fold, cm_df)
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
 
