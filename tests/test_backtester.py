@@ -76,7 +76,7 @@ def test_backtest_symbol_generates_positive_return(monkeypatch):
     })
 
     monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
-    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df, **k: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
     call_state = {'n': 0}
@@ -115,7 +115,7 @@ def test_backtest_symbol_applies_fee(monkeypatch):
     })
 
     monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
-    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df, **k: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
     call_state = {'n': 0}
@@ -155,7 +155,7 @@ def test_backtest_symbol_respects_execution_delay(monkeypatch):
     })
 
     monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'Close']])
-    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df, **k: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
     call_state = {'n': 0}
@@ -195,7 +195,7 @@ def test_backtest_symbol_compare(monkeypatch):
     })
 
     monkeypatch.setattr(backtester, 'fetch_ohlcv_smart', lambda symbol, days, limit: df[['Timestamp', 'Open', 'High', 'Low', 'Close']])
-    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df: df)
+    monkeypatch.setattr(backtester, 'add_indicators', lambda raw_df, **k: df)
     monkeypatch.setattr(backtester, 'add_atr', lambda x, period=14: x)
 
     monkeypatch.setattr(backtester, 'predict_signal', lambda w, t: ('HOLD', 0.6, PredictionClass.SMALL_GAIN.value))

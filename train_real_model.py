@@ -152,24 +152,27 @@ def prepare_training_data(
     augment_target: int, default ``50``
         Target size for minority classes during augmentation.
 
-        Symbols with fewer than 60 historical rows after retrying all data
-        sources are dropped before indicator computation.
+        Symbols with fewer than ``min_rows`` historical rows after retrying all
+        data sources are dropped before indicator computation.
     """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
+    min_rows = 60
 
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730, limit=20000)
 
-    if len(df) < 60:
+    if len(df) < min_rows:
         logger.warning(
             "⚠️ Only %d rows fetched for %s; attempting extended history",
             len(df),
             coin_id,
         )
-        df_ext = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=1460, limit=20000)
+        df_ext = fetch_ohlcv_smart(
+            symbol=symbol, coin_id=coin_id, days=1460, limit=20000
+        )
         if len(df_ext) > len(df):
             df = df_ext
-        if len(df) < 60:
+        if len(df) < min_rows:
             original_sources = data_fetcher.DATA_SOURCES[:]
             for i in range(1, len(original_sources)):
                 data_fetcher.DATA_SOURCES = (
@@ -180,10 +183,10 @@ def prepare_training_data(
                 )
                 if len(df_retry) > len(df):
                     df = df_retry
-                if len(df) >= 60:
+                if len(df) >= min_rows:
                     break
             data_fetcher.DATA_SOURCES = original_sources
-        if len(df) < 60:
+        if len(df) < min_rows:
             logger.warning(
                 "⚠️ %s has only %d rows after extended fetch; dropping symbol",
                 coin_id,
@@ -203,11 +206,32 @@ def prepare_training_data(
     else:
         logger.info("📆 %s: fetched %d rows", coin_id, len(df))
 
-    df = add_indicators(df)
+    df = add_indicators(df, min_rows=min_rows)
     df = df.copy()
-    if df.empty:
-        logger.warning("⚠️ Failed to calculate indicators for %s", coin_id)
-        return None, None
+    if len(df) < min_rows:
+        logger.warning(
+            "⚠️ %s has only %d rows after indicators; attempting alternate sources",
+            coin_id,
+            len(df),
+        )
+        original_sources = data_fetcher.DATA_SOURCES[:]
+        for i in range(1, len(original_sources)):
+            data_fetcher.DATA_SOURCES = original_sources[i:] + original_sources[:i]
+            df_retry = fetch_ohlcv_smart(
+                symbol=symbol, coin_id=coin_id, days=1460, limit=20000
+            )
+            df_retry = add_indicators(df_retry, min_rows=min_rows)
+            if len(df_retry) >= min_rows:
+                df = df_retry
+                break
+        data_fetcher.DATA_SOURCES = original_sources
+        if len(df) < min_rows:
+            logger.warning(
+                "⚠️ %s remains below %d rows after indicator retry; dropping symbol",
+                coin_id,
+                min_rows,
+            )
+            return None, None
 
     df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
@@ -640,8 +664,13 @@ def main():
     parser.add_argument(
         "--min-volume",
         type=float,
-        default=MIN_24H_VOLUME,
+        default=MIN_24H_VOLUME / 10,
         help="Minimum 24h quote volume required for a symbol to be considered",
+    )
+    parser.add_argument(
+        "--ignore-volume",
+        action="store_true",
+        help="Include symbols regardless of their 24h volume",
     )
     parser.add_argument(
         "--fast",
@@ -649,7 +678,7 @@ def main():
         help="Use a smaller hyperparameter grid for quicker runs",
     )
     args = parser.parse_args()
-    min_volume = args.min_volume
+    min_volume = 0 if args.ignore_volume else args.min_volume
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
         logger.error(
@@ -675,6 +704,15 @@ def main():
             continue
 
         df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=730)
+        if len(df) < 60:
+            logger.info(
+                "🔄 %s: %d rows fetched; retrying with extended history",
+                symbol.upper(),
+                len(df),
+            )
+            df = fetch_ohlcv_smart(
+                symbol, coin_id=coin_id, days=1460, limit=20000
+            )
         if len(df) < 60:
             logger.info(
                 "⏭️ Skipping %s: only %d rows of data", symbol.upper(), len(df)

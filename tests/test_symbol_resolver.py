@@ -24,6 +24,7 @@ def test_binance_global_451_warning_logged_once(monkeypatch, caplog):
     # Reset globals and patch request
     monkeypatch.setattr(symbol_resolver, "BINANCE_GLOBAL_SYMBOLS", {})
     monkeypatch.setattr(symbol_resolver, "BINANCE_GLOBAL_UNAVAILABLE", False)
+    monkeypatch.setattr(symbol_resolver, "ENABLE_BINANCE_GLOBAL", True)
     monkeypatch.setattr(symbol_resolver.requests, "get", mock_get)
 
     with caplog.at_level("WARNING"):

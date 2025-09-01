@@ -101,7 +101,7 @@ def test_unrealized_drawdown_reduces_allocation(monkeypatch):
     tm.trade_fee_pct = 0.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
 
@@ -136,7 +136,7 @@ def test_open_trade_uses_atr_for_stops(monkeypatch):
     tm.risk_per_trade = 1.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     price = 10.0
     tm.open_trade('ABC', price, confidence=1.0)
     pos = tm.positions['ABC']
@@ -151,7 +151,7 @@ def test_close_trade_records_rotation_price(monkeypatch):
     tm.risk_per_trade = 1.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.close_trade(
         'ABC',
@@ -171,7 +171,7 @@ def test_rotation_aborted_when_gain_insufficient(monkeypatch):
     tm.risk_per_trade = 1.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     tm.open_trade('ABC', 10.0, confidence=1.0)
     closed = tm.close_trade(
         'ABC',
@@ -189,7 +189,7 @@ def test_rotation_executes_when_gain_covers_cost(monkeypatch):
     tm.risk_per_trade = 1.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     tm.open_trade('ABC', 10.0, confidence=1.0)
     closed = tm.close_trade(
         'ABC',
@@ -207,7 +207,7 @@ def test_rotation_aborted_when_net_gain_below_margin(monkeypatch):
     tm = create_tm()
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     tm.open_trade('ABC', 10.0, confidence=1.0)
 
     # Force projected gain to barely exceed cost but not the safety margin
@@ -227,7 +227,7 @@ def test_rotation_outcome_logging(monkeypatch, caplog):
     tm = create_tm()
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.close_trade(
@@ -262,7 +262,7 @@ def test_slippage_applied_to_trade(monkeypatch):
     tm.slippage_pct = 0.01
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
     price = 10.0
     tm.open_trade('ABC', price, confidence=1.0)
     pos = tm.positions['ABC']
@@ -282,7 +282,7 @@ def test_hold_period_delays_exits(monkeypatch):
     tm.sl_buffer_atr_mult = 0.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     pos = tm.positions['ABC']
@@ -310,7 +310,7 @@ def test_close_trade_respects_hold_bucket(monkeypatch):
     tm.trade_fee_pct = 0.01
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     pos = tm.positions['ABC']
@@ -338,7 +338,7 @@ def test_stagnation_closes_position(monkeypatch):
 
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 100.0, confidence=1.0)
     pos = tm.positions['ABC']
@@ -458,7 +458,7 @@ def test_adaptive_stagnation_logs_scaled_threshold(monkeypatch, caplog):
         'Hist': [0.1, 0.1, 0.1],
     })
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: dummy_df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     with caplog.at_level(logging.INFO, logger='trade_manager'):
         tm.manage('ABC', current_price)
@@ -475,7 +475,7 @@ def test_skips_trade_when_profit_insufficient(monkeypatch):
 
     df = pd.DataFrame({'ATR': [0.01]})
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     assert 'ABC' not in tm.positions
@@ -495,7 +495,7 @@ def test_open_trade_respects_confidence_threshold(monkeypatch):
     tm.risk_per_trade = 1.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=0.6)
     assert 'ABC' not in tm.positions
@@ -512,7 +512,7 @@ def test_open_trade_enforces_hold_period(monkeypatch):
     tm.trade_fee_pct = 0.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.open_trade('DEF', 5.0, confidence=1.0)
@@ -619,7 +619,7 @@ def test_close_trade_skips_when_profit_ratio_low(monkeypatch):
         'atr': None,
     }
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: mock_indicator_df())
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.close_trade('ABC', 100.5, reason='Take-Profit')
     assert tm.has_position('ABC')
@@ -660,7 +660,7 @@ def test_blacklist_skips_trade(monkeypatch):
 
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     # INJ with bucket 5-30m is blacklisted in analytics/trade_stats.csv
     tm.open_trade('INJ', 10.0, confidence=1.0)
@@ -685,7 +685,7 @@ def test_fee_ratio_blacklist(monkeypatch):
 
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     # LINK in the 30m-2h bucket is blacklisted due to historical fee ratio
     tm.open_trade('LINK', 10.0, confidence=1.0)
@@ -707,7 +707,7 @@ def test_symbol_pnl_threshold_skips_symbol(monkeypatch, caplog):
 
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
-    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d, **k: d)
 
     tm.open_trade('ABC', 10.0, confidence=1.0)
     tm.close_trade('ABC', 5.0, reason='Stop-Loss')
