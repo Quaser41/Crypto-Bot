@@ -809,6 +809,12 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         "cache_limit", kwargs.get("limit") or OHLCV_CACHE_LIMIT
     )
     cached, age = load_ohlcv_cache(symbol, interval)
+    if cached is not None and not cached.empty:
+        # Ensure cached timestamps are timezone-aware (UTC) so comparisons
+        # against newly fetched data do not raise ``TypeError`` about mixing
+        # offset-naive and offset-aware datetimes.
+        cached["Timestamp"] = pd.to_datetime(cached["Timestamp"], utc=True)
+
     if cached is not None and age is not None and age < ttl:
         logger.info(f"📦 Using cached Binance.US OHLCV for {symbol}")
         return cached
@@ -823,6 +829,8 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
     if cached is None:
         params["limit"] = min(limit, 1000)
     else:
+        # ``cached`` has timezone-aware timestamps, so convert to POSIX
+        # milliseconds using UTC to request only missing candles.
         last_ts = cached["Timestamp"].max()
         params["startTime"] = int((last_ts.to_pydatetime().timestamp() + 1) * 1000)
 
@@ -834,13 +842,29 @@ def fetch_binance_us_ohlcv(symbol, interval="15m", limit=96, **kwargs):
         if not data:
             return cached if cached is not None else pd.DataFrame()
 
-        df_new = pd.DataFrame(data, columns=[
-            "timestamp", "open", "high", "low", "close", "volume", "x", "y", "z", "a", "b", "c"
-        ])
+        df_new = pd.DataFrame(
+            data,
+            columns=[
+                "timestamp",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "x",
+                "y",
+                "z",
+                "a",
+                "b",
+                "c",
+            ],
+        )
         df_new["Close"] = df_new["close"].astype(float)
-        df_new["Timestamp"] = pd.to_datetime(df_new["timestamp"], unit="ms")
+        # Parse Binance timestamps as UTC to match cached data
+        df_new["Timestamp"] = pd.to_datetime(df_new["timestamp"], unit="ms", utc=True)
         df = df_new[["Timestamp", "Close"]]
         if cached is not None:
+            # Concatenate with cached data (already UTC) and sort
             df = pd.concat([cached, df])
         df = df.drop_duplicates("Timestamp").sort_values("Timestamp").tail(cache_limit)
         save_ohlcv_cache(symbol, interval, df, cache_limit)
