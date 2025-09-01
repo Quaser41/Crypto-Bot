@@ -5,6 +5,7 @@ import data_fetcher
 
 
 def _setup_cache(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
     monkeypatch.setattr(data_fetcher, "SEEN_NON_JSON_URLS", set())

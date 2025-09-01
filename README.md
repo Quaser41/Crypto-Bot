@@ -141,6 +141,11 @@ source code by setting environment variables:
   If unset, a demo key is used. Requests include the key via the
   `x-cg-demo-api-key` header, and Coingecko OHLCV lookups automatically retry
   once with this header if the first attempt returns `401`.
+- `BLOCKCHAIN_API_KEY`: API key for Blockchain.com charts used to fetch
+  on-chain metrics. When absent, the bot skips network calls and returns
+  placeholder metrics.
+- `GLASSNODE_API_KEY`: Optional Glassnode API key for enhanced on-chain
+  metrics. If unset, only public data sources are queried.
 
 These options allow fine-tuning of momentum evaluation without code changes.
 

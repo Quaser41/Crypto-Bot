@@ -4,6 +4,7 @@ import data_fetcher
 
 
 def test_fetch_onchain_metrics_caches_fallback_df(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     calls = {"count": 0}
 
     def mock_safe_request(*args, **kwargs):
@@ -25,6 +26,7 @@ def test_fetch_onchain_metrics_caches_fallback_df(monkeypatch, tmp_path):
 
 
 def test_fetch_onchain_metrics_returns_data(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     sample_tx = {
         "values": [
             {"x": 1722384000, "y": 1000},
