@@ -425,7 +425,8 @@ def prepare_training_data(
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
     # Fallback simple resampling for remaining minority classes
-    class_counts = y.value_counts()
+    class_counts = y.value_counts().sort_index()
+    logger.info("📊 Class distribution before simple resampling: %s", class_counts)
     for cls, cnt in class_counts.items():
         target = min(augment_target, 2 * cnt)
         if cnt < target:
@@ -453,6 +454,10 @@ def prepare_training_data(
             )
             X = pd.concat([X, augmented.drop(columns=["Target"])], ignore_index=True)
             y = pd.concat([y, augmented["Target"]], ignore_index=True)
+            class_counts = y.value_counts().sort_index()
+            logger.info(
+                "📊 Class distribution after augmenting class %d: %s", cls, class_counts
+            )
 
     df_aug = pd.concat([X, y], axis=1).sample(frac=1, random_state=42).reset_index(drop=True)
     logger.info(
@@ -713,7 +718,8 @@ def train_model(
             try:
                 pre_dist = pd.Series(y_train_bal).value_counts().sort_index()
                 logger.info(
-                    "📊 Training distribution before resampling: %s",
+                    "📊 Class distribution before %s oversampling: %s",
+                    oversampler,
                     pre_dist,
                 )
                 sampler_map = {
@@ -730,7 +736,11 @@ def train_model(
                     oversampler.upper(),
                 )
                 post_dist = pd.Series(y_train_bal).value_counts().sort_index()
-                logger.info("📊 Post-oversampling class distribution: %s", post_dist)
+                logger.info(
+                    "📊 Class distribution after %s oversampling: %s",
+                    oversampler,
+                    post_dist,
+                )
                 if len(post_dist) == 1:
                     logger.warning("⚠️ Only one class present after resampling")
                 elif post_dist.nunique() == 1:
