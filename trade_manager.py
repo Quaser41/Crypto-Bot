@@ -9,7 +9,12 @@ from data_fetcher import fetch_live_price
 from utils.prediction_class import PredictionClass
 from analytics.performance import is_blacklisted, get_duration_bucket, get_avg_fee_ratio
 
-from config import ATR_MULT_SL, ATR_MULT_TP
+from config import (
+    ATR_MULT_SL,
+    ATR_MULT_TP,
+    SL_BUFFER_ATR_MULT,
+    BREAKEVEN_BUFFER_MULT,
+)
 
 from config import (
     RISK_PER_TRADE,
@@ -36,7 +41,7 @@ from config import (
     TRAIL_VOL_MULT,
     ADAPTIVE_STAGNATION,
     STAGNATION_VOL_MULT,
-
+    SYMBOL_PNL_THRESHOLD,
 )
 
 from utils.logging import get_logger
@@ -78,8 +83,12 @@ class TradeManager:
                  sl_pct=0.06, tp_pct=0.10, trade_fee_pct=FEE_PCT,
                  trail_pct=0.03, trail_atr_mult=None,
                  trail_vol_mult=TRAIL_VOL_MULT,
+                 trail_activation_pct=5.0,
+                 trail_activation_atr_mult=1.0,
                  atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
+                 sl_buffer_atr_mult=SL_BUFFER_ATR_MULT,
+                 breakeven_buffer_mult=BREAKEVEN_BUFFER_MULT,
                  max_drawdown_pct=MAX_DRAWDOWN_PCT, max_daily_loss_pct=MAX_DAILY_LOSS_PCT,
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
@@ -98,6 +107,8 @@ class TradeManager:
                  scale_out_pct=1.0,
                  tp_tier_multipliers=(1.0, 2.0),
                  trail_wider_mult=2.0):
+                 symbol_pnl_threshold=SYMBOL_PNL_THRESHOLD):
+
 
         self.starting_balance = starting_balance
         self.balance = starting_balance
@@ -108,8 +119,12 @@ class TradeManager:
         self.trail_pct = trail_pct
         self.trail_atr_mult = trail_atr_mult
         self.trail_vol_mult = trail_vol_mult
+        self.trail_activation_pct = trail_activation_pct
+        self.trail_activation_atr_mult = trail_activation_atr_mult
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
+        self.sl_buffer_atr_mult = sl_buffer_atr_mult
+        self.breakeven_buffer_mult = breakeven_buffer_mult
         self.slippage_pct = slippage_pct
         self.min_profit_fee_ratio = min_profit_fee_ratio
         self.trail_profit_fee_ratio = trail_profit_fee_ratio
@@ -120,9 +135,12 @@ class TradeManager:
         self.stagnation_duration_sec = stagnation_duration_sec
         self.adaptive_stagnation = adaptive_stagnation
         self.stagnation_vol_mult = stagnation_vol_mult
+
         self.scale_out_pct = scale_out_pct
         self.tp_tier_multipliers = tp_tier_multipliers
         self.trail_wider_mult = trail_wider_mult
+        self.symbol_pnl_threshold = symbol_pnl_threshold
+
 
         # Holding period and reversal requirements
         # Add a small buffer to the minimum hold time to better absorb
@@ -159,6 +177,9 @@ class TradeManager:
 
         # Recent closed-trade PnL history
         self.closed_pnl_history = []
+
+        # Cumulative realized PnL per symbol
+        self.symbol_pnl = {}
 
     def has_position(self, symbol):
         return symbol in self.positions
@@ -306,9 +327,10 @@ class TradeManager:
         """Return trailing stop distance using ATR or volatility scaling.
 
         Trailing stops should only activate on trades that are net profitable
-        after accounting for fees.  If the current unrealized PnL does not
-        exceed the estimated entry+exit fees, ``None`` is returned to signal
-        that a trailing stop should not yet be applied.
+        after accounting for fees *and* have moved sufficiently in our favor.
+        If the current unrealized PnL does not exceed the estimated fees or
+        the price move fails to clear a profit/ATR threshold, ``None`` is
+        returned to signal that a trailing stop should not yet be applied.
 
         If ``trail_atr_mult`` is set and an ATR value is available, the
         distance is ``ATR * trail_atr_mult``.  Otherwise fall back to the
@@ -324,11 +346,16 @@ class TradeManager:
         if entry is not None and qty > 0:
             if side == "BUY":
                 unrealized = (current_price - entry) * qty
+                price_move = current_price - entry
             else:
                 unrealized = (entry - current_price) * qty
+                price_move = entry - current_price
             est_exit_fee = current_price * qty * self.trade_fee_pct
             total_fees = pos.get("entry_fee", 0) + est_exit_fee
-            if unrealized <= total_fees:
+            atr_val = pos.get("atr")
+            atr_thresh = atr_val * self.trail_activation_atr_mult if atr_val else 0
+            profit_thresh = entry * self.trail_activation_pct / 100
+            if unrealized <= total_fees or price_move < max(profit_thresh, atr_thresh):
                 return None
 
         if self.trail_atr_mult:
@@ -342,15 +369,15 @@ class TradeManager:
                 vol_pct = 0.0
                 if len(prices) >= 2 and current_price > 0:
                     vol_pct = float(np.std(prices)) / current_price
-                mult = 1 + vol_pct * self.trail_vol_mult
+                mult = max(1.0, vol_pct * self.trail_vol_mult)
                 return atr_val * self.trail_atr_mult * mult
 
         prices = pos.get("recent_prices", [])
         if len(prices) >= 2 and current_price > 0:
             vol = float(np.std(prices))
             vol_pct = vol / current_price
-            mult = 1 + vol_pct * self.trail_vol_mult
-            return current_price * self.trail_pct * mult
+            dynamic_pct = max(self.trail_pct, vol_pct * self.trail_vol_mult)
+            return current_price * dynamic_pct
 
         return current_price * self.trail_pct
 
@@ -415,6 +442,18 @@ class TradeManager:
                 "🚫 Skipping %s: blacklisted for bucket %s",
                 symbol,
                 duration_bucket,
+            )
+            return
+
+        if (
+            self.symbol_pnl_threshold is not None
+            and self.symbol_pnl.get(symbol, 0.0) < self.symbol_pnl_threshold
+        ):
+            logger.info(
+                "🚫 Skipping %s: cumulative PnL $%.2f below threshold $%.2f",
+                symbol,
+                self.symbol_pnl.get(symbol, 0.0),
+                self.symbol_pnl_threshold,
             )
             return
 
@@ -750,6 +789,9 @@ class TradeManager:
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
 
+        # Track cumulative PnL per symbol
+        self.symbol_pnl[symbol] = self.symbol_pnl.get(symbol, 0.0) + pnl
+
         self.last_trade_time = time.time()
 
         # Update drawdown and daily loss metrics after realizing PnL
@@ -973,6 +1015,13 @@ class TradeManager:
                         f"⏱️ Holding period active for {symbol} ({elapsed:.0f}s < {self.min_hold_time}s)"
                     )
                 else:
+                    atr_val = pos.get("atr")
+                    atr_trigger_pct = (
+                        (atr_val / last_price) * 100 * self.trail_activation_atr_mult
+                        if atr_val and last_price > 0
+                        else 0
+                    )
+                    activation_pct = max(self.trail_activation_pct, atr_trigger_pct)
                     # Hard take-profit at 10–12%
                     if pnl_pct >= 10:
                         logger.info(
@@ -981,8 +1030,8 @@ class TradeManager:
                         self.close_trade(symbol, last_price, reason="Take Profit Hit")
                         continue  # skip further checks on this trade
 
-                    # Trailing stop trigger at 3% gain with ATR/volatility sizing
-                    elif pnl_pct >= 3:
+                    # Trailing stop trigger using dynamic gain/ATR confirmation
+                    elif pnl_pct >= activation_pct:
                         qty = pos.get("qty", 0)
                         side = pos.get("side", "BUY")
                         if qty > 0:
@@ -1136,16 +1185,31 @@ class TradeManager:
             elif side == "SELL" and pos["highest_price"] < entry_price:
                 trail_stop = pos["highest_price"] * (1 + trail_pct)
 
-        sl_buffer = 0.999
+        atr_val = pos.get("atr")
+        if atr_val and atr_val > 0:
+            sl_buffer = atr_val * self.sl_buffer_atr_mult
+        else:
+            prices = pos.get("recent_prices", [])
+            sl_buffer = 0.0
+            if len(prices) >= 2:
+                sl_buffer = float(np.std(prices)) * self.sl_buffer_atr_mult
+
+        entry_price = pos.get("entry_price")
+        if entry_price is not None:
+            if side == "BUY" and pos["stop_loss"] >= entry_price:
+                sl_buffer *= self.breakeven_buffer_mult
+            elif side == "SELL" and pos["stop_loss"] <= entry_price:
+                sl_buffer *= self.breakeven_buffer_mult
+
         if side == "BUY":
-            if current_price < pos["stop_loss"] * sl_buffer:
+            if current_price < pos["stop_loss"] - sl_buffer:
                 logger.warning(
                     f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})"
                 )
                 self.close_trade(symbol, current_price, reason="Stop-Loss")
                 return
         else:
-            if current_price > pos["stop_loss"] / sl_buffer:
+            if current_price > pos["stop_loss"] + sl_buffer:
                 logger.warning(
                     f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})"
                 )
@@ -1319,6 +1383,7 @@ class TradeManager:
             "last_trade_confidence": self.last_trade_confidence,
             "trail_pct": self.trail_pct,
             "trail_atr_mult": self.trail_atr_mult,
+            "symbol_pnl": self.symbol_pnl,
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -1346,6 +1411,7 @@ class TradeManager:
             self.last_trade_confidence = state.get("last_trade_confidence")
             self.trail_pct = state.get("trail_pct", self.trail_pct)
             self.trail_atr_mult = state.get("trail_atr_mult", self.trail_atr_mult)
+            self.symbol_pnl = state.get("symbol_pnl", {})
             logger.info("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():

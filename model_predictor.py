@@ -16,6 +16,8 @@ logger = get_logger(__name__)
 MODEL_PATH = "ml_model.json"
 FEATURES_PATH = "features.json"
 LABELS_PATH = "labels.json"
+THRESHOLD_TUNE_PATH = "validation_thresholds.json"
+CALIBRATION_PARAMS_PATH = "prob_calibration.json"
 
 try:
     DEFAULT_LOG_FREQUENCY = int(os.getenv("PREDICT_SIGNAL_LOG_FREQ", "100"))
@@ -106,6 +108,91 @@ def reload_model():
     load_model.cache_clear()
 
 
+@lru_cache(maxsize=1)
+def _load_threshold_overrides():
+    """Load tuned threshold values from disk if available.
+
+    The tuning is expected to be performed offline on validation trades and
+    stored as a small JSON mapping.  The structure is::
+
+        {
+            "threshold": 0.65,
+            "high_conf_buy_override": 0.9
+        }
+
+    If the file is missing or malformed the defaults provided by the caller
+    and :mod:`config` are used.
+    """
+
+    try:
+        with open(THRESHOLD_TUNE_PATH, "r") as f:
+            data = json.load(f)
+        overrides = {}
+        if "threshold" in data:
+            overrides["threshold"] = float(data["threshold"])
+        if "high_conf_buy_override" in data:
+            overrides["high_conf_buy_override"] = float(
+                data["high_conf_buy_override"]
+            )
+        return overrides
+    except FileNotFoundError:
+        logger.debug("ℹ️ Tuned thresholds file not found at %s", THRESHOLD_TUNE_PATH)
+    except Exception as e:
+        logger.debug("ℹ️ Failed to load tuned thresholds: %s", e)
+    return {}
+
+
+@lru_cache(maxsize=1)
+def _load_calibration_params():
+    """Load probability calibration parameters from disk.
+
+    The calibration parameters allow post-hoc calibration of the raw
+    probabilities emitted by the model.  Two simple methods are supported:
+
+    * ``"platt"`` – logistic calibration with coefficients ``A`` and ``B``.
+    * ``"isotonic"`` – monotonic piecewise-linear mapping defined by ``x`` and
+      ``y`` arrays.
+    """
+
+    try:
+        with open(CALIBRATION_PARAMS_PATH, "r") as f:
+            params = json.load(f)
+        return params
+    except FileNotFoundError:
+        logger.debug(
+            "ℹ️ Calibration params file not found at %s", CALIBRATION_PARAMS_PATH
+        )
+    except Exception as e:
+        logger.debug("ℹ️ Failed to load calibration params: %s", e)
+    return {}
+
+
+def _calibrate_confidence(prob: float) -> float:
+    """Apply probability calibration if parameters are available."""
+
+    params = _load_calibration_params()
+    if not params:
+        return prob
+
+    method = str(params.get("method", "platt")).lower()
+    try:
+        if method == "platt":
+            A = float(params.get("A"))
+            B = float(params.get("B"))
+            calibrated = 1.0 / (1.0 + np.exp(A * prob + B))
+            return float(np.clip(calibrated, 0.0, 1.0))
+        elif method == "isotonic":
+            x = params.get("x")
+            y = params.get("y")
+            if not x or not y or len(x) != len(y):
+                return prob
+            calibrated = np.interp(prob, x, y)
+            return float(np.clip(calibrated, 0.0, 1.0))
+    except Exception as e:
+        logger.debug("ℹ️ Failed to calibrate probability: %s", e)
+    return prob
+
+
 # === Predict signal from latest row ===
 def predict_signal(df, threshold, log_frequency=None):
     """Predict the trading signal for the latest row in ``df``.
@@ -126,6 +213,16 @@ def predict_signal(df, threshold, log_frequency=None):
     if model is None or not expected_features or not label_mapping:
         logger.warning("⚠️ No valid model available, skipping prediction.")
         return None, 0.0, None
+
+    # Allow thresholds tuned on validation data to override defaults
+    overrides = _load_threshold_overrides()
+    tuned_threshold = overrides.get("threshold")
+    tuned_buy_override = overrides.get("high_conf_buy_override")
+    if tuned_threshold is not None:
+        threshold = tuned_threshold
+    high_conf_buy = (
+        tuned_buy_override if tuned_buy_override is not None else HIGH_CONF_BUY_OVERRIDE
+    )
 
     four_hour_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
     missing = [f for f in expected_features if f not in df.columns]
@@ -156,7 +253,14 @@ def predict_signal(df, threshold, log_frequency=None):
         except (IndexError, ValueError) as e:
             logger.error("❌ Invalid label mapping for index %d: %s", pred_idx, e)
             return None, 0.0, None
-        confidence = float(class_probs[pred_idx])
+        raw_confidence = float(class_probs[pred_idx])
+        confidence = _calibrate_confidence(raw_confidence)
+        if abs(confidence - raw_confidence) > 1e-6:
+            logger.debug(
+                "🔧 Calibrated confidence from %.3f to %.3f",
+                raw_confidence,
+                confidence,
+            )
 
         logger.debug(
             "🔍 Class probabilities: %s",
@@ -190,7 +294,10 @@ def predict_signal(df, threshold, log_frequency=None):
         if predicted_class == PredictionClass.SMALL_LOSS and confidence < threshold:
             return "HOLD", confidence, predicted_class.value
 
-        if predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN) and confidence >= HIGH_CONF_BUY_OVERRIDE:
+        if (
+            predicted_class in (PredictionClass.SMALL_GAIN, PredictionClass.BIG_GAIN)
+            and confidence >= high_conf_buy
+        ):
             # Logging handled at caller layer to avoid duplicate messages
             logger.debug("🔥 High Conviction BUY override active")
             return "BUY", confidence, predicted_class.value
@@ -199,7 +306,10 @@ def predict_signal(df, threshold, log_frequency=None):
             return "BUY", confidence, predicted_class.value
         elif predicted_class == PredictionClass.SMALL_GAIN and confidence >= threshold:
             return "BUY", confidence, predicted_class.value
-        elif predicted_class in (PredictionClass.BIG_LOSS, PredictionClass.SMALL_LOSS) and confidence >= threshold:
+        elif (
+            predicted_class in (PredictionClass.BIG_LOSS, PredictionClass.SMALL_LOSS)
+            and confidence >= threshold
+        ):
             return "SELL", confidence, predicted_class.value
         else:
             return "HOLD", confidence, predicted_class.value

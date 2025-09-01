@@ -240,6 +240,7 @@ def test_hold_period_delays_exits(monkeypatch):
     tm.risk_per_trade = 1.0
     tm.slippage_pct = 0.0
     tm.trade_fee_pct = 0.0
+    tm.sl_buffer_atr_mult = 0.0
     df = mock_indicator_df()
     monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
     monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
@@ -321,9 +322,9 @@ def test_trailing_stop_volatility_multiplier():
         'side': 'BUY',
         'recent_prices': [100, 120, 80, 110, 90]
     }
-    base = tm._compute_trail_offset(pos, 103.0)
+    base = tm._compute_trail_offset(pos, 105.0)
     tm.trail_vol_mult = 2.0
-    widened = tm._compute_trail_offset(pos, 103.0)
+    widened = tm._compute_trail_offset(pos, 105.0)
     assert widened > base
 
 
@@ -371,7 +372,7 @@ def test_trailing_stop_scales_with_atr_and_logging(monkeypatch, caplog):
 
     expected_prices = pos['recent_prices']
     vol_pct = np.std(expected_prices) / 108.0
-    expected_offset = pos['atr'] * tm.trail_atr_mult * (1 + vol_pct * tm.trail_vol_mult)
+    expected_offset = pos['atr'] * tm.trail_atr_mult * max(1.0, vol_pct * tm.trail_vol_mult)
     expected_trail = 108.0 - expected_offset
     assert pos['trail_price'] == pytest.approx(expected_trail)
     assert f"{expected_trail:.4f}" in caplog.text
@@ -487,9 +488,9 @@ def test_compute_trail_offset_uses_volatility():
     tm = create_tm()
     tm.trail_pct = 0.02
     pos = {"recent_prices": [100, 102, 98, 101]}
-    offset = tm._compute_trail_offset(pos, 100)
-    # std of recent_prices ≈ 1.479 -> volatility pct ≈ 0.01479
-    expected = 100 * 0.02 * (1 + np.std(pos["recent_prices"]) / 100)
+    offset = tm._compute_trail_offset(pos, 105)
+    vol_pct = np.std(pos["recent_prices"]) / 105
+    expected = 105 * max(0.02, vol_pct * tm.trail_vol_mult)
     assert offset == pytest.approx(expected)
 
 
@@ -650,3 +651,31 @@ def test_fee_ratio_blacklist(monkeypatch):
     # LINK in the 30m-2h bucket is blacklisted due to historical fee ratio
     tm.open_trade('LINK', 10.0, confidence=1.0)
     assert 'LINK' not in tm.positions
+
+
+def test_symbol_pnl_threshold_skips_symbol(monkeypatch, caplog):
+    tm = TradeManager(
+        starting_balance=1000,
+        hold_period_sec=0,
+        min_hold_bucket="<1m",
+        max_drawdown_pct=1.0,
+        max_daily_loss_pct=1.0,
+        symbol_pnl_threshold=-5.0,
+    )
+    tm.risk_per_trade = 1.0
+    tm.slippage_pct = 0.0
+    tm.trade_fee_pct = 0.0
+
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+    tm.close_trade('ABC', 5.0, reason='Stop-Loss')
+    assert tm.symbol_pnl['ABC'] < 0
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger='trade_manager'):
+        tm.open_trade('ABC', 10.0, confidence=1.0)
+    assert 'cumulative PnL' in caplog.text
+    assert 'ABC' not in tm.positions

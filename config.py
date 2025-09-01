@@ -58,6 +58,14 @@ ERROR_DELAY = float(os.getenv("ERROR_DELAY", "0"))
 ATR_MULT_SL = float(os.getenv("ATR_MULT_SL", "2.0"))
 ATR_MULT_TP = float(os.getenv("ATR_MULT_TP", "3.0"))
 
+# Additional buffer applied beyond the stop-loss based on ATR or volatility.
+# Provides flexibility for wider stops on more volatile assets.
+SL_BUFFER_ATR_MULT = float(os.getenv("SL_BUFFER_ATR_MULT", "0.2"))
+
+# Factor to reduce the stop-loss buffer once break-even is reached.
+# Values below 1.0 tighten the stop to lock in profits.
+BREAKEVEN_BUFFER_MULT = float(os.getenv("BREAKEVEN_BUFFER_MULT", "0.5"))
+
 # === Risk management and trade sizing ===
 # Percentage of account equity risked per trade (e.g. 0.01 = 1%)
 RISK_PER_TRADE = float(os.getenv("RISK_PER_TRADE", "0.02"))
@@ -84,6 +92,12 @@ MAX_DAILY_LOSS_PCT = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.05"))
 # Bumped to a stricter default of 7.0 to demand greater edge over fees
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
+
+# Minimum cumulative PnL (in USD) required for a symbol to remain tradable.
+# Symbols with cumulative PnL below this threshold will be skipped unless
+# ``SYMBOL_PNL_THRESHOLD`` is unset, in which case the filter is disabled.
+_sym_pnl_thresh = os.getenv("SYMBOL_PNL_THRESHOLD")
+SYMBOL_PNL_THRESHOLD = float(_sym_pnl_thresh) if _sym_pnl_thresh is not None else None
 
 # Price stagnation detection parameters. If price movement stays below
 # ``STAGNATION_THRESHOLD_PCT`` for ``STAGNATION_DURATION_SEC`` seconds, the
