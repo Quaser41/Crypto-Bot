@@ -154,11 +154,12 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         df["RelStrength_BTC"] = 1.0
 
     # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
+    four_h_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
     try:
         agg = (
             df.sort_values("Timestamp")
             .set_index("Timestamp")["Close"]
-            .resample("4h", label="right")
+            .resample("4h", label="right", closed="right")
             .last()
             .ffill()
             .to_frame()
@@ -171,26 +172,27 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
             agg["MACD_4h"] = agg_macd.macd()
             agg["Signal_4h"] = agg_macd.macd_signal()
             agg["Hist_4h"] = agg_macd.macd_diff()
-            agg = agg[["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]].reset_index()
+            agg = agg[four_h_cols].ffill().reset_index()
             df = pd.merge_asof(
                 df.sort_values("Timestamp"),
                 agg.sort_values("Timestamp"),
                 on="Timestamp",
                 direction="backward",
+                tolerance=pd.Timedelta("4h"),
             )
+            df[four_h_cols] = df[four_h_cols].ffill()
         else:
             logger.warning(
                 "⚠️ Not enough history for 4h aggregates: %d < %d", len(agg), required_points
             )
-            for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
+            for col in four_h_cols:
                 df[col] = np.nan
     except Exception as e:
         logger.warning("⚠️ Failed to compute 4h aggregates: %s", e)
-        for col in ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]:
+        for col in four_h_cols:
             df[col] = np.nan
 
-    if {"SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"}.issubset(df.columns):
-        four_h_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
+    if set(four_h_cols).issubset(df.columns):
         if df[four_h_cols].isna().all().any():
             logger.warning(
                 "⚠️ 4h aggregates contain NaNs after merge; verify timestamp alignment"
