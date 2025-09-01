@@ -4,6 +4,10 @@ import os
 # uses the sandbox/testnet APIs.  Default to paper trading for safety.
 TRADING_MODE = os.getenv("TRADING_MODE", "paper").lower()
 
+# Toggle access to Binance Global APIs. Disabled by default to avoid
+# unnecessary requests in regions where the service is unavailable.
+ENABLE_BINANCE_GLOBAL = os.getenv("ENABLE_BINANCE_GLOBAL", "0") == "1"
+
 # Lowest allowed momentum tier (1=strongest, 4=weakest).
 # Assets with a tier value higher than this will be skipped.
 # The default of ``4`` temporarily admits all tiers so we can analyze score
