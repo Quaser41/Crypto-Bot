@@ -31,6 +31,11 @@ SEEN_404_URLS = set()
 SEEN_NON_JSON_URLS = set()
 _HEAD_CHECK_CACHE: dict[tuple[str, str], int | None] = {}
 
+# Minimum number of candles required for training and feature generation.
+# Training consumes 15m bars and requires at least 416 observations
+# (approximately 7 days) to compute indicators reliably.
+MIN_HISTORY_BARS = 416
+
 
 # =========================================================
 # ✅ SENTIMENT & ON-CHAIN METRICS
@@ -639,7 +644,7 @@ def _quick_head_count(symbol: str, interval: str = "15m") -> int | None:
 
 
 def has_min_history(
-    symbol: str, min_bars: int = 416, interval: str = "15m"
+    symbol: str, min_bars: int = MIN_HISTORY_BARS, interval: str = "15m"
 ) -> tuple[bool, int | None]:
     """Check if ``symbol`` has at least ``min_bars`` candles.
 
