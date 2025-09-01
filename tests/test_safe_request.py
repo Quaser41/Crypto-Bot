@@ -18,7 +18,7 @@ def test_safe_request_no_retry_on_404(monkeypatch):
         return Resp()
 
     sleep_calls = []
-    monkeypatch.setattr("data_fetcher.requests.get", fake_get)
+    monkeypatch.setattr("data_fetcher.session.get", fake_get)
     monkeypatch.setattr("data_fetcher.time.sleep", lambda x: sleep_calls.append(x))
     monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
 
@@ -43,7 +43,7 @@ def test_safe_request_retries_on_429_with_backoff(monkeypatch):
         return resp
 
     sleep_calls = []
-    monkeypatch.setattr("data_fetcher.requests.get", fake_get)
+    monkeypatch.setattr("data_fetcher.session.get", fake_get)
     monkeypatch.setattr("data_fetcher.time.sleep", lambda x: sleep_calls.append(x))
     monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
 
@@ -71,7 +71,7 @@ def test_safe_request_404_returns_none_immediately(monkeypatch):
 
     sleeps = []
 
-    monkeypatch.setattr("data_fetcher.requests.get", fake_get)
+    monkeypatch.setattr("data_fetcher.session.get", fake_get)
     monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
     monkeypatch.setattr("data_fetcher.time.sleep", lambda s: sleeps.append(s))
 
@@ -96,7 +96,7 @@ def test_safe_request_401_returns_none_and_logs(monkeypatch, caplog):
         return Resp()
 
     sleeps = []
-    monkeypatch.setattr("data_fetcher.requests.get", fake_get)
+    monkeypatch.setattr("data_fetcher.session.get", fake_get)
     monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
     monkeypatch.setattr("data_fetcher.time.sleep", lambda s: sleeps.append(s))
 
@@ -107,4 +107,30 @@ def test_safe_request_401_returns_none_and_logs(monkeypatch, caplog):
     assert calls["count"] == 1
     assert sleeps == []
     assert any("401 Unauthorized" in r.message for r in caplog.records)
+
+
+def test_safe_request_uses_session_and_passes_headers(monkeypatch):
+    """Verify that the module-level session is used and headers propagate."""
+    calls = []
+
+    def fake_get(url, params=None, timeout=10, headers=None):
+        calls.append(headers)
+        return types.SimpleNamespace(
+            status_code=200,
+            json=lambda: {"ok": True},
+            headers={"content-type": "application/json"},
+            text="{\"ok\": true}",
+        )
+
+    # Ensure session.get is used instead of requests.get
+    monkeypatch.setattr("data_fetcher.session.get", fake_get)
+    monkeypatch.setattr(
+        "data_fetcher.requests.get",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("requests.get called")),
+    )
+    monkeypatch.setattr("data_fetcher.wait_for_slot", lambda *a, **k: None)
+
+    result = safe_request("http://example.com", headers={"X-Test": "1"})
+    assert result == {"ok": True}
+    assert calls and calls[0]["X-Test"] == "1"
 

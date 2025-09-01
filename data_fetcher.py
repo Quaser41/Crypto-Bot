@@ -21,6 +21,9 @@ from config import ENABLE_BINANCE_GLOBAL
 
 logger = get_logger(__name__)
 
+# Reuse a single session for connection pooling across requests
+session = requests.Session()
+
 # Status codes for which we retry by default (server errors)
 SERVER_ERROR_CODES = set(range(500, 600))
 SEEN_404_URLS = set()
@@ -404,14 +407,14 @@ def safe_request(
         try:
             req_headers = headers.copy() if headers else None
             if req_headers:
-                r = requests.get(
+                r = session.get(
                     url,
                     params=params,
                     timeout=timeout,
                     headers=req_headers,
                 )
             else:
-                r = requests.get(url, params=params, timeout=timeout)
+                r = session.get(url, params=params, timeout=timeout)
 
             if r.status_code == 401:
                 logger.error(f"❌ 401 Unauthorized {url}")
