@@ -20,6 +20,7 @@ from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
 from xgboost import XGBClassifier
@@ -478,7 +479,7 @@ def train_model(
     train_df, test_df = df_xy.iloc[:split_idx], df_xy.iloc[split_idx:]
 
     # === Training/validation split ===
-    X_train = train_df.drop(columns=["Target"])
+    X_train_raw = train_df.drop(columns=["Target"])
     y_train_raw = train_df["Target"]
 
     y_train = le.transform(y_train_raw)
@@ -486,24 +487,15 @@ def train_model(
     logger.info("📊 Training class distribution:")
     logger.info("%s", pd.Series(y_train).value_counts().sort_index())
 
-    X_test = test_df.drop(columns=["Target"])
+    X_test_raw = test_df.drop(columns=["Target"])
     y_test_raw = test_df["Target"]
     y_test = le.transform(y_test_raw)
-
-    # === Feature scaling ===
-    scaler = StandardScaler()
-    X_train = pd.DataFrame(
-        scaler.fit_transform(X_train), columns=X_train.columns, index=X_train.index
-    )
-    X_test = pd.DataFrame(
-        scaler.transform(X_test), columns=X_test.columns, index=X_test.index
-    )
 
     # === Walk-forward cross-validation ===
     cv_splits = max(2, cv_splits)
     tscv = TimeSeriesSplit(n_splits=cv_splits)
-    for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
-        X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
+    for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train_raw), start=1):
+        X_tr_raw, X_val_raw = X_train_raw.iloc[tr_idx], X_train_raw.iloc[val_idx]
         y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
 
         fold_le = LabelEncoder()
@@ -516,6 +508,37 @@ def train_model(
             "📊 Fold %d validation class distribution (unchanged): %s",
             fold,
             val_dist,
+        )
+
+        fold_pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                (
+                    "model",
+                    XGBClassifier(
+                        n_estimators=200,
+                        max_depth=4,
+                        learning_rate=0.05,
+                        subsample=0.8,
+                        colsample_bytree=0.8,
+                        objective="multi:softprob",
+                        num_class=len(fold_le.classes_),
+                        random_state=42,
+                        eval_metric="mlogloss",
+                    ),
+                ),
+            ]
+        )
+
+        X_tr = pd.DataFrame(
+            fold_pipeline.named_steps["scaler"].fit_transform(X_tr_raw),
+            columns=X_tr_raw.columns,
+            index=X_tr_raw.index,
+        )
+        X_val = pd.DataFrame(
+            fold_pipeline.named_steps["scaler"].transform(X_val_raw),
+            columns=X_val_raw.columns,
+            index=X_val_raw.index,
         )
 
         if oversampler in {"smote", "adasyn", "borderline", "random"}:
@@ -575,23 +598,14 @@ def train_model(
             if class_weight != "none"
             else None
         )
-        cv_model = XGBClassifier(
-            n_estimators=200,
-            max_depth=4,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            objective='multi:softprob',
-            num_class=len(fold_le.classes_),
-            random_state=42,
-            eval_metric='mlogloss'
-        )
         try:
             if fold_weights is not None:
-                cv_model.fit(X_tr, y_tr, sample_weight=fold_weights)
+                fold_pipeline.named_steps["model"].fit(
+                    X_tr, y_tr, sample_weight=fold_weights
+                )
             else:
-                cv_model.fit(X_tr, y_tr)
-            cv_preds_enc = cv_model.predict(X_val)
+                fold_pipeline.named_steps["model"].fit(X_tr, y_tr)
+            cv_preds_enc = fold_pipeline.named_steps["model"].predict(X_val)
             cv_preds = fold_le.inverse_transform(cv_preds_enc)
             if len(np.unique(cv_preds)) < 2:
                 logger.warning(
@@ -624,6 +638,19 @@ def train_model(
             logger.info("🧮 CV Fold %d confusion matrix:\n%s", fold, cm_df)
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
+
+    # === Scale full training and test sets ===
+    scaler = StandardScaler()
+    X_train = pd.DataFrame(
+        scaler.fit_transform(X_train_raw),
+        columns=X_train_raw.columns,
+        index=X_train_raw.index,
+    )
+    X_test = pd.DataFrame(
+        scaler.transform(X_test_raw),
+        columns=X_test_raw.columns,
+        index=X_test_raw.index,
+    )
 
     # === Final model training with class weights & hyperparameter search ===
     X_train_bal, y_train_bal = X_train, y_train
