@@ -640,6 +640,9 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
     for source in DATA_SOURCES:
         try:
             if source == "coinbase":
+                if not resolve_symbol_coinbase(symbol):
+                    logger.info(f"⏭️ Skipping Coinbase for {symbol} (unresolved)")
+                    continue
                 logger.info(f"⚡ Trying Coinbase for {symbol}")
                 df = fetch_coinbase_ohlcv(symbol, **params)
                 if len(df) >= 60:
@@ -657,12 +660,18 @@ def fetch_ohlcv_smart(symbol, interval="15m", limit=None, cache_limit=None, **kw
                 ]
 
             elif source == "binance_us":
+                if not resolve_symbol_binance_us(symbol):
+                    logger.info(f"⏭️ Skipping Binance.US for {symbol} (unresolved)")
+                    continue
                 logger.info(f"⚡ Trying Binance.US for {symbol}")
                 df = fetch_binance_us_ohlcv(symbol, **params)
                 if not df.empty:
                     return df
 
             elif source == "binance":
+                if not resolve_symbol_binance_global(symbol):
+                    logger.info(f"⏭️ Skipping Binance for {symbol} (unresolved or blocked)")
+                    continue
                 logger.info(f"⚡ Trying Binance for {symbol}")
                 df = fetch_binance_ohlcv(symbol, **params)
                 if not df.empty:
