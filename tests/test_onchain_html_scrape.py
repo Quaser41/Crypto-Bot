@@ -5,6 +5,7 @@ import data_fetcher
 
 
 def _setup(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
     monkeypatch.setattr(data_fetcher, "SEEN_404_URLS", set())
@@ -31,8 +32,8 @@ def test_fetch_onchain_metrics_html_scrape_success(monkeypatch, tmp_path):
 
         if params and params.get("format") == "json":
             resp = Resp()
-            resp.status_code = 404
-            resp.text = "not found"
+            resp.status_code = 200
+            resp.text = "oops"
             return resp
         resp = Resp()
         resp.status_code = 200
@@ -60,17 +61,22 @@ def test_fetch_onchain_metrics_html_scrape_failure(monkeypatch, tmp_path):
     def mock_safe_request(*a, **k):
         return None
 
-    class NotFound:
-        status_code = 404
+    class HTMLResp:
         headers = {"content-type": "text/html"}
-        text = "missing"
 
         def json(self):
             raise ValueError("no json")
 
     def mock_get(url, params=None, **kwargs):
         calls.append(url)
-        return NotFound()
+        resp = HTMLResp()
+        if params and params.get("format") == "json":
+            resp.status_code = 200
+            resp.text = "oops"
+        else:
+            resp.status_code = 404
+            resp.text = "missing"
+        return resp
 
     monkeypatch.setattr(data_fetcher, "safe_request", mock_safe_request)
     monkeypatch.setattr(data_fetcher.requests, "get", mock_get)

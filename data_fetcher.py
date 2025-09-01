@@ -66,6 +66,23 @@ def fetch_onchain_metrics(days=14):
         return cached
 
     logger.info(f"🌐 Fetching on-chain metrics for {days} days")
+
+    def _default_df(col: str) -> pd.DataFrame:
+        end = pd.Timestamp.utcnow().normalize().tz_localize(None)
+        dates = pd.date_range(end - pd.Timedelta(days=days - 1), end, freq="D")
+        return pd.DataFrame({"Timestamp": dates, col: [0] * len(dates)})
+
+    api_key = os.getenv("BLOCKCHAIN_API_KEY")
+    if not api_key:
+        logger.info(
+            "🔐 BLOCKCHAIN_API_KEY missing – returning placeholder on-chain metrics"
+        )
+        df = pd.merge(
+            _default_df("TxVolume"), _default_df("ActiveAddresses"), on="Timestamp"
+        )
+        update_cache(placeholder_key, df)
+        return df
+
     if not os.getenv("GLASSNODE_API_KEY"):
         logger.info("🔓 GLASSNODE_API_KEY missing – using public data sources")
 
@@ -81,18 +98,18 @@ def fetch_onchain_metrics(days=14):
     )
     tx_url = f"{base_url}/n-transactions"
     active_url = f"{base_url}/activeaddresses"
-    params = {"timespan": f"{days}days", "format": "json", "cors": "true"}
+    params = {
+        "timespan": f"{days}days",
+        "format": "json",
+        "cors": "true",
+        "api_code": api_key,
+    }
 
     # Only retry on server errors for these endpoints
     headers = {"Accept": "application/json", "User-Agent": "CryptoBot/1.0"}
 
     def _fetch_chart(url: str):
-        """Fetch a Blockchain.com chart and ensure the response is JSON.
-
-        Returns a minimal placeholder chart ``{"values": []}`` whenever the
-        underlying request fails (e.g. 404 or invalid JSON) so that callers can
-        gracefully fall back to default data.
-        """
+        """Fetch a Blockchain.com chart and return ``(data, status)``."""
 
         data = safe_request(
             url,
@@ -103,22 +120,18 @@ def fetch_onchain_metrics(days=14):
         )
 
         if data is None:
-            # ``safe_request`` logs the initial 404; avoid re-fetching/logging for
-            # that case by checking the global ``SEEN_404_URLS`` cache.
-            if url in SEEN_404_URLS:
-                return {"values": []}
-
             try:
                 resp = requests.get(url, params=params, headers=headers, timeout=10)
                 status = resp.status_code
                 ctype = resp.headers.get("content-type", "")
                 snippet = resp.text[:200].replace("\n", " ")
 
+                if status == 401:
+                    return None, 401
                 if status == 404:
-                    if url not in SEEN_404_URLS:
-                        SEEN_404_URLS.add(url)
-                        logger.warning(f"⚠️ 404 Not Found {url}")
-                elif url not in SEEN_NON_JSON_URLS:
+                    return None, 404
+
+                if url not in SEEN_NON_JSON_URLS:
                     SEEN_NON_JSON_URLS.add(url)
                     if "application/json" not in ctype.lower():
                         logger.warning(
@@ -132,29 +145,27 @@ def fetch_onchain_metrics(days=14):
                             )
                         except json.JSONDecodeError as e:
                             logger.warning(f"⚠️ JSON decode error for {url}: {e}")
+
+                return None, status
             except Exception as e:  # pragma: no cover - network exceptions
                 if url not in SEEN_NON_JSON_URLS:
                     logger.warning(f"⚠️ Exception fetching {url} for inspection: {e}")
+                return None, None
 
-            return {"values": []}
+        return data, None
 
-        return data
+    tx_data, tx_status = _fetch_chart(tx_url)
+    active_data, active_status = _fetch_chart(active_url)
 
-    tx_data = _fetch_chart(tx_url)
-    active_data = _fetch_chart(active_url)
-
-    if not tx_data and not active_data:
+    if (
+        tx_status not in (401, 404)
+        and active_status not in (401, 404)
+        and not tx_data
+        and not active_data
+    ):
         logger.warning(
             "⚠️ On-chain metrics API unavailable; returning placeholder data",
         )
-
-    def _default_df(col: str) -> pd.DataFrame:
-        # ``pd.Timestamp.utcnow()`` returns a timezone-aware value.  Downstream
-        # code expects naive timestamps, so drop the timezone before building the
-        # placeholder date range.
-        end = pd.Timestamp.utcnow().normalize().tz_localize(None)
-        dates = pd.date_range(end - pd.Timedelta(days=days - 1), end, freq="D")
-        return pd.DataFrame({"Timestamp": dates, col: [0] * len(dates)})
 
     def _parse_blockchain_chart(data: dict, col: str) -> pd.DataFrame:
         """Convert Blockchain.com chart data to a DataFrame."""
@@ -222,26 +233,22 @@ def fetch_onchain_metrics(days=14):
             logger.warning(f"⚠️ HTML scrape failed for {url}: {e}")
             return None
 
-    missing = False
-    if tx_data and (
-        ("values" in tx_data and tx_data["values"]) or ("data" in tx_data and tx_data["data"])
-    ):
-        df_tx = _parse_blockchain_chart(tx_data, "TxVolume")
-    else:
-        df_tx = _scrape_chart("n-transactions", "TxVolume")
-        if df_tx is None or df_tx.empty:
-            df_tx = _default_df("TxVolume")
+    def _handle(data, status, slug: str, col: str) -> pd.DataFrame:
+        nonlocal missing
+        if status in (401, 404):
             missing = True
+            return _default_df(col)
+        if data and (("values" in data and data["values"]) or ("data" in data and data["data"])):
+            return _parse_blockchain_chart(data, col)
+        df = _scrape_chart(slug, col)
+        if df is None or df.empty:
+            df = _default_df(col)
+            missing = True
+        return df
 
-    if active_data and (
-        ("values" in active_data and active_data["values"]) or ("data" in active_data and active_data["data"])
-    ):
-        df_active = _parse_blockchain_chart(active_data, "ActiveAddresses")
-    else:
-        df_active = _scrape_chart("activeaddresses", "ActiveAddresses")
-        if df_active is None or df_active.empty:
-            df_active = _default_df("ActiveAddresses")
-            missing = True
+    missing = False
+    df_tx = _handle(tx_data, tx_status, "n-transactions", "TxVolume")
+    df_active = _handle(active_data, active_status, "activeaddresses", "ActiveAddresses")
 
     df = pd.merge(df_tx, df_active, on="Timestamp", how="outer").sort_values(
         "Timestamp"

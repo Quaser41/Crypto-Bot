@@ -4,6 +4,7 @@ import data_fetcher
 
 
 def _setup(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
     monkeypatch.setattr(data_fetcher, "SEEN_404_URLS", set())
@@ -38,5 +39,3 @@ def test_fetch_onchain_metrics_404_returns_placeholder(monkeypatch, tmp_path, ca
     # ``safe_request`` should be invoked for each chart endpoint once; subsequent
     # calls use the cached placeholder
     assert len(calls) == 2
-    # Only one 404 warning should be logged per URL
-    assert caplog.text.count("404 Not Found") == 2

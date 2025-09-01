@@ -2,6 +2,7 @@ import os
 import data_fetcher
 
 def test_fetch_onchain_metrics_uses_new_chart_slugs(monkeypatch, tmp_path):
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
     sample_tx = {"values": [{"x": 1722384000, "y": 123}]}
     sample_active = {"values": [{"x": 1722384000, "y": 456}]}
     captured = []

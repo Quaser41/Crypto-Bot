@@ -31,6 +31,7 @@ def test_no_future_warning_on_timestamp_parsing(monkeypatch, tmp_path):
     monkeypatch.setattr("data_fetcher.safe_request", mock_safe_request)
     monkeypatch.setattr(data_fetcher, "CACHE_DIR", tmp_path)
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
+    monkeypatch.setenv("BLOCKCHAIN_API_KEY", "test-key")
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
