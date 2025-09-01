@@ -34,6 +34,8 @@ from threshold_utils import compute_return_thresholds
 
 logger = get_logger(__name__)
 
+_SHORT_HISTORY_LOGGED: set[str] = set()
+
 try:
     from imblearn.over_sampling import SMOTE, ADASYN, BorderlineSMOTE
 except ImportError:  # pragma: no cover - handled gracefully at runtime
@@ -170,6 +172,13 @@ def prepare_training_data(
     """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
+
+    ok, count = data_fetcher.has_min_history(symbol, min_bars=416, interval="15m")
+    if not ok:
+        if coin_id not in _SHORT_HISTORY_LOGGED:
+            logger.info("⏭️ Skipping %s (%d 15m candles)", coin_id, count)
+            _SHORT_HISTORY_LOGGED.add(coin_id)
+        return None, None
 
     def required_rows(n):
         return int(min(min_rows, n * min_rows_ratio))
