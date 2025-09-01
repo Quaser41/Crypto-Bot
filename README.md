@@ -55,6 +55,12 @@ By default the script only trains on symbols whose 24‑hour quote volume exceed
 `--min-volume` or set the `MIN_24H_VOLUME` environment variable for
 configuration‑file style control.
 
+The feature‑engineering pipeline scales its minimum history requirement with
+the amount of data fetched (60 % by default). This adaptive threshold can be
+customised via the ``min_rows_ratio`` argument to
+``train_real_model.prepare_training_data`` when integrating the training
+utilities programmatically.
+
 ### Handling Class Imbalance
 
 The training pipeline now applies **SMOTE** oversampling by default to

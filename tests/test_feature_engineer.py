@@ -95,7 +95,7 @@ def test_add_indicators_insufficient_4h_history(monkeypatch):
 
 
 def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):
-    periods = 55  # less than default min_rows=60 but enough for indicator windows
+    periods = 45  # below the hard requirement of 50 rows
     dates = pd.date_range('2023-01-01', periods=periods, freq='D')
     df = pd.DataFrame({
         'Timestamp': dates,

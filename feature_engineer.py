@@ -21,8 +21,14 @@ from utils.logging import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_MIN_ROWS_AFTER_INDICATORS = 60
+DEFAULT_MIN_ROWS_RATIO = 0.6
 
-def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
+
+def add_indicators(
+    df,
+    min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS,
+    min_rows_ratio: float = DEFAULT_MIN_ROWS_RATIO,
+):
     """Add technical and sentiment indicators to OHLCV data.
 
     Parameters
@@ -30,8 +36,12 @@ def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
     df : :class:`pandas.DataFrame`
         Raw OHLCV data.
     min_rows : int, default ``DEFAULT_MIN_ROWS_AFTER_INDICATORS``
-        Minimum number of rows required after indicator computation. If fewer
-        rows remain, an empty DataFrame is returned.
+        Absolute ceiling on how many rows must remain after indicator
+        computation.
+    min_rows_ratio : float, default ``DEFAULT_MIN_ROWS_RATIO``
+        Multiplier applied to ``len(df)`` to derive an adaptive minimum. The
+        effective requirement becomes ``min(min_rows, len(df) *
+        min_rows_ratio)`` allowing shorter histories to be processed.
     """
     if df.empty or "Close" not in df.columns:
         logger.warning("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
@@ -41,6 +51,7 @@ def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
     # Ensure timestamps are timezone-aware (UTC) for downstream merges
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
 
+    min_rows = int(min(min_rows, len(df) * min_rows_ratio))
     required = max(min_rows, 50)
     if len(df) < required:
         logger.warning(
@@ -312,9 +323,15 @@ def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
     return df
 
 
-async def add_indicators_async(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
+async def add_indicators_async(
+    df,
+    min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS,
+    min_rows_ratio: float = DEFAULT_MIN_ROWS_RATIO,
+):
     """Run :func:`add_indicators` in a background thread."""
-    return await asyncio.to_thread(add_indicators, df, min_rows=min_rows)
+    return await asyncio.to_thread(
+        add_indicators, df, min_rows=min_rows, min_rows_ratio=min_rows_ratio
+    )
 
 def momentum_signal(df):
     closes = df["Close"].tail(7).values
