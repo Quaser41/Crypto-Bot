@@ -638,11 +638,18 @@ def main():
         help="Target number of symbols to include in training",
     )
     parser.add_argument(
+        "--min-volume",
+        type=float,
+        default=MIN_24H_VOLUME,
+        help="Minimum 24h quote volume required for a symbol to be considered",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
     )
     args = parser.parse_args()
+    min_volume = args.min_volume
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
         logger.error(
@@ -656,9 +663,9 @@ def main():
     y_list: list[pd.Series] = []
 
     for symbol, volume in candidates:
-        if volume < MIN_24H_VOLUME:
+        if volume < min_volume:
             logger.info(
-                "⏭️ Skipping %s: volume %.0f below %s", symbol.upper(), volume, MIN_24H_VOLUME
+                "⏭️ Skipping %s: volume %.0f below %s", symbol.upper(), volume, min_volume
             )
             continue
 

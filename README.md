@@ -50,6 +50,11 @@ It writes the trained model to `ml_model.json` and overwrites `features.json` wi
 feature names used, keeping inference and training in sync.
 3. The bot loads these files at runtime in [`model_predictor.py`](model_predictor.py).
 
+By default the script only trains on symbols whose 24‑hour quote volume exceeds
+`MIN_24H_VOLUME` (50 000 USD). You can override this threshold at runtime with
+`--min-volume` or set the `MIN_24H_VOLUME` environment variable for
+configuration‑file style control.
+
 ### Handling Class Imbalance
 
 The training pipeline now applies **SMOTE** oversampling by default to

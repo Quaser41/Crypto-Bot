@@ -165,7 +165,7 @@ CORRELATION_THRESHOLD = float(os.getenv("CORRELATION_THRESHOLD", "0.8"))
 
 # Minimum 24h trading volume (USD) required for a symbol to be considered.
 # Assets below this threshold are skipped to avoid illiquid markets.
-MIN_24H_VOLUME = float(os.getenv("MIN_24H_VOLUME", "1000000"))
+MIN_24H_VOLUME = float(os.getenv("MIN_24H_VOLUME", "50000"))
 
 # Minimum historical win rate (%) required for symbols to be considered.
 # Default to 60% so underperforming assets are filtered out unless
