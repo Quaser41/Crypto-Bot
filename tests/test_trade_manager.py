@@ -321,9 +321,9 @@ def test_trailing_stop_volatility_multiplier():
         'side': 'BUY',
         'recent_prices': [100, 120, 80, 110, 90]
     }
-    base = tm._compute_trail_offset(pos, 103.0)
+    base = tm._compute_trail_offset(pos, 105.0)
     tm.trail_vol_mult = 2.0
-    widened = tm._compute_trail_offset(pos, 103.0)
+    widened = tm._compute_trail_offset(pos, 105.0)
     assert widened > base
 
 
@@ -371,7 +371,7 @@ def test_trailing_stop_scales_with_atr_and_logging(monkeypatch, caplog):
 
     expected_prices = pos['recent_prices']
     vol_pct = np.std(expected_prices) / 108.0
-    expected_offset = pos['atr'] * tm.trail_atr_mult * (1 + vol_pct * tm.trail_vol_mult)
+    expected_offset = pos['atr'] * tm.trail_atr_mult * max(1.0, vol_pct * tm.trail_vol_mult)
     expected_trail = 108.0 - expected_offset
     assert pos['trail_price'] == pytest.approx(expected_trail)
     assert f"{expected_trail:.4f}" in caplog.text
@@ -487,9 +487,9 @@ def test_compute_trail_offset_uses_volatility():
     tm = create_tm()
     tm.trail_pct = 0.02
     pos = {"recent_prices": [100, 102, 98, 101]}
-    offset = tm._compute_trail_offset(pos, 100)
-    # std of recent_prices ≈ 1.479 -> volatility pct ≈ 0.01479
-    expected = 100 * 0.02 * (1 + np.std(pos["recent_prices"]) / 100)
+    offset = tm._compute_trail_offset(pos, 105)
+    vol_pct = np.std(pos["recent_prices"]) / 105
+    expected = 105 * max(0.02, vol_pct * tm.trail_vol_mult)
     assert offset == pytest.approx(expected)
 
 
