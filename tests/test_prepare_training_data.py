@@ -29,7 +29,7 @@ def test_prepare_training_data_augment(monkeypatch):
     )
     df = _make_df(returns)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
-    monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
@@ -54,7 +54,7 @@ def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):
         features_first[i] = v
     df = _make_df(returns, features_first)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
-    monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     with caplog.at_level("WARNING", logger=train_real_model.logger.name):
@@ -78,7 +78,7 @@ def test_prepare_training_data_passes_when_threshold_lowered(monkeypatch):
         features_first[i] = v
     df = _make_df(returns, features_first)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
-    monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
@@ -102,7 +102,7 @@ def test_prepare_training_data_drops_when_insufficient_rows(monkeypatch, caplog)
 
     called = {"add": False}
 
-    def fake_add(d):
+    def fake_add(d, **k):
         called["add"] = True
         return d
 
