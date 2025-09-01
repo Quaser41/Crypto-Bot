@@ -203,6 +203,45 @@ def test_rotation_executes_when_gain_covers_cost(monkeypatch):
     assert record['rotation_net_gain'] == pytest.approx(80.0)
 
 
+def test_rotation_aborted_when_net_gain_below_margin(monkeypatch):
+    tm = create_tm()
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+
+    # Force projected gain to barely exceed cost but not the safety margin
+    monkeypatch.setattr(tm, '_estimate_rotation_gain', lambda *a, **k: 0.52)
+    closed = tm.close_trade(
+        'ABC',
+        9.95,
+        reason='Rotated to better candidate',
+        candidate={'symbol': 'XYZ', 'price': 5.0, 'confidence': 1.0},
+    )
+    assert closed is False
+    assert 'ABC' in tm.positions
+    assert len(tm.trade_history) == 0
+
+
+def test_rotation_outcome_logging(monkeypatch, caplog):
+    tm = create_tm()
+    df = mock_indicator_df()
+    monkeypatch.setattr('data_fetcher.fetch_ohlcv_smart', lambda *a, **k: df)
+    monkeypatch.setattr('feature_engineer.add_indicators', lambda d: d)
+
+    tm.open_trade('ABC', 10.0, confidence=1.0)
+    tm.close_trade(
+        'ABC',
+        12.0,
+        reason='Rotated to better candidate',
+        candidate={'symbol': 'XYZ', 'price': 5.0, 'confidence': 1.0},
+    )
+    tm.open_trade('XYZ', 5.0, confidence=1.0)
+    with caplog.at_level(logging.INFO, logger='trade_manager'):
+        tm.close_trade('XYZ', 6.0, reason='Take-Profit')
+    assert 'Rotation outcome for XYZ' in caplog.text
+
+
 def test_rotation_gain_scaled_by_fee_ratio(caplog):
     tm = create_tm()
     tm.trade_fee_pct = 0.05

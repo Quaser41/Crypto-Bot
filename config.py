@@ -85,6 +85,11 @@ MAX_DAILY_LOSS_PCT = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.05"))
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 
+# Minimum multiple of rotation costs that projected net gain must exceed
+# before rotating into a new candidate. Acts as a safety margin over fees
+# and realized loss from the current position.
+ROTATION_SAFETY_MARGIN = float(os.getenv("ROTATION_SAFETY_MARGIN", "0.1"))
+
 # Price stagnation detection parameters. If price movement stays below
 # ``STAGNATION_THRESHOLD_PCT`` for ``STAGNATION_DURATION_SEC`` seconds, the
 # position will be closed.
