@@ -394,6 +394,9 @@ def backtest_symbol(
         logger.error("❌ No data for %s", symbol)
         return None
     df = add_indicators(df)
+    if df.empty:
+        logger.warning("⚠️ Indicator calculation returned no data for %s", symbol)
+        return None
     df = add_atr(df)
     df = df.dropna(subset=[
         "RSI", "MACD", "Signal", "Hist", "SMA_20", "SMA_50",

@@ -223,6 +223,12 @@ def prepare_training_data(
 
     min_rows_effective = required_rows(len(df))
     df = add_indicators(df, min_rows=min_rows_effective, min_rows_ratio=min_rows_ratio)
+    if df.empty:
+        logger.warning(
+            "⚠️ %s has insufficient data after indicator prerequisites; dropping symbol",
+            coin_id,
+        )
+        return None, None
     df = df.copy()
     if len(df) < min_rows_effective:
         logger.warning(

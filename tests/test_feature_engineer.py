@@ -73,7 +73,7 @@ def test_add_indicators_handles_all_nan_onchain(monkeypatch):
     assert len(result) >= 60
 
 
-def test_add_indicators_insufficient_4h_history(monkeypatch):
+def test_add_indicators_insufficient_4h_history(monkeypatch, caplog):
     periods = 50
     dates = pd.date_range('2023-01-01', periods=periods, freq='H')
     df = pd.DataFrame({
@@ -87,11 +87,11 @@ def test_add_indicators_insufficient_4h_history(monkeypatch):
     monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
     monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: pd.DataFrame())
 
-    result = add_indicators(df, min_rows=20)
-    cols = {'SMA_4h', 'MACD_4h', 'Signal_4h', 'Hist_4h'}
+    with caplog.at_level('WARNING'):
+        result = add_indicators(df, min_rows=20)
+
     assert result.empty
-    assert cols.issubset(result.columns)
-    assert result[list(cols)].isna().all().all()
+    assert any('4h aggregates' in r.getMessage() for r in caplog.records)
 
 
 def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):

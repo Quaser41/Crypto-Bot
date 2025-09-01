@@ -61,6 +61,29 @@ def add_indicators(
         )
         return pd.DataFrame()
 
+    # Before computing indicators, ensure we have enough raw rows to produce
+    # higher-timeframe (4h) aggregates.  The longest 4h window used is the
+    # MACD slow period (26).  Estimate the base interval from consecutive
+    # timestamps so the requirement adapts to 15m/1h/etc datasets.
+    try:
+        interval = (
+            df.sort_values("Timestamp")["Timestamp"].diff().median()
+        )
+        if pd.isna(interval) or interval <= pd.Timedelta(0):
+            raise ValueError
+        ratio = max(pd.Timedelta("4h") / interval, 1)
+    except Exception:
+        # Default to 15m data if interval cannot be determined
+        ratio = 16
+    required_4h_rows = int(26 * ratio)
+    if len(df) < required_4h_rows:
+        logger.warning(
+            "⚠️ Skipping symbol: %d rows (<%d needed for 4h aggregates)",
+            len(df),
+            required_4h_rows,
+        )
+        return pd.DataFrame()
+
     # RSI
     rsi = RSIIndicator(df["Close"], window=14)
     df["RSI"] = rsi.rsi()
