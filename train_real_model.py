@@ -202,7 +202,9 @@ def prepare_training_data(
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
 
-    ok, count = data_fetcher.has_min_history(symbol, min_bars=416, interval="15m")
+    ok, count = data_fetcher.has_min_history(
+        symbol, min_bars=data_fetcher.MIN_HISTORY_BARS, interval="15m"
+    )
     if not ok:
         if coin_id not in _SHORT_HISTORY_LOGGED:
             logger.info(
@@ -217,6 +219,14 @@ def prepare_training_data(
         return int(min(min_rows, n * min_rows_ratio))
 
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730, limit=20000)
+
+    if len(df) < data_fetcher.MIN_HISTORY_BARS:
+        if coin_id not in _SHORT_HISTORY_LOGGED:
+            logger.info(
+                "⏭️ Skipping %s (%d fetched rows)", coin_id, len(df)
+            )
+            _SHORT_HISTORY_LOGGED.add(coin_id)
+        return None, None
 
     if len(df) < required_rows(len(df)):
         logger.warning(

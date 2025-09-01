@@ -15,6 +15,9 @@ def _mock_min_history(monkeypatch):
         "has_min_history",
         lambda *a, **k: (True, 1000),
     )
+    # Disable the strict history requirement for unit tests which use
+    # small synthetic datasets.
+    monkeypatch.setattr(train_real_model.data_fetcher, "MIN_HISTORY_BARS", 0)
 
 
 def _make_df(returns, features_first=None):
