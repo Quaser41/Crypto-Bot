@@ -36,7 +36,7 @@ from config import (
     TRAIL_VOL_MULT,
     ADAPTIVE_STAGNATION,
     STAGNATION_VOL_MULT,
-
+    SYMBOL_PNL_THRESHOLD,
 )
 
 from utils.logging import get_logger
@@ -94,7 +94,8 @@ class TradeManager:
                  stagnation_duration_sec=STAGNATION_DURATION_SEC,
                  adaptive_stagnation=ADAPTIVE_STAGNATION,
                  stagnation_vol_mult=STAGNATION_VOL_MULT,
-                 include_unrealized_pnl=INCLUDE_UNREALIZED_PNL):
+                 include_unrealized_pnl=INCLUDE_UNREALIZED_PNL,
+                 symbol_pnl_threshold=SYMBOL_PNL_THRESHOLD):
 
         self.starting_balance = starting_balance
         self.balance = starting_balance
@@ -117,6 +118,7 @@ class TradeManager:
         self.stagnation_duration_sec = stagnation_duration_sec
         self.adaptive_stagnation = adaptive_stagnation
         self.stagnation_vol_mult = stagnation_vol_mult
+        self.symbol_pnl_threshold = symbol_pnl_threshold
 
         # Holding period and reversal requirements
         # Add a small buffer to the minimum hold time to better absorb
@@ -153,6 +155,9 @@ class TradeManager:
 
         # Recent closed-trade PnL history
         self.closed_pnl_history = []
+
+        # Cumulative realized PnL per symbol
+        self.symbol_pnl = {}
 
     def has_position(self, symbol):
         return symbol in self.positions
@@ -409,6 +414,18 @@ class TradeManager:
                 "🚫 Skipping %s: blacklisted for bucket %s",
                 symbol,
                 duration_bucket,
+            )
+            return
+
+        if (
+            self.symbol_pnl_threshold is not None
+            and self.symbol_pnl.get(symbol, 0.0) < self.symbol_pnl_threshold
+        ):
+            logger.info(
+                "🚫 Skipping %s: cumulative PnL $%.2f below threshold $%.2f",
+                symbol,
+                self.symbol_pnl.get(symbol, 0.0),
+                self.symbol_pnl_threshold,
             )
             return
 
@@ -727,6 +744,9 @@ class TradeManager:
 
         pnl = net_exit - (entry_val + pos.get("entry_fee", 0))
         self.balance += net_exit
+
+        # Track cumulative PnL per symbol
+        self.symbol_pnl[symbol] = self.symbol_pnl.get(symbol, 0.0) + pnl
 
         self.last_trade_time = time.time()
 
@@ -1188,6 +1208,7 @@ class TradeManager:
             "last_trade_confidence": self.last_trade_confidence,
             "trail_pct": self.trail_pct,
             "trail_atr_mult": self.trail_atr_mult,
+            "symbol_pnl": self.symbol_pnl,
         }
         state = convert_numpy_types(state)
         with open(self.STATE_FILE, "w") as f:
@@ -1215,6 +1236,7 @@ class TradeManager:
             self.last_trade_confidence = state.get("last_trade_confidence")
             self.trail_pct = state.get("trail_pct", self.trail_pct)
             self.trail_atr_mult = state.get("trail_atr_mult", self.trail_atr_mult)
+            self.symbol_pnl = state.get("symbol_pnl", {})
             logger.info("📂 TradeManager state loaded.")
 
             for sym, pos in self.positions.items():
