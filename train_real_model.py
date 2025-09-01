@@ -862,6 +862,12 @@ def main():
 
     )
     parser.add_argument(
+        "--horizon",
+        type=int,
+        default=3,
+        help="Number of future 15m bars to look ahead when computing the target",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
