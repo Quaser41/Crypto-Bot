@@ -42,13 +42,48 @@ def compute_return_thresholds(
         Mapping with keys ``"big_loss"``, ``"loss"``, ``"gain"`` and
         ``"big_gain"`` representing the four boundary points used by
         :func:`train_real_model.return_bucket`.
+
+    Notes
+    -----
+    If any of the five buckets end up empty the outer quantiles are widened
+    and the thresholds recomputed using ``(0.1, 0.3, 0.7, 0.9)``.  This helps
+    ensure the training data spans all five classes even when return
+    distributions are tightly clustered.
     """
 
-    q = np.quantile(list(series), quantiles)
-    return {
-        "big_loss": float(q[0]),
-        "loss": float(q[1]),
-        "gain": float(q[2]),
-        "big_gain": float(q[3]),
-    }
+    values = list(series)
+
+    def _calc_thresholds(qts: Iterable[float]) -> Dict[str, float]:
+        q = np.quantile(values, qts)
+        return {
+            "big_loss": float(q[0]),
+            "loss": float(q[1]),
+            "gain": float(q[2]),
+            "big_gain": float(q[3]),
+        }
+
+    def _bucket_counts(th: Dict[str, float]) -> list[int]:
+        counts = [0, 0, 0, 0, 0]
+        for r in values:
+            if r <= th["big_loss"]:
+                counts[0] += 1
+            elif r <= th["loss"]:
+                counts[1] += 1
+            elif r < th["gain"]:
+                counts[2] += 1
+            elif r < th["big_gain"]:
+                counts[3] += 1
+            else:
+                counts[4] += 1
+        return counts
+
+    thresholds = _calc_thresholds(quantiles)
+    counts = _bucket_counts(thresholds)
+
+    if 0 in counts:
+        thresholds = _calc_thresholds((0.1, 0.3, 0.7, 0.9))
+        # Recompute counts only for potential future adjustments/debugging
+        counts = _bucket_counts(thresholds)
+
+    return thresholds
 

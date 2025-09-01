@@ -6,7 +6,8 @@ import argparse
 import sys
 import io
 import contextlib
-from typing import Optional
+from typing import Optional, Iterable
+
 
 import numpy as np
 import pandas as pd
@@ -136,6 +137,7 @@ def prepare_training_data(
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
     augment_target: int = 50,
+    quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -153,6 +155,9 @@ def prepare_training_data(
         training on duplicated data.
     augment_target: int, default ``50``
         Target size for minority classes during augmentation.
+    quantiles: iterable of float, optional
+        Percentiles for :func:`compute_return_thresholds`. Adjust to
+        influence how return buckets are defined.
 
         Symbols with fewer than ``min_rows`` historical rows after retrying all
         data sources are dropped before indicator computation.
@@ -240,7 +245,7 @@ def prepare_training_data(
     df = df[df["Return"].abs() > 0.005]
     df = df.dropna()
 
-    thresholds = compute_return_thresholds(df["Return"])
+    thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
     df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
 
@@ -681,6 +686,21 @@ def main():
         default=50,
         help="Target sample size for minority classes during augmentation",
     )
+
+    parser.add_argument(
+        "--quantiles",
+        type=float,
+        nargs=4,
+        default=(0.2, 0.4, 0.6, 0.8),
+        metavar=("Q1", "Q2", "Q3", "Q4"),
+        help="Quantiles for return thresholds (four floats between 0 and 1)",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use a smaller hyperparameter grid for quicker runs",
+    )
+
     parser.add_argument(
         "--max-assets",
         type=int,
@@ -698,16 +718,7 @@ def main():
         action="store_true",
         help="Include symbols regardless of their 24h volume",
     )
-    parser.add_argument(
-        "--fast",
-        action="store_true",
-        help="Use a smaller hyperparameter grid for quicker runs",
-
-        "--cv-splits",
-        type=int,
-        default=3,
-        help="Number of splits for TimeSeriesSplit cross-validation",
-    )
+    
     parser.add_argument(
         "--param-scale",
         choices=["small", "medium", "full"],
@@ -723,6 +734,7 @@ def main():
     )
     args = parser.parse_args()
     min_volume = 0 if args.ignore_volume else args.min_volume
+
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
         logger.error(
@@ -769,6 +781,7 @@ def main():
             oversampler=None,
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
+            quantiles=args.quantiles,
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())

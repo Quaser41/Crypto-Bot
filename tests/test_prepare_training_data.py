@@ -39,6 +39,21 @@ def test_prepare_training_data_augment(monkeypatch):
     assert counts[4] == 32
 
 
+def test_prepare_training_data_widens_quantiles(monkeypatch):
+    """Ensure quantile widening populates all classes when needed."""
+    returns = [-0.04, -0.03, -0.02, 0.02, 0.03, 0.04] * 10
+    df = _make_df(returns)
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+
+    X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
+    assert X is not None and y is not None
+    counts = y.value_counts().to_dict()
+    assert set(counts.keys()) == {0, 1, 2, 3, 4}
+    assert all(v > 0 for v in counts.values())
+
+
 def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):
     returns = (
         [-0.05] * 10
