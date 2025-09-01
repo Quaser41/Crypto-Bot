@@ -155,7 +155,7 @@ def prepare_training_data(
     ----------
     symbol, coin_id: str
         Asset identifiers used for data fetching.
-    oversampler: {"smote", "adasyn", "borderline", "random"}, optional
+    oversampler: {"random", "smote", "adasyn", "borderline"}, optional
         Technique for oversampling minority classes.  ``None`` disables
         oversampling.
     min_unique_samples: int, default ``3``
@@ -186,7 +186,11 @@ def prepare_training_data(
     ok, count = data_fetcher.has_min_history(symbol, min_bars=416, interval="15m")
     if not ok:
         if coin_id not in _SHORT_HISTORY_LOGGED:
-            logger.info("⏭️ Skipping %s (%d 15m candles)", coin_id, count)
+            logger.info(
+                "⏭️ Skipping %s (%s 15m candles)",
+                coin_id,
+                count if count is not None else "unknown",
+            )
             _SHORT_HISTORY_LOGGED.add(coin_id)
         return None, None
 
@@ -342,7 +346,7 @@ def prepare_training_data(
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
-    # Optional oversampling with SMOTE variants
+    # Optional oversampling with imbalanced-learn methods
     class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
     if oversampler in {"smote", "adasyn", "borderline", "random"} and rare_classes:
@@ -415,7 +419,7 @@ def prepare_training_data(
 def train_model(
     X,
     y,
-    oversampler: Optional[str] = None,
+    oversampler: Optional[str] = "random",
     param_scale: str = "full",
     cv_splits: int = 3,
     verbose: int = 1,
@@ -807,9 +811,11 @@ def main():
     )
     parser.add_argument(
         "--oversampler",
-        choices=["smote", "adasyn", "borderline", "random", "none"],
-        default="smote",
-        help="Apply oversampling technique to minority classes",
+        choices=["random", "smote", "adasyn", "borderline", "none"],
+        default="random",
+        help=(
+            "Resampling strategy: 'random' duplicates minority samples, 'none' relies on class weights"
+        ),
     )
     parser.add_argument(
         "--class-weight",

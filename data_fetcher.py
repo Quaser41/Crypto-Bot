@@ -645,13 +645,13 @@ def has_min_history(
 
     Returns a tuple ``(ok, count)`` where ``count`` may be ``None`` if the
     number of candles could not be determined (network failure or unknown
-    symbol).  In such cases ``ok`` is ``True`` so callers do not drop symbols
-    due to an inconclusive check.
+    symbol).  In such cases ``ok`` is ``False`` so callers can skip symbols
+    when the available history is unknown.
     """
 
     count = _quick_head_count(symbol, interval)
     if count is None:
-        return True, None
+        return False, None
     return count >= min_bars, count
 
 # =========================================================
