@@ -138,6 +138,8 @@ def prepare_training_data(
     min_unique_samples: int = 3,
     augment_target: int = 50,
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
+    min_rows: int = 60,
+    min_rows_ratio: float = 0.6,
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -158,17 +160,23 @@ def prepare_training_data(
     quantiles: iterable of float, optional
         Percentiles for :func:`compute_return_thresholds`. Adjust to
         influence how return buckets are defined.
-
-        Symbols with fewer than ``min_rows`` historical rows after retrying all
-        data sources are dropped before indicator computation.
+    min_rows : int, default ``60``
+        Baseline minimum number of rows desired before indicator computation.
+    min_rows_ratio : float, default ``0.6``
+        Scale factor applied to the fetched history length to derive an
+        adaptive minimum row requirement. The effective threshold becomes
+        ``min(min_rows, len(df) * min_rows_ratio)``. Symbols with fewer rows
+        than this value are dropped before indicator computation.
     """
     logger.info("\n⏳ Preparing data for %s...", coin_id)
     effective_min_unique = min_unique_samples
-    min_rows = 60
+
+    def required_rows(n):
+        return int(min(min_rows, n * min_rows_ratio))
 
     df = fetch_ohlcv_smart(symbol=symbol, coin_id=coin_id, days=730, limit=20000)
 
-    if len(df) < min_rows:
+    if len(df) < required_rows(len(df)):
         logger.warning(
             "⚠️ Only %d rows fetched for %s; attempting extended history",
             len(df),
@@ -179,7 +187,7 @@ def prepare_training_data(
         )
         if len(df_ext) > len(df):
             df = df_ext
-        if len(df) < min_rows:
+        if len(df) < required_rows(len(df)):
             original_sources = data_fetcher.DATA_SOURCES[:]
             for i in range(1, len(original_sources)):
                 data_fetcher.DATA_SOURCES = (
@@ -190,10 +198,10 @@ def prepare_training_data(
                 )
                 if len(df_retry) > len(df):
                     df = df_retry
-                if len(df) >= min_rows:
+                if len(df) >= required_rows(len(df)):
                     break
             data_fetcher.DATA_SOURCES = original_sources
-        if len(df) < min_rows:
+        if len(df) < required_rows(len(df)):
             logger.warning(
                 "⚠️ %s has only %d rows after extended fetch; dropping symbol",
                 coin_id,
@@ -213,9 +221,10 @@ def prepare_training_data(
     else:
         logger.info("📆 %s: fetched %d rows", coin_id, len(df))
 
-    df = add_indicators(df, min_rows=min_rows)
+    min_rows_effective = required_rows(len(df))
+    df = add_indicators(df, min_rows=min_rows_effective, min_rows_ratio=min_rows_ratio)
     df = df.copy()
-    if len(df) < min_rows:
+    if len(df) < min_rows_effective:
         logger.warning(
             "⚠️ %s has only %d rows after indicators; attempting alternate sources",
             coin_id,
@@ -227,16 +236,22 @@ def prepare_training_data(
             df_retry = fetch_ohlcv_smart(
                 symbol=symbol, coin_id=coin_id, days=1460, limit=20000
             )
-            df_retry = add_indicators(df_retry, min_rows=min_rows)
-            if len(df_retry) >= min_rows:
+            retry_min_rows = required_rows(len(df_retry))
+            df_retry = add_indicators(
+                df_retry,
+                min_rows=retry_min_rows,
+                min_rows_ratio=min_rows_ratio,
+            )
+            if len(df_retry) >= retry_min_rows:
                 df = df_retry
+                min_rows_effective = retry_min_rows
                 break
         data_fetcher.DATA_SOURCES = original_sources
-        if len(df) < min_rows:
+        if len(df) < min_rows_effective:
             logger.warning(
                 "⚠️ %s remains below %d rows after indicator retry; dropping symbol",
                 coin_id,
-                min_rows,
+                min_rows_effective,
             )
             return None, None
 

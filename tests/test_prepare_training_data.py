@@ -44,7 +44,7 @@ def test_prepare_training_data_widens_quantiles(monkeypatch):
     returns = [-0.04, -0.03, -0.02, 0.02, 0.03, 0.04] * 10
     df = _make_df(returns)
     monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
-    monkeypatch.setattr(train_real_model, "add_indicators", lambda d: d)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
@@ -106,7 +106,6 @@ def test_prepare_training_data_drops_when_insufficient_rows(monkeypatch, caplog)
         + [-0.02] * 10
         + [0.01] * 10
         + [0.02] * 10
-        + [0.05] * 10
     )
     df = _make_df(returns)
 
@@ -119,7 +118,7 @@ def test_prepare_training_data_drops_when_insufficient_rows(monkeypatch, caplog)
 
     def fake_add(d, **k):
         called["add"] = True
-        return d
+        return pd.DataFrame()
 
     monkeypatch.setattr(train_real_model, "add_indicators", fake_add)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
@@ -128,5 +127,28 @@ def test_prepare_training_data_drops_when_insufficient_rows(monkeypatch, caplog)
         X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
 
     assert X is None and y is None
-    assert not called["add"]
+    assert called["add"]
     assert any("dropping symbol" in r.getMessage().lower() for r in caplog.records)
+
+
+def test_prepare_training_data_short_history_kept(monkeypatch):
+    returns = (
+        [-0.05] * 10
+        + [-0.02] * 10
+        + [0.01] * 10
+        + [0.02] * 10
+        + [0.05] * 40
+    )
+    raw_df = _make_df(returns)
+
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: raw_df)
+
+    def fake_add(d, min_rows, **k):
+        assert min_rows == int(min(60, len(d) * 0.6))
+        return d.head(50)
+
+    monkeypatch.setattr(train_real_model, "add_indicators", fake_add)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+
+    X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
+    assert X is not None and y is not None
