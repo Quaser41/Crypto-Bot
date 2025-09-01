@@ -189,9 +189,43 @@ def test_prepare_training_data_skips_insufficient_4h(monkeypatch, caplog):
     assert any("4h" in r.getMessage() for r in caplog.records)
 
 
-def test_prepare_training_data_skips_when_no_history(monkeypatch):
-    monkeypatch.setattr(
-        train_real_model.data_fetcher, "has_min_history", lambda *a, **k: (False, None)
+
+def test_prepare_training_data_horizon(monkeypatch):
+    returns = (
+        [-0.05] * 10
+        + [-0.02] * 10
+        + [0.01] * 10
+        + [0.02] * 10
+        + [0.05] * 30
     )
-    X, y = train_real_model.prepare_training_data("SYM", "coin")
-    assert X is None and y is None
+    df = _make_df(returns)
+
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+    monkeypatch.setattr(
+        train_real_model.data_fetcher, "has_min_history", lambda *a, **k: (True, 500)
+    )
+
+    captured = {}
+    orig_compute = train_real_model.compute_return_thresholds
+
+    def fake_compute_return_thresholds(series, quantiles):
+        captured["returns"] = series.copy()
+        return orig_compute(series, quantiles)
+
+    monkeypatch.setattr(
+        train_real_model, "compute_return_thresholds", fake_compute_return_thresholds
+    )
+
+    train_real_model.prepare_training_data("SYM", "coin", horizon=5)
+
+    expected = ((df["Close"].shift(-5) - df["Close"]) / df["Close"]).dropna()
+    expected = expected[expected.abs() > 0.005]
+
+    pd.testing.assert_series_equal(
+        captured["returns"].reset_index(drop=True),
+        expected.reset_index(drop=True),
+        check_names=False,
+    )
+
