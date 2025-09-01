@@ -145,6 +145,7 @@ def prepare_training_data(
     min_unique_samples: int = 3,
     augment_target: int = 50,
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
+    horizon: int = 3,
     min_rows: int = 60,
     min_rows_ratio: float = 0.6,
 ):
@@ -167,6 +168,10 @@ def prepare_training_data(
     quantiles: iterable of float, optional
         Percentiles for :func:`compute_return_thresholds`. Adjust to
         influence how return buckets are defined.
+    horizon : int, default ``3``
+        Number of future bars (15m each) to look ahead when computing the
+        target. ``3`` corresponds to 45 minutes, while ``288`` covers roughly
+        3 days.
     min_rows : int, default ``60``
         Baseline minimum number of rows desired before indicator computation.
     min_rows_ratio : float, default ``0.6``
@@ -294,7 +299,9 @@ def prepare_training_data(
             )
             return None, None
 
-    df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
+    df.loc[:, "Future_Close"] = df["Close"].shift(
+        -horizon
+    )  # 🔁 horizon bars ahead (e.g., 45m for horizon=3)
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
     df = df[df["Return"].abs() > 0.005]
     df = df.dropna()
@@ -832,6 +839,12 @@ def main():
         help="Quantiles for return thresholds (four floats between 0 and 1)",
     )
     parser.add_argument(
+        "--horizon",
+        type=int,
+        default=3,
+        help="Number of future 15m bars to predict (e.g., 3 for 45m, 288 for ~3d)",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
@@ -924,6 +937,7 @@ def main():
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
             quantiles=args.quantiles,
+            horizon=args.horizon,
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())

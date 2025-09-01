@@ -59,7 +59,9 @@ The feature‑engineering pipeline scales its minimum history requirement with
 the amount of data fetched (60 % by default). This adaptive threshold can be
 customised via the ``min_rows_ratio`` argument to
 ``train_real_model.prepare_training_data`` when integrating the training
-utilities programmatically.
+utilities programmatically.  The prediction horizon defaults to three future
+15‑minute bars (45 minutes) but can be adjusted with the ``horizon`` argument
+or ``--horizon`` CLI flag (e.g. ``--horizon 288`` for roughly three days).
 
 ### Handling Class Imbalance
 
