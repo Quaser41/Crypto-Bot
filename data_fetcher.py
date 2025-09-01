@@ -18,6 +18,7 @@ from symbol_resolver import (
 from extract_gainers import extract_gainers
 from utils.logging import get_logger
 from config import ENABLE_BINANCE_GLOBAL
+from filelock import FileLock
 
 logger = get_logger(__name__)
 
@@ -284,27 +285,31 @@ def _cache_path(key):
 def cached_fetch(key, ttl=180):
     """Return cached data from disk if fresh; else None."""
     path = _cache_path(key)
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, "rb") as f:
-            timestamp, data = pickle.load(f)
-            if time.time() - timestamp < ttl:
-                return data
-            else:
-                logger.info(f"🕒 Cache expired for {key}")
-    except Exception as e:
-        logger.warning(f"⚠️ Cache read error for {key}: {e}")
+    lock = FileLock(f"{path}.lock")
+    with lock:
+        if not os.path.exists(path):
+            return None
+        try:
+            with open(path, "rb") as f:
+                timestamp, data = pickle.load(f)
+                if time.time() - timestamp < ttl:
+                    return data
+                else:
+                    logger.info(f"🕒 Cache expired for {key}")
+        except Exception as e:
+            logger.warning(f"⚠️ Cache read error for {key}: {e}")
     return None
 
 def update_cache(key, data):
     """Persist cache to disk."""
     path = _cache_path(key)
-    try:
-        with open(path, "wb") as f:
-            pickle.dump((time.time(), data), f)
-    except Exception as e:
-        logger.error(f"❌ Cache write error for {key}: {e}")
+    lock = FileLock(f"{path}.lock")
+    with lock:
+        try:
+            with open(path, "wb") as f:
+                pickle.dump((time.time(), data), f)
+        except Exception as e:
+            logger.error(f"❌ Cache write error for {key}: {e}")
 
 def clear_old_cache(cache_dir="cache", max_age=600):
     """
