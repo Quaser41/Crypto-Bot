@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 SERVER_ERROR_CODES = set(range(500, 600))
 SEEN_404_URLS = set()
 SEEN_NON_JSON_URLS = set()
+_HEAD_CHECK_CACHE: dict[tuple[str, str], int | None] = {}
 
 
 # =========================================================
@@ -582,6 +583,70 @@ def is_symbol_on_coinbase(symbol):
         return resolve_symbol_coinbase(symbol) is not None
     except Exception:
         return False
+
+
+def _quick_head_count(symbol: str, interval: str = "15m") -> int | None:
+    """Return approximate candle count using a single Binance query.
+
+    The function requests the earliest available kline for ``symbol`` on
+    Binance (Global then US).  It returns the number of candles up to ``now``
+    or ``None`` if the symbol is unavailable or the request fails.  Results
+    are cached in :data:`_HEAD_CHECK_CACHE` to avoid repeated network calls.
+    """
+
+    key = (symbol.lower(), interval)
+    if key in _HEAD_CHECK_CACHE:
+        return _HEAD_CHECK_CACHE[key]
+
+    interval_ms = int(pd.to_timedelta(interval).total_seconds() * 1000)
+    now_ms = int(pd.Timestamp.utcnow().timestamp() * 1000)
+
+    sources = [
+        (resolve_symbol_binance_global, "https://api.binance.com"),
+        (resolve_symbol_binance_us, "https://api.binance.us"),
+    ]
+    for resolver, base in sources:
+        try:
+            sym = resolver(symbol)
+            if not sym:
+                continue
+            url = f"{base}/api/v3/klines"
+            params = {"symbol": sym, "interval": interval, "limit": 1, "startTime": 0}
+            data = safe_request(
+                url,
+                params=params,
+                timeout=5,
+                max_retries=1,
+                retry_statuses=set(),
+                backoff_on_429=False,
+            )
+            if data:
+                first_ts = int(data[0][0])
+                count = (now_ms - first_ts) // interval_ms
+                _HEAD_CHECK_CACHE[key] = count
+                return count
+        except Exception:
+            break
+
+    _HEAD_CHECK_CACHE[key] = None
+    return None
+
+
+def has_min_history(
+    symbol: str, min_bars: int = 416, interval: str = "15m"
+) -> tuple[bool, int | None]:
+    """Check if ``symbol`` has at least ``min_bars`` candles.
+
+    Returns a tuple ``(ok, count)`` where ``count`` may be ``None`` if the
+    number of candles could not be determined (network failure or unknown
+    symbol).  In such cases ``ok`` is ``True`` so callers do not drop symbols
+    due to an inconclusive check.
+    """
+
+    count = _quick_head_count(symbol, interval)
+    if count is None:
+        return True, None
+    return count >= min_bars, count
 
 # =========================================================
 # ✅ BATCH PRICES
