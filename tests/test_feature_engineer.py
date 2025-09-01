@@ -72,7 +72,7 @@ def test_add_indicators_handles_missing_onchain(monkeypatch):
 
 
 def test_add_indicators_insufficient_4h_history(monkeypatch, caplog):
-    periods = 50
+    periods = 90
     dates = pd.date_range('2023-01-01', periods=periods, freq='H')
     df = pd.DataFrame({
         'Timestamp': dates,
@@ -88,7 +88,10 @@ def test_add_indicators_insufficient_4h_history(monkeypatch, caplog):
     with caplog.at_level('WARNING'):
         result = add_indicators(df, min_rows=20)
 
-    assert result.empty
+    assert not result.empty
+    for col in ['SMA_4h', 'MACD_4h', 'Signal_4h', 'Hist_4h']:
+        assert col in result.columns
+        assert result[col].isna().all()
     assert any('4h aggregates' in r.getMessage() for r in caplog.records)
 
 

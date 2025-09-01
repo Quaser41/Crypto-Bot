@@ -7,7 +7,7 @@ This repository contains utilities for analyzing cryptocurrency markets and auto
 - Python 3.10+
 - Google Chrome or Chromium and the matching ChromeDriver for features that rely on Selenium (e.g., scraping CoinMarketCap). Ensure both are installed and available on your `PATH`; otherwise, scraping features will return no data.
 - TA-Lib C library.
-- imbalanced-learn>=0.11 for optional SMOTE/ADASYN oversampling.
+- imbalanced-learn>=0.11 for optional oversampling techniques.
 
 ## Installation
 
@@ -59,7 +59,9 @@ The feature‑engineering pipeline scales its minimum history requirement with
 the amount of data fetched (60 % by default). This adaptive threshold can be
 customised via the ``min_rows_ratio`` argument to
 ``train_real_model.prepare_training_data`` when integrating the training
-utilities programmatically.
+utilities programmatically.  The prediction horizon defaults to three future
+15‑minute bars (45 minutes) but can be adjusted with the ``horizon`` argument
+or ``--horizon`` CLI flag (e.g. ``--horizon 288`` for roughly three days).
 
 The label preparation step drops rows whose future return is smaller than
 0.5 % in magnitude.  This threshold can be tweaked with ``--min-return`` on the
@@ -69,15 +71,27 @@ all rows for experimentation.
 
 ### Handling Class Imbalance
 
-The training pipeline now applies **SMOTE** oversampling by default to
-improve recall for rare classes. It relies on the [`imbalanced-learn`](https://imbalanced-learn.org/) package,
-which is installed via `requirements.txt`. You can switch to **ADASYN** with:
+Time‑series data makes synthetic sampling tricky. By default the training
+script applies **RandomOverSampler**, which simply duplicates existing rows and
+preserves temporal order. This requires the
+[`imbalanced-learn`](https://imbalanced-learn.org/) package.
+
+To rely solely on class weighting (no oversampling):
 
 ```bash
-python train_real_model.py --oversampler adasyn
+python train_real_model.py --oversampler none
 ```
-Cross‑validation shows that SMOTE yielded the best minority‑class recall in
-our experiments.
+
+Other strategies like **SMOTE** or **ADASYN** are available but may introduce
+temporal leakage because they interpolate between points. Use them only if the
+time dependence is negligible:
+
+```bash
+python train_real_model.py --oversampler smote  # or adasyn/borderline
+```
+
+Choose a strategy based on how strictly you need to preserve chronology in
+your data.
 
 ## Engineered Features
 

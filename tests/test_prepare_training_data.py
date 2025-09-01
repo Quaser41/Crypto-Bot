@@ -8,6 +8,15 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import train_real_model
 
 
+@pytest.fixture(autouse=True)
+def _mock_min_history(monkeypatch):
+    monkeypatch.setattr(
+        train_real_model.data_fetcher,
+        "has_min_history",
+        lambda *a, **k: (True, 1000),
+    )
+
+
 def _make_df(returns, features_first=None):
     prices = [100, 100, 100]
     for i, r in enumerate(returns):
@@ -180,6 +189,7 @@ def test_prepare_training_data_skips_insufficient_4h(monkeypatch, caplog):
     assert any("4h" in r.getMessage() for r in caplog.records)
 
 
+
 def test_prepare_training_data_min_return_zero_keeps_rows(monkeypatch):
     returns = [0.001, -0.002, 0.003, -0.004] + (
         [-0.05] * 10
@@ -208,3 +218,4 @@ def test_prepare_training_data_min_return_zero_keeps_rows(monkeypatch):
     assert X_def is not None and y_def is not None
     assert X_all is not None and y_all is not None
     assert len(X_all) == len(X_def) + expected_diff
+

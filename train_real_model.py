@@ -146,6 +146,9 @@ def prepare_training_data(
     augment_target: int = 50,
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
     min_return: float = 0.005,
+
+    horizon: int = 3,
+
     min_rows: int = 60,
     min_rows_ratio: float = 0.6,
 ):
@@ -155,7 +158,7 @@ def prepare_training_data(
     ----------
     symbol, coin_id: str
         Asset identifiers used for data fetching.
-    oversampler: {"smote", "adasyn", "borderline", "random"}, optional
+    oversampler: {"random", "smote", "adasyn", "borderline"}, optional
         Technique for oversampling minority classes.  ``None`` disables
         oversampling.
     min_unique_samples: int, default ``3``
@@ -168,9 +171,16 @@ def prepare_training_data(
     quantiles: iterable of float, optional
         Percentiles for :func:`compute_return_thresholds`. Adjust to
         influence how return buckets are defined.
+
     min_return : float, default ``0.005``
         Minimum absolute future return required for a row to be kept.
         Set to ``0`` to retain all rows.
+
+    horizon : int, default ``3``
+        Number of future bars (15m each) to look ahead when computing the
+        target. ``3`` corresponds to 45 minutes, while ``288`` covers roughly
+        3 days.
+
     min_rows : int, default ``60``
         Baseline minimum number of rows desired before indicator computation.
     min_rows_ratio : float, default ``0.6``
@@ -185,7 +195,11 @@ def prepare_training_data(
     ok, count = data_fetcher.has_min_history(symbol, min_bars=416, interval="15m")
     if not ok:
         if coin_id not in _SHORT_HISTORY_LOGGED:
-            logger.info("⏭️ Skipping %s (%d 15m candles)", coin_id, count)
+            logger.info(
+                "⏭️ Skipping %s (%s 15m candles)",
+                coin_id,
+                count if count is not None else "unknown",
+            )
             _SHORT_HISTORY_LOGGED.add(coin_id)
         return None, None
 
@@ -298,11 +312,13 @@ def prepare_training_data(
             )
             return None, None
 
+
     df.loc[:, "Future_Close"] = df["Close"].shift(-3)  # 🔁 3-day ahead for short-term trading
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
     if min_return > 0:
         df = df[df["Return"].abs() > min_return]
     df = df.dropna()
+
 
     thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
@@ -340,7 +356,7 @@ def prepare_training_data(
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
-    # Optional oversampling with SMOTE variants
+    # Optional oversampling with imbalanced-learn methods
     class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
     if oversampler in {"smote", "adasyn", "borderline", "random"} and rare_classes:
@@ -413,7 +429,7 @@ def prepare_training_data(
 def train_model(
     X,
     y,
-    oversampler: Optional[str] = None,
+    oversampler: Optional[str] = "random",
     param_scale: str = "full",
     cv_splits: int = 3,
     verbose: int = 1,
@@ -805,9 +821,11 @@ def main():
     )
     parser.add_argument(
         "--oversampler",
-        choices=["smote", "adasyn", "borderline", "random", "none"],
-        default="smote",
-        help="Apply oversampling technique to minority classes",
+        choices=["random", "smote", "adasyn", "borderline", "none"],
+        default="random",
+        help=(
+            "Resampling strategy: 'random' duplicates minority samples, 'none' relies on class weights"
+        ),
     )
     parser.add_argument(
         "--class-weight",
@@ -841,6 +859,7 @@ def main():
         type=float,
         default=0.005,
         help="Minimum absolute return required to keep a row; 0 disables filtering",
+
     )
     parser.add_argument(
         "--fast",
@@ -936,6 +955,8 @@ def main():
             augment_target=args.augment_target,
             quantiles=args.quantiles,
             min_return=args.min_return,
+            horizon=args.horizon,
+
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())
