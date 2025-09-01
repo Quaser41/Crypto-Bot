@@ -4,7 +4,7 @@ import os
 import json
 import argparse
 import sys
-from typing import Optional
+from typing import Optional, Iterable
 
 import numpy as np
 import pandas as pd
@@ -134,6 +134,7 @@ def prepare_training_data(
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
     augment_target: int = 50,
+    quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -151,6 +152,9 @@ def prepare_training_data(
         training on duplicated data.
     augment_target: int, default ``50``
         Target size for minority classes during augmentation.
+    quantiles: iterable of float, optional
+        Percentiles for :func:`compute_return_thresholds`. Adjust to
+        influence how return buckets are defined.
 
         Symbols with fewer than 60 historical rows after retrying all data
         sources are dropped before indicator computation.
@@ -214,7 +218,7 @@ def prepare_training_data(
     df = df[df["Return"].abs() > 0.005]
     df = df.dropna()
 
-    thresholds = compute_return_thresholds(df["Return"])
+    thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
     df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
 
@@ -644,6 +648,14 @@ def main():
         help="Minimum 24h quote volume required for a symbol to be considered",
     )
     parser.add_argument(
+        "--quantiles",
+        type=float,
+        nargs=4,
+        default=(0.2, 0.4, 0.6, 0.8),
+        metavar=("Q1", "Q2", "Q3", "Q4"),
+        help="Quantiles for return thresholds (four floats between 0 and 1)",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
@@ -687,6 +699,7 @@ def main():
             oversampler=None,
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
+            quantiles=args.quantiles,
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())
