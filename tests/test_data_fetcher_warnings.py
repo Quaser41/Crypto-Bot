@@ -24,7 +24,7 @@ def test_no_future_warning_on_timestamp_parsing(monkeypatch, tmp_path):
             return fg_sample
         if "n-transactions" in url:
             return tx_sample
-        if "active-addresses" in url:
+        if "activeaddresses" in url:
             return active_sample
         return None
 
