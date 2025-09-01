@@ -753,6 +753,12 @@ def main():
         help="Grid search verbosity level",
 
     )
+    parser.add_argument(
+        "--cv-splits",
+        type=int,
+        default=3,
+        help="Number of cross-validation splits",
+    )
     args = parser.parse_args()
     min_volume = 0 if args.ignore_volume else args.min_volume
 
