@@ -15,7 +15,10 @@ def _make_df(returns, features_first=None):
     if features_first is None:
         features_first = list(range(len(returns)))
     features = features_first + [1000, 1001, 1002]
-    df = pd.DataFrame({"Close": prices, "feat": features})
+    timestamps = pd.date_range(
+        "2020-01-01", periods=len(prices), freq="D", tz="UTC"
+    )
+    df = pd.DataFrame({"Timestamp": timestamps, "Close": prices, "feat": features})
     return df
 
 
@@ -152,3 +155,26 @@ def test_prepare_training_data_short_history_kept(monkeypatch):
 
     X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
     assert X is not None and y is not None
+
+
+def test_prepare_training_data_skips_insufficient_4h(monkeypatch, caplog):
+    returns = [0.01] * 10  # produces 13 rows < 26 required for 4h aggregates
+    df = _make_df(returns)
+
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
+
+    called = {"add": False}
+
+    def fake_add(d, **k):
+        called["add"] = True
+        return d
+
+    monkeypatch.setattr(train_real_model, "add_indicators", fake_add)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+
+    with caplog.at_level("WARNING", logger=train_real_model.logger.name):
+        X, y = train_real_model.prepare_training_data("SYM", "coin")
+
+    assert X is None and y is None
+    assert not called["add"]
+    assert any("4h" in r.getMessage() for r in caplog.records)
