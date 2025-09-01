@@ -181,7 +181,11 @@ def prepare_training_data(
     ok, count = data_fetcher.has_min_history(symbol, min_bars=416, interval="15m")
     if not ok:
         if coin_id not in _SHORT_HISTORY_LOGGED:
-            logger.info("⏭️ Skipping %s (%d 15m candles)", coin_id, count)
+            logger.info(
+                "⏭️ Skipping %s (%s 15m candles)",
+                coin_id,
+                count if count is not None else "unknown",
+            )
             _SHORT_HISTORY_LOGGED.add(coin_id)
         return None, None
 
