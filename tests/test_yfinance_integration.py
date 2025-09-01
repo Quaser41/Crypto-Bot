@@ -22,10 +22,11 @@ import pytest
 def test_fetch_from_yfinance_interval(monkeypatch, interval, expected):
     called = {}
 
-    def fake_download(ticker, period, interval, progress):
+    def fake_download(ticker, period, interval, progress, auto_adjust):
         called["ticker"] = ticker
         called["period"] = period
         called["interval"] = interval
+        called["auto_adjust"] = auto_adjust
         df = _fake_df().copy()
         df.set_index("Timestamp", inplace=True)
         return df
@@ -33,6 +34,7 @@ def test_fetch_from_yfinance_interval(monkeypatch, interval, expected):
     monkeypatch.setattr(data_fetcher.yf, "download", fake_download)
     df = data_fetcher.fetch_from_yfinance("btc", interval=interval, days=1)
     assert called["interval"] == expected
+    assert called["auto_adjust"] is False
     assert not df.empty
     assert "Timestamp" in df.columns
 
