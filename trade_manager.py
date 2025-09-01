@@ -9,7 +9,12 @@ from data_fetcher import fetch_live_price
 from utils.prediction_class import PredictionClass
 from analytics.performance import is_blacklisted, get_duration_bucket, get_avg_fee_ratio
 
-from config import ATR_MULT_SL, ATR_MULT_TP
+from config import (
+    ATR_MULT_SL,
+    ATR_MULT_TP,
+    SL_BUFFER_ATR_MULT,
+    BREAKEVEN_BUFFER_MULT,
+)
 
 from config import (
     RISK_PER_TRADE,
@@ -80,6 +85,8 @@ class TradeManager:
                  trail_vol_mult=TRAIL_VOL_MULT,
                  atr_mult_sl=ATR_MULT_SL,
                  atr_mult_tp=ATR_MULT_TP,
+                 sl_buffer_atr_mult=SL_BUFFER_ATR_MULT,
+                 breakeven_buffer_mult=BREAKEVEN_BUFFER_MULT,
                  max_drawdown_pct=MAX_DRAWDOWN_PCT, max_daily_loss_pct=MAX_DAILY_LOSS_PCT,
                  slippage_pct=SLIPPAGE_PCT,
                  hold_period_sec=HOLDING_PERIOD_SECONDS,
@@ -107,6 +114,8 @@ class TradeManager:
         self.trail_vol_mult = trail_vol_mult
         self.atr_mult_sl = atr_mult_sl
         self.atr_mult_tp = atr_mult_tp
+        self.sl_buffer_atr_mult = sl_buffer_atr_mult
+        self.breakeven_buffer_mult = breakeven_buffer_mult
         self.slippage_pct = slippage_pct
         self.min_profit_fee_ratio = min_profit_fee_ratio
         self.trail_profit_fee_ratio = trail_profit_fee_ratio
@@ -1011,16 +1020,31 @@ class TradeManager:
             elif side == "SELL" and pos["highest_price"] < entry_price:
                 trail_stop = pos["highest_price"] * (1 + self.trail_pct)
 
-        sl_buffer = 0.999
+        atr_val = pos.get("atr")
+        if atr_val and atr_val > 0:
+            sl_buffer = atr_val * self.sl_buffer_atr_mult
+        else:
+            prices = pos.get("recent_prices", [])
+            sl_buffer = 0.0
+            if len(prices) >= 2:
+                sl_buffer = float(np.std(prices)) * self.sl_buffer_atr_mult
+
+        entry_price = pos.get("entry_price")
+        if entry_price is not None:
+            if side == "BUY" and pos["stop_loss"] >= entry_price:
+                sl_buffer *= self.breakeven_buffer_mult
+            elif side == "SELL" and pos["stop_loss"] <= entry_price:
+                sl_buffer *= self.breakeven_buffer_mult
+
         if side == "BUY":
-            if current_price < pos["stop_loss"] * sl_buffer:
+            if current_price < pos["stop_loss"] - sl_buffer:
                 logger.warning(
                     f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})"
                 )
                 self.close_trade(symbol, current_price, reason="Stop-Loss")
                 return
         else:
-            if current_price > pos["stop_loss"] / sl_buffer:
+            if current_price > pos["stop_loss"] + sl_buffer:
                 logger.warning(
                     f"⚠️ STOP-LOSS hit for {symbol} at price {current_price:.2f} (SL was {self.fmt_price(pos['stop_loss'])})"
                 )
