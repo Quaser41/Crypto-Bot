@@ -25,6 +25,7 @@ def get_dynamic_threshold(volatility_7d: float, base: float = 0.65) -> float:
 def compute_return_thresholds(
     series: Iterable[float],
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
+    min_gap: float | None = None,
 ) -> Dict[str, float]:
     """Compute percentile-based return thresholds.
 
@@ -35,6 +36,11 @@ def compute_return_thresholds(
     quantiles:
         Percentiles used to determine the bucket boundaries. The default
         (20th, 40th, 60th and 80th) yields five buckets with dynamic cutoffs.
+    min_gap:
+        Minimum allowed distance between adjacent thresholds. When provided
+        and the computed thresholds are closer than ``min_gap`` the outer
+        quantiles are widened to ``(0.1, 0.3, 0.7, 0.9)`` to avoid overlapping
+        or overly narrow classes.
 
     Returns
     -------
@@ -77,10 +83,20 @@ def compute_return_thresholds(
                 counts[4] += 1
         return counts
 
+    def _too_narrow(th: Dict[str, float]) -> bool:
+        if min_gap is None:
+            return False
+        gaps = (
+            th["loss"] - th["big_loss"],
+            th["gain"] - th["loss"],
+            th["big_gain"] - th["gain"],
+        )
+        return any(g < min_gap for g in gaps)
+
     thresholds = _calc_thresholds(quantiles)
     counts = _bucket_counts(thresholds)
 
-    if 0 in counts:
+    if 0 in counts or _too_narrow(thresholds):
         thresholds = _calc_thresholds((0.1, 0.3, 0.7, 0.9))
         # Recompute counts only for potential future adjustments/debugging
         counts = _bucket_counts(thresholds)

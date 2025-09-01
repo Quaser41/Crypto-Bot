@@ -145,7 +145,9 @@ def prepare_training_data(
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
     augment_target: int = 50,
+    augment_ratio: float = 0.8,
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
+    min_threshold_gap: float | None = None,
     min_return: float = 0.005,
 
     horizon: int = 3,
@@ -169,9 +171,16 @@ def prepare_training_data(
         training on duplicated data.
     augment_target: int, default ``50``
         Target size for minority classes during augmentation.
+    augment_ratio: float, default ``0.8``
+        Maximum fraction of the majority class size used when deriving
+        ``augment_target``. Lower values reduce oversampling.
     quantiles: iterable of float, optional
         Percentiles for :func:`compute_return_thresholds`. Adjust to
         influence how return buckets are defined.
+    min_threshold_gap: float, optional
+        Minimum separation between adjacent return thresholds. If provided,
+        :func:`compute_return_thresholds` will widen the outer quantiles when
+        thresholds are closer than this value.
 
     min_return : float, default ``0.005``
         Minimum absolute future return required for a row to be kept.
@@ -321,7 +330,9 @@ def prepare_training_data(
     df = df.dropna()
 
 
-    thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
+    thresholds = compute_return_thresholds(
+        df["Return"], quantiles=quantiles, min_gap=min_threshold_gap
+    )
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
     df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
 
@@ -341,8 +352,10 @@ def prepare_training_data(
         return None, None
 
     # Adjust oversampling target based on distribution
-    augment_target = max(augment_target, int(class_counts.max() * 0.8))
-    logger.info("🎯 Using augment_target=%d", augment_target)
+    augment_target = min(augment_target, int(class_counts.max() * augment_ratio))
+    logger.info(
+        "🎯 Using augment_target=%d (ratio=%.2f)", augment_target, augment_ratio
+    )
 
     feature_cols = load_feature_list()
     missing = [c for c in feature_cols if c not in df.columns]
@@ -921,6 +934,12 @@ def main():
         default=50,
         help="Target sample size for minority classes during augmentation",
     )
+    parser.add_argument(
+        "--augment-ratio",
+        type=float,
+        default=0.8,
+        help="Max fraction of majority class size used for oversampling",
+    )
 
     parser.add_argument(
         "--quantiles",
@@ -929,6 +948,12 @@ def main():
         default=(0.2, 0.4, 0.6, 0.8),
         metavar=("Q1", "Q2", "Q3", "Q4"),
         help="Quantiles for return thresholds (four floats between 0 and 1)",
+    )
+    parser.add_argument(
+        "--min-threshold-gap",
+        type=float,
+        default=None,
+        help="Minimum separation enforced between return thresholds",
     )
     parser.add_argument(
         "--min-return",
@@ -1035,7 +1060,9 @@ def main():
             oversampler=None,
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
+            augment_ratio=args.augment_ratio,
             quantiles=args.quantiles,
+            min_threshold_gap=args.min_threshold_gap,
             min_return=args.min_return,
             horizon=args.horizon,
 

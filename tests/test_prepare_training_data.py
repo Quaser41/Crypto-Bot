@@ -44,11 +44,13 @@ def test_prepare_training_data_augment(monkeypatch):
     monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
-    X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=3)
+    X, y = train_real_model.prepare_training_data(
+        "SYM", "coin", min_unique_samples=3, augment_ratio=1.0
+    )
     assert X is not None and y is not None
     counts = y.value_counts().to_dict()
-    assert counts[0] == 28
-    assert counts[4] == 32
+    assert counts[0] == 16
+    assert counts[4] == 16
 
 
 def test_prepare_training_data_widens_quantiles(monkeypatch):
@@ -85,7 +87,9 @@ def test_prepare_training_data_drops_on_few_unique(monkeypatch, caplog):
     monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
 
     with caplog.at_level("WARNING", logger=train_real_model.logger.name):
-        X, y = train_real_model.prepare_training_data("SYM", "coin", min_unique_samples=6)
+        X, y = train_real_model.prepare_training_data(
+            "SYM", "coin", min_unique_samples=6, augment_ratio=2.0
+        )
     assert X is None and y is None
     assert any("unique rows" in r.getMessage() for r in caplog.records)
 
