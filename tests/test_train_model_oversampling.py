@@ -22,7 +22,7 @@ def test_train_model_runs_with_random_oversampler():
         X,
         y,
         oversampler="random",
-        param_scale="small",
+        search_scale="small",
         cv_splits=2,
         verbose=0,
     )

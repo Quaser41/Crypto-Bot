@@ -485,7 +485,7 @@ def train_model(
     X,
     y,
     oversampler: Optional[str] = "random",
-    param_scale: str = "medium",
+    search_scale: str = "medium",
     cv_splits: int = 3,
     verbose: int = 1,
     n_jobs: int = 1,
@@ -803,10 +803,10 @@ def train_model(
         ]
     )
 
-    scale = (param_scale or "medium").lower()
+    scale = (search_scale or "medium").lower()
     if scale == "small":
         param_grid = {
-            "model__n_estimators": [100],
+            "model__n_estimators": [100, 200],
             "model__max_depth": [3],
             "model__learning_rate": [0.1],
             "model__subsample": [1.0],
@@ -817,7 +817,7 @@ def train_model(
         param_grid = {
             "model__n_estimators": [100, 200],
             "model__max_depth": [3, 4],
-            "model__learning_rate": [0.03, 0.1],
+            "model__learning_rate": [0.05, 0.1],
             "model__subsample": [0.8, 1.0],
             "model__colsample_bytree": [0.8, 1.0],
             "model__min_child_weight": [1, 3],
@@ -1042,9 +1042,11 @@ def main():
     )
     
     parser.add_argument(
+        "--search-scale",
         "--param-scale",
         choices=["small", "medium", "full"],
         default="medium",
+        dest="search_scale",
         help="Size of hyperparameter grid search",
     )
     parser.add_argument(
@@ -1087,7 +1089,7 @@ def main():
     n_jobs = 1 if sys.platform.startswith("win") else args.n_jobs
 
     if args.fast:
-        args.param_scale = "small"
+        args.search_scale = "small"
 
 
     if args.oversampler in {"smote", "adasyn", "borderline", "random"} and SMOTE is None:
@@ -1163,7 +1165,7 @@ def main():
         X_all,
         y_all,
         oversampler=None if args.oversampler == "none" else args.oversampler,
-        param_scale=args.param_scale,
+        search_scale=args.search_scale,
         cv_splits=args.cv_splits,
         verbose=args.gs_verbose,
         n_jobs=n_jobs,
