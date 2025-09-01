@@ -78,13 +78,13 @@ def add_indicators(
         # Default to 15m data if interval cannot be determined
         ratio = 16
     required_4h_rows = int(26 * ratio)
-    if len(df) < required_4h_rows:
+    has_4h_history = len(df) >= required_4h_rows
+    if not has_4h_history:
         logger.warning(
-            "⚠️ Skipping symbol: %d rows (<%d needed for 4h aggregates)",
+            "⚠️ Not enough rows for 4h aggregates: %d < %d",
             len(df),
             required_4h_rows,
         )
-        return pd.DataFrame()
 
     # RSI
     rsi = RSIIndicator(df["Close"], window=14)
@@ -217,40 +217,46 @@ def add_indicators(
 
     # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
     four_h_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
-    try:
-        agg = (
-            df.sort_values("Timestamp")
-            .set_index("Timestamp")["Close"]
-            .resample("4h", label="right", closed="right")
-            .last()
-            .ffill()
-            .to_frame()
-        )
-        required_points = 26  # longest 4h window needed (MACD slow period)
-        if len(agg) >= required_points:
-            agg_sma = SMAIndicator(agg["Close"], window=20)
-            agg["SMA_4h"] = agg_sma.sma_indicator()
-            agg_macd = MACD(agg["Close"])
-            agg["MACD_4h"] = agg_macd.macd()
-            agg["Signal_4h"] = agg_macd.macd_signal()
-            agg["Hist_4h"] = agg_macd.macd_diff()
-            agg = agg[four_h_cols].ffill().reset_index()
-            df = pd.merge_asof(
-                df.sort_values("Timestamp"),
-                agg.sort_values("Timestamp"),
-                on="Timestamp",
-                direction="backward",
-                tolerance=pd.Timedelta("4h"),
+    if has_4h_history:
+        try:
+            agg = (
+                df.sort_values("Timestamp")
+                .set_index("Timestamp")["Close"]
+                .resample("4h", label="right", closed="right")
+                .last()
+                .ffill()
+                .to_frame()
             )
-            df[four_h_cols] = df[four_h_cols].ffill()
-        else:
-            logger.warning(
-                "⚠️ Not enough history for 4h aggregates: %d < %d", len(agg), required_points
-            )
+            required_points = 26  # longest 4h window needed (MACD slow period)
+            if len(agg) >= required_points:
+                agg_sma = SMAIndicator(agg["Close"], window=20)
+                agg["SMA_4h"] = agg_sma.sma_indicator()
+                agg_macd = MACD(agg["Close"])
+                agg["MACD_4h"] = agg_macd.macd()
+                agg["Signal_4h"] = agg_macd.macd_signal()
+                agg["Hist_4h"] = agg_macd.macd_diff()
+                agg = agg[four_h_cols].ffill().reset_index()
+                df = pd.merge_asof(
+                    df.sort_values("Timestamp"),
+                    agg.sort_values("Timestamp"),
+                    on="Timestamp",
+                    direction="backward",
+                    tolerance=pd.Timedelta("4h"),
+                )
+                df[four_h_cols] = df[four_h_cols].ffill()
+            else:
+                logger.warning(
+                    "⚠️ Not enough history for 4h aggregates: %d < %d",
+                    len(agg),
+                    required_points,
+                )
+                for col in four_h_cols:
+                    df[col] = np.nan
+        except Exception as e:
+            logger.warning("⚠️ Failed to compute 4h aggregates: %s", e)
             for col in four_h_cols:
                 df[col] = np.nan
-    except Exception as e:
-        logger.warning("⚠️ Failed to compute 4h aggregates: %s", e)
+    else:
         for col in four_h_cols:
             df[col] = np.nan
 
