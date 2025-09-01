@@ -357,8 +357,11 @@ def prepare_training_data(
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
+    # Log original distribution before any resampling
+    class_counts = y.value_counts().sort_index()
+    logger.info("📊 Initial class distribution: %s", class_counts)
+
     # Optional oversampling with imbalanced-learn methods
-    class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
     if oversampler in {"smote", "adasyn", "borderline", "random"} and rare_classes:
         if SMOTE is None:
@@ -379,12 +382,22 @@ def prepare_training_data(
                     cls: augment_target for cls in rare_classes if class_counts[cls] > 1
                 }
                 if strategy:
+                    logger.info(
+                        "📊 Class distribution before %s oversampling: %s",
+                        oversampler,
+                        class_counts,
+                    )
                     sampler = sampler_cls(
                         random_state=42, sampling_strategy=strategy
                     )
                     X, y = sampler.fit_resample(X, y)
-                    class_counts = y.value_counts()
+                    class_counts = y.value_counts().sort_index()
                     logger.info("📈 Applied %s oversampling", oversampler.upper())
+                    logger.info(
+                        "📊 Class distribution after %s oversampling: %s",
+                        oversampler,
+                        class_counts,
+                    )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
@@ -549,6 +562,12 @@ def train_model(
                 )
             else:
                 try:
+                    pre_dist = pd.Series(y_tr).value_counts().sort_index()
+                    logger.info(
+                        "📊 Fold %d training distribution before resampling: %s",
+                        fold,
+                        pre_dist,
+                    )
                     sampler_map = {
                         "smote": SMOTE,
                         "adasyn": ADASYN,
@@ -567,7 +586,11 @@ def train_model(
                         fold,
                         post_dist,
                     )
-                    if post_dist.nunique() == 1:
+                    if len(post_dist) == 1:
+                        logger.warning(
+                            "⚠️ Fold %d only one class present after resampling", fold
+                        )
+                    elif post_dist.nunique() == 1:
                         logger.info("✅ Fold %d classes balanced", fold)
                     else:
                         logger.warning(
@@ -662,6 +685,11 @@ def train_model(
             )
         else:
             try:
+                pre_dist = pd.Series(y_train_bal).value_counts().sort_index()
+                logger.info(
+                    "📊 Training distribution before resampling: %s",
+                    pre_dist,
+                )
                 sampler_map = {
                     "smote": SMOTE,
                     "adasyn": ADASYN,
@@ -677,7 +705,9 @@ def train_model(
                 )
                 post_dist = pd.Series(y_train_bal).value_counts().sort_index()
                 logger.info("📊 Post-oversampling class distribution: %s", post_dist)
-                if post_dist.nunique() == 1:
+                if len(post_dist) == 1:
+                    logger.warning("⚠️ Only one class present after resampling")
+                elif post_dist.nunique() == 1:
                     logger.info("✅ Training set balanced after resampling")
                 else:
                     logger.warning(
@@ -685,6 +715,15 @@ def train_model(
                     )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
+
+    final_dist = pd.Series(y_train_bal).value_counts().sort_index()
+    logger.info("📊 Final training class distribution: %s", final_dist)
+    if len(final_dist) < 2:
+        logger.warning(
+            "⚠️ Training data contains only one class: %s", final_dist.index.tolist()
+        )
+    else:
+        logger.info("✅ Training data contains %d classes", len(final_dist))
 
     sample_weights = (
         compute_sample_weight(class_weight=class_weight, y=y_train_bal)
@@ -701,6 +740,16 @@ def train_model(
     else:
         class_weights = {cls: 1.0 for cls in np.unique(y_train_bal)}
     logger.info("⚖️ Class weights: %s", class_weights)
+    weight_name_map = {label_map.get(int(k), k): v for k, v in class_weights.items()}
+    logger.info("⚖️ Class weights by label: %s", weight_name_map)
+    if set(class_weights.keys()) == set(label_map.keys()):
+        logger.info("✅ Label encoding matches class weight keys")
+    else:
+        logger.warning(
+            "⚠️ Label encoding and class weight keys mismatch: %s vs %s",
+            list(class_weights.keys()),
+            list(label_map.keys()),
+        )
 
     scale = (param_scale or "full").lower()
     if scale == "small":
