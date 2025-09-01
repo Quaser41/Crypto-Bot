@@ -470,6 +470,7 @@ def train_model(
     param_scale: str = "medium",
     cv_splits: int = 3,
     verbose: int = 1,
+    n_jobs: int = 1,
     class_weight: str = "balanced",
     random_search: bool = False,
     random_iter: int = 10,
@@ -805,7 +806,8 @@ def train_model(
             "min_child_weight": [1, 3, 5],
         }
 
-    # Use a single worker process and single-threaded fits for Windows stability
+    # Use user-specified parallelism for cross-validation. The estimator itself
+    # remains single-threaded to avoid nested parallelism.
 
     if random_search:
         search = RandomizedSearchCV(
@@ -815,14 +817,14 @@ def train_model(
                 random_state=42,
                 eval_metric="mlogloss",
 
-                n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+                n_jobs=1,  # keep fits single-threaded
 
             ),
             param_grid,
             n_iter=random_iter,
             scoring="f1_macro",
             cv=TimeSeriesSplit(n_splits=cv_splits),
-            n_jobs=1,  # single process to avoid Windows multiprocessing issues
+            n_jobs=n_jobs,
             refit=True,
             verbose=verbose,
             random_state=42,
@@ -835,13 +837,13 @@ def train_model(
                 random_state=42,
                 eval_metric="mlogloss",
 
-                n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+                n_jobs=1,  # keep fits single-threaded
 
             ),
             param_grid,
             scoring="f1_macro",
             cv=TimeSeriesSplit(n_splits=cv_splits),
-            n_jobs=1,  # single process to avoid Windows multiprocessing issues
+            n_jobs=n_jobs,
             refit=True,
             verbose=verbose,
         )
@@ -1050,6 +1052,12 @@ def main():
 
     )
     parser.add_argument(
+        "--n-jobs",
+        type=int,
+        default=1,
+        help="Parallel jobs for grid search (use -1 for all cores; non-Windows only)",
+    )
+    parser.add_argument(
         "--cv-splits",
         type=int,
         default=3,
@@ -1057,6 +1065,10 @@ def main():
     )
     args = parser.parse_args()
     min_volume = 0 if args.ignore_volume else args.min_volume
+
+    if sys.platform.startswith("win") and args.n_jobs != 1:
+        logger.warning("n_jobs > 1 is not supported on Windows; using 1")
+    n_jobs = 1 if sys.platform.startswith("win") else args.n_jobs
 
     if args.fast:
         args.param_scale = "small"
@@ -1138,6 +1150,7 @@ def main():
         param_scale=args.param_scale,
         cv_splits=args.cv_splits,
         verbose=args.verbose,
+        n_jobs=n_jobs,
         class_weight=args.class_weight,
         random_search=args.random_search,
         random_iter=args.random_iter,
