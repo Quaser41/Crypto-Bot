@@ -4,6 +4,8 @@ import os
 import json
 import argparse
 import sys
+import io
+import contextlib
 from typing import Optional
 
 import numpy as np
@@ -319,7 +321,14 @@ def prepare_training_data(
     y = df_aug["Target"]
     return X, y
 
-def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
+def train_model(
+    X,
+    y,
+    oversampler: Optional[str] = None,
+    param_scale: str = "full",
+    cv_splits: int = 3,
+    verbose: int = 1,
+):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
         0: "big_loss",
@@ -376,8 +385,8 @@ def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
     y_test = le.transform(y_test_raw)
 
     # === Walk-forward cross-validation ===
-    n_splits = min(5, max(2, len(X_train) // 50))
-    tscv = TimeSeriesSplit(n_splits=n_splits)
+    cv_splits = max(2, cv_splits)
+    tscv = TimeSeriesSplit(n_splits=cv_splits)
     for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train), start=1):
         X_tr, X_val = X_train.iloc[tr_idx], X_train.iloc[val_idx]
         y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
@@ -507,14 +516,22 @@ def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
     )
     logger.info("⚖️ Class weights: %s", class_weights)
 
-    fast = fast or os.environ.get("FAST")
-    if fast:
+    scale = (param_scale or "full").lower()
+    if scale == "small":
         param_grid = {
             "n_estimators": [100],
             "max_depth": [3],
             "learning_rate": [0.1],
             "subsample": [1.0],
             "colsample_bytree": [1.0],
+        }
+    elif scale == "medium":
+        param_grid = {
+            "n_estimators": [100, 200],
+            "max_depth": [3, 4],
+            "learning_rate": [0.05, 0.1],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
         }
     else:
         param_grid = {
@@ -539,12 +556,21 @@ def train_model(X, y, oversampler: Optional[str] = None, fast: bool = False):
         ),
         param_grid,
         scoring="f1_macro",
-        cv=TimeSeriesSplit(n_splits=n_splits),
+        cv=TimeSeriesSplit(n_splits=cv_splits),
         n_jobs=1,  # single process to avoid Windows multiprocessing issues
         refit=True,
-        verbose=1,
+        verbose=verbose,
     )
-    grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+
+    class _LogStream(io.TextIOBase):
+        def write(self, buf):
+            for line in buf.rstrip().splitlines():
+                logger.info(line)
+        def flush(self):
+            pass
+
+    with contextlib.redirect_stdout(_LogStream()):
+        grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
     model = grid.best_estimator_
     logger.info(
         "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
@@ -644,9 +670,22 @@ def main():
         help="Minimum 24h quote volume required for a symbol to be considered",
     )
     parser.add_argument(
-        "--fast",
-        action="store_true",
-        help="Use a smaller hyperparameter grid for quicker runs",
+        "--cv-splits",
+        type=int,
+        default=3,
+        help="Number of splits for TimeSeriesSplit cross-validation",
+    )
+    parser.add_argument(
+        "--param-scale",
+        choices=["small", "medium", "full"],
+        default="full",
+        help="Size of hyperparameter grid search",
+    )
+    parser.add_argument(
+        "--verbose",
+        type=int,
+        default=1,
+        help="Grid search verbosity level",
     )
     args = parser.parse_args()
     min_volume = args.min_volume
@@ -709,7 +748,9 @@ def main():
         X_all,
         y_all,
         oversampler=args.oversampler,
-        fast=args.fast,
+        param_scale=args.param_scale,
+        cv_splits=args.cv_splits,
+        verbose=args.verbose,
     )
     feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
