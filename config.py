@@ -93,11 +93,18 @@ MAX_DAILY_LOSS_PCT = float(os.getenv("MAX_DAILY_LOSS_PCT", "0.05"))
 # before executing any position.
 MIN_PROFIT_FEE_RATIO = float(os.getenv("MIN_PROFIT_FEE_RATIO", "7.0"))
 
+
+# Minimum multiple of rotation costs that projected net gain must exceed
+# before rotating into a new candidate. Acts as a safety margin over fees
+# and realized loss from the current position.
+ROTATION_SAFETY_MARGIN = float(os.getenv("ROTATION_SAFETY_MARGIN", "0.1"))
+
 # Minimum cumulative PnL (in USD) required for a symbol to remain tradable.
 # Symbols with cumulative PnL below this threshold will be skipped unless
 # ``SYMBOL_PNL_THRESHOLD`` is unset, in which case the filter is disabled.
 _sym_pnl_thresh = os.getenv("SYMBOL_PNL_THRESHOLD")
 SYMBOL_PNL_THRESHOLD = float(_sym_pnl_thresh) if _sym_pnl_thresh is not None else None
+
 
 # Price stagnation detection parameters. If price movement stays below
 # ``STAGNATION_THRESHOLD_PCT`` for ``STAGNATION_DURATION_SEC`` seconds, the

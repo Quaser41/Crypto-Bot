@@ -41,7 +41,11 @@ from config import (
     TRAIL_VOL_MULT,
     ADAPTIVE_STAGNATION,
     STAGNATION_VOL_MULT,
+
+    ROTATION_SAFETY_MARGIN,
+
     SYMBOL_PNL_THRESHOLD,
+
 )
 
 from utils.logging import get_logger
@@ -95,6 +99,7 @@ class TradeManager:
                  reverse_conf_delta=REVERSAL_CONF_DELTA,
                  min_profit_fee_ratio=MIN_PROFIT_FEE_RATIO,  # Enforce stricter profit threshold
                  trail_profit_fee_ratio=2.0,
+                 rotation_safety_margin=ROTATION_SAFETY_MARGIN,
                  exchange=None,
                  blacklist_refresh_sec=BLACKLIST_REFRESH_SEC,
                  min_hold_bucket=MIN_HOLD_BUCKET,
@@ -128,6 +133,7 @@ class TradeManager:
         self.slippage_pct = slippage_pct
         self.min_profit_fee_ratio = min_profit_fee_ratio
         self.trail_profit_fee_ratio = trail_profit_fee_ratio
+        self.rotation_safety_margin = rotation_safety_margin
         self.blacklist_refresh_sec = blacklist_refresh_sec
         self.min_hold_bucket = min_hold_bucket
         self.early_exit_fee_mult = early_exit_fee_mult
@@ -163,6 +169,9 @@ class TradeManager:
 
         # Whether to factor open trade PnL into equity calculations
         self.include_unrealized_pnl = include_unrealized_pnl
+
+        # Track projected vs actual results of rotated trades
+        self.rotation_expectations = {}
 
         # Equity tracking
         self.peak_equity = starting_balance
@@ -735,18 +744,27 @@ class TradeManager:
                 raw_loss = max(0, (current_price - entry_price) * qty)
             rotation_cost_est = raw_loss + entry_fee + exit_fee_est
             rotation_net_gain_est = rotation_projected_gain - rotation_cost_est
+            min_required_gain = rotation_cost_est * self.rotation_safety_margin
             logger.info(
-                "🔄 Rotation check: projected gain $%.2f vs cost $%.2f => net $%.2f",
+                "🔄 Rotation check: projected gain $%.2f vs cost $%.2f => net $%.2f (min $%.2f)",
                 rotation_projected_gain,
                 rotation_cost_est,
                 rotation_net_gain_est,
+                min_required_gain,
             )
-            if rotation_net_gain_est <= 0:
+            if rotation_net_gain_est <= min_required_gain:
                 logger.info(
-                    "❌ Rotation aborted: net gain $%.2f <= 0",
+                    "❌ Rotation aborted: net gain $%.2f <= required $%.2f",
                     rotation_net_gain_est,
+                    min_required_gain,
                 )
                 return False
+            # Store expectation for candidate to compare against actual outcome later
+            cand_symbol = candidate.get("symbol")
+            self.rotation_expectations[cand_symbol] = {
+                "expected_net_gain": rotation_net_gain_est,
+                "cost_est": rotation_cost_est,
+            }
 
         pos = self.positions.pop(symbol)
         side = pos.get("side", "BUY")
@@ -802,6 +820,12 @@ class TradeManager:
         rotation_cost_actual = None
         if reason == "Rotated to better candidate":
             rotation_cost_actual = max(0, -pnl)
+            if candidate:
+                cand_symbol = candidate.get("symbol")
+                if cand_symbol in self.rotation_expectations:
+                    self.rotation_expectations[cand_symbol][
+                        "cost_actual"
+                    ] = rotation_cost_actual
 
         # ✅ Exit momentum capture BEFORE building trade_record
         exit_momentum = {}
@@ -852,6 +876,20 @@ class TradeManager:
                 trade_record["rotation_candidate"] = candidate.get("symbol") if candidate else None
 
         self.trade_history.append(trade_record)
+
+        # If this trade was a rotation candidate, compare realized vs expected outcome
+        if symbol in self.rotation_expectations:
+            exp = self.rotation_expectations.pop(symbol)
+            expected_net = exp.get("expected_net_gain", 0)
+            cost_actual = exp.get("cost_actual", exp.get("cost_est", 0))
+            actual_net = pnl - cost_actual
+            logger.info(
+                "📊 Rotation outcome for %s: expected $%.2f vs actual $%.2f (Δ $%.2f)",
+                symbol,
+                expected_net,
+                actual_net,
+                actual_net - expected_net,
+            )
 
         # Maintain short history of closed-trade PnL
         self.closed_pnl_history.append(pnl)
