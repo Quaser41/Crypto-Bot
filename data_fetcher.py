@@ -948,7 +948,11 @@ def fetch_from_yfinance(symbol, interval="1h", days=10, limit=None):
         try:
             logger.info(f"🔎 Trying yfinance ticker: {yf_symbol}")
             df = yf.download(
-                yf_symbol, period=f"{days}d", interval=yf_interval, progress=False
+                yf_symbol,
+                period=f"{days}d",
+                interval=yf_interval,
+                progress=False,
+                auto_adjust=False,
             )
             if not df.empty and "Close" in df.columns and df["Close"].dropna().shape[0] > 0:
                 df = df.rename(
