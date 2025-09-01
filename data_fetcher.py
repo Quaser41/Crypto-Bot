@@ -32,6 +32,12 @@ SEEN_NON_JSON_URLS = set()
 # =========================================================
 def fetch_fear_greed_index(limit=30):
     """Fetch the crypto Fear & Greed index."""
+    cache_key = f"fg_index:{limit}"
+    cached = cached_fetch(cache_key, ttl=3600)
+    if cached is not None:
+        logger.info(f"📄 Using cached Fear & Greed index for limit {limit}")
+        return cached
+
     url = "https://api.alternative.me/fng/"
     params = {"limit": limit, "format": "json"}
     data = safe_request(url, params=params, backoff_on_429=False)
@@ -44,7 +50,9 @@ def fetch_fear_greed_index(limit=30):
         df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
         df.rename(columns={"timestamp": "Timestamp", "value": "FearGreed"}, inplace=True)
         df["FearGreed"] = pd.to_numeric(df["FearGreed"], errors="coerce")
-        return df[["Timestamp", "FearGreed"]].sort_values("Timestamp")
+        df = df[["Timestamp", "FearGreed"]].sort_values("Timestamp")
+        update_cache(cache_key, df)
+        return df
     except Exception as e:
         logger.error(f"❌ Failed to parse Fear & Greed index: {e}")
         return pd.DataFrame()
