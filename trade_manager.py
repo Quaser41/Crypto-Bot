@@ -111,7 +111,7 @@ class TradeManager:
                  include_unrealized_pnl=INCLUDE_UNREALIZED_PNL,
                  scale_out_pct=1.0,
                  tp_tier_multipliers=(1.0, 2.0),
-                 trail_wider_mult=2.0):
+                 trail_wider_mult=2.0,
                  symbol_pnl_threshold=SYMBOL_PNL_THRESHOLD):
 
 
