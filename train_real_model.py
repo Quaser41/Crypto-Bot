@@ -323,6 +323,13 @@ def prepare_training_data(
     thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
     df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
+    if not set(df["Target"].unique()).issubset({0, 1, 2, 3, 4}):
+        logger.error(
+            "❌ Invalid target labels computed for %s: %s",
+            coin_id,
+            sorted(df["Target"].unique()),
+        )
+        return None, None
 
     # Merge extreme buckets if completely absent
     class_counts = df["Target"].value_counts()
@@ -356,8 +363,14 @@ def prepare_training_data(
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
 
+    # Track label distribution before any resampling
+    class_counts = y.value_counts().sort_index()
+    logger.info(
+        "📊 Class distribution before augmentation: %s",
+        class_counts,
+    )
+
     # Optional oversampling with imbalanced-learn methods
-    class_counts = y.value_counts()
     rare_classes = [cls for cls, cnt in class_counts.items() if cnt < augment_target]
     if oversampler in {"smote", "adasyn", "borderline", "random"} and rare_classes:
         if SMOTE is None:
@@ -382,8 +395,12 @@ def prepare_training_data(
                         random_state=42, sampling_strategy=strategy
                     )
                     X, y = sampler.fit_resample(X, y)
-                    class_counts = y.value_counts()
-                    logger.info("📈 Applied %s oversampling", oversampler.upper())
+                    class_counts = y.value_counts().sort_index()
+                    logger.info(
+                        "📈 Applied %s oversampling; distribution: %s",
+                        oversampler.upper(),
+                        class_counts,
+                    )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
@@ -418,9 +435,13 @@ def prepare_training_data(
             y = pd.concat([y, augmented["Target"]], ignore_index=True)
 
     df_aug = pd.concat([X, y], axis=1).sample(frac=1, random_state=42).reset_index(drop=True)
-    logger.info(
-        "📊 Class distribution after augmentation: %s", df_aug["Target"].value_counts().sort_index()
-    )
+    final_counts = df_aug["Target"].value_counts().sort_index()
+    logger.info("📊 Class distribution after augmentation: %s", final_counts)
+    if final_counts.size < 2:
+        logger.warning(
+            "⚠️ After augmentation %s has a single class; skipping", coin_id
+        )
+        return None, None
 
     X = df_aug.drop(columns=["Target"])
     y = df_aug["Target"]
@@ -517,6 +538,12 @@ def train_model(
             fold,
             val_dist,
         )
+        train_dist = pd.Series(y_tr_raw).value_counts().sort_index()
+        logger.info(
+            "📊 Fold %d training distribution before resampling: %s",
+            fold,
+            train_dist,
+        )
 
         if oversampler in {"smote", "adasyn", "borderline", "random"}:
             if SMOTE is None:
@@ -534,24 +561,31 @@ def train_model(
                     }
                     sampler_cls = sampler_map[oversampler]
                     sampler = sampler_cls(random_state=42)
-                    X_tr, y_tr = sampler.fit_resample(X_tr, y_tr)
+                    X_res, y_res = sampler.fit_resample(X_tr, y_tr)
                     logger.info(
                         "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
                     )
-                    post_dist = pd.Series(y_tr).value_counts().sort_index()
+                    post_dist = pd.Series(y_res).value_counts().sort_index()
                     logger.info(
                         "📊 Fold %d training distribution after resampling: %s",
                         fold,
                         post_dist,
                     )
-                    if post_dist.nunique() == 1:
-                        logger.info("✅ Fold %d classes balanced", fold)
-                    else:
+                    if post_dist.size < 2:
                         logger.warning(
-                            "⚠️ Fold %d imbalance remains after resampling: %s",
+                            "⚠️ Fold %d resampling collapsed to a single class; using original data",
                             fold,
-                            post_dist,
                         )
+                    else:
+                        X_tr, y_tr = X_res, y_res
+                        if post_dist.nunique() == 1:
+                            logger.info("✅ Fold %d classes balanced", fold)
+                        else:
+                            logger.warning(
+                                "⚠️ Fold %d imbalance remains after resampling: %s",
+                                fold,
+                                post_dist,
+                            )
                 except Exception as e:
                     logger.warning(
                         "⚠️ Fold %d %s oversampling failed: %s", fold, oversampler, e
@@ -643,19 +677,27 @@ def train_model(
                 }
                 sampler_cls = sampler_map[oversampler]
                 sampler = sampler_cls(random_state=42)
-                X_train_bal, y_train_bal = sampler.fit_resample(X_train_bal, y_train_bal)
+                X_res, y_res = sampler.fit_resample(X_train_bal, y_train_bal)
+                post_dist = pd.Series(y_res).value_counts().sort_index()
                 logger.info(
-                    "📈 Applied %s oversampling to full training set",
-                    oversampler.upper(),
+                    "📊 Post-oversampling class distribution: %s", post_dist
                 )
-                post_dist = pd.Series(y_train_bal).value_counts().sort_index()
-                logger.info("📊 Post-oversampling class distribution: %s", post_dist)
-                if post_dist.nunique() == 1:
-                    logger.info("✅ Training set balanced after resampling")
-                else:
+                if post_dist.size < 2:
                     logger.warning(
-                        "⚠️ Imbalance remains after resampling: %s", post_dist
+                        "⚠️ Oversampling collapsed training set to a single class; using original data"
                     )
+                else:
+                    X_train_bal, y_train_bal = X_res, y_res
+                    logger.info(
+                        "📈 Applied %s oversampling to full training set",
+                        oversampler.upper(),
+                    )
+                    if post_dist.nunique() == 1:
+                        logger.info("✅ Training set balanced after resampling")
+                    else:
+                        logger.warning(
+                            "⚠️ Imbalance remains after resampling: %s", post_dist
+                        )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
