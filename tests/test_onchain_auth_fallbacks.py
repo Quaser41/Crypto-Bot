@@ -18,8 +18,7 @@ def test_fetch_onchain_metrics_missing_api_key(monkeypatch, tmp_path):
     os.makedirs(data_fetcher.CACHE_DIR, exist_ok=True)
 
     df = data_fetcher.fetch_onchain_metrics(days=2)
-    assert not df.empty
-    assert (df["TxVolume"] == 0).all() and (df["ActiveAddresses"] == 0).all()
+    assert df is None
     assert calls["count"] == 0
 
 

@@ -284,7 +284,7 @@ def add_indicators(
     # lookback avoids requests outside the provider's supported range
     # which previously resulted in 404 responses.
     onchain = fetch_onchain_metrics()
-    if not onchain.empty:
+    if isinstance(onchain, pd.DataFrame) and not onchain.empty:
         # Ensure timestamps are timezone-naive before merging so ``pd.merge_asof``
         # doesn't complain about mismatched timezone-aware vs. naive data.
         onchain["Timestamp"] = pd.to_datetime(onchain["Timestamp"]).dt.tz_localize(None)
@@ -293,28 +293,11 @@ def add_indicators(
         for col in ["TxVolume", "ActiveAddresses"]:
             if col in df.columns:
                 df[col] = df[col].ffill().bfill()
-        if "TxVolume" in df.columns:
-            std = df["TxVolume"].std()
-            df["TxVolume_norm"] = (
-                (df["TxVolume"] - df["TxVolume"].mean()) / std if std and std != 0 else 0.0
-            )
-        else:
-            df["TxVolume_norm"] = 0.0
-        if "ActiveAddresses" in df.columns:
-            std = df["ActiveAddresses"].std()
-            df["ActiveAddresses_norm"] = (
-                (df["ActiveAddresses"] - df["ActiveAddresses"].mean()) / std
-                if std and std != 0
-                else 0.0
-            )
-        else:
-            df["ActiveAddresses_norm"] = 0.0
+                std = df[col].std()
+                df[f"{col}_norm"] = (
+                    (df[col] - df[col].mean()) / std if std and std != 0 else np.nan
+                )
         df.drop(columns=[c for c in ["TxVolume", "ActiveAddresses"] if c in df.columns], inplace=True)
-        df["TxVolume_norm"] = df["TxVolume_norm"].fillna(0.0)
-        df["ActiveAddresses_norm"] = df["ActiveAddresses_norm"].fillna(0.0)
-    else:
-        df["TxVolume_norm"] = 0.0
-        df["ActiveAddresses_norm"] = 0.0
 
     # Add momentum score
     df["Momentum_Score"] = df.apply(compute_momentum_score, axis=1)
