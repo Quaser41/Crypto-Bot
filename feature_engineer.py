@@ -180,29 +180,35 @@ def add_indicators(
         span_days = (datetime.utcnow() - earliest).days + 1
         span_days = max(span_days, 60)
         btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=span_days)
-        if not btc.empty and "Close" in btc.columns:
+        if not btc.empty:
             # ``fetch_ohlcv_smart`` may return cached data with a MultiIndex on
             # either the rows or columns.  ``pd.merge_asof`` requires
             # single-index DataFrames, so flatten any MultiIndex columns and
-            # reset the indices on both frames before merging.
-            btc.columns = [c[-1] if isinstance(c, tuple) else c for c in btc.columns]
+            # reset the indices on both frames before merging.  Preserve the
+            # original OHLCV names when flattening.
+            btc.columns = [c[0] if isinstance(c, tuple) else c for c in btc.columns]
+
             if "Timestamp" not in btc.columns:
                 btc = btc.reset_index()
                 if "Timestamp" not in btc.columns:
                     btc = btc.rename(columns={btc.columns[0]: "Timestamp"})
-            btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
-            btc = btc.sort_values("Timestamp").reset_index(drop=True)
-            df = df.reset_index(drop=True)
 
-            df = pd.merge_asof(
-                df.sort_values("Timestamp"),
-                btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
-                on="Timestamp",
-                direction="backward",
-            )
-            df["RelStrength_BTC"] = df["Close"] / df["BTC_Close"]
-            df.drop(columns=["BTC_Close"], inplace=True)
-            df["RelStrength_BTC"] = df["RelStrength_BTC"].ffill().bfill()
+            if {"Timestamp", "Close"}.issubset(btc.columns):
+                btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
+                btc = btc.sort_values("Timestamp").reset_index(drop=True)
+                df = df.reset_index(drop=True)
+
+                df = pd.merge_asof(
+                    df.sort_values("Timestamp"),
+                    btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
+                    on="Timestamp",
+                    direction="backward",
+                )
+                df["RelStrength_BTC"] = df["Close"] / df["BTC_Close"]
+                df.drop(columns=["BTC_Close"], inplace=True)
+                df["RelStrength_BTC"] = df["RelStrength_BTC"].ffill().bfill()
+            else:
+                df["RelStrength_BTC"] = 1.0
         else:
             df["RelStrength_BTC"] = 1.0
     except Exception as e:

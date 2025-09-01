@@ -255,3 +255,34 @@ def test_relstrength_btc_without_timestamp_column(monkeypatch):
 
     assert 'RelStrength_BTC' in result.columns
     assert result['RelStrength_BTC'].notna().all()
+
+
+def test_relstrength_btc_with_multiindex_columns(monkeypatch):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 170, periods),
+        'High': np.linspace(101, 171, periods),
+        'Low': np.linspace(99, 169, periods),
+        'Volume': np.linspace(1000, 2000, periods),
+    })
+
+    btc = pd.DataFrame({
+        ('Timestamp', 'ts'): dates,
+        ('Close', 'usd'): np.linspace(20000, 20100, periods),
+    })
+    btc.columns = pd.MultiIndex.from_tuples(btc.columns)
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *a, **k: btc)
+
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('ignore', DeprecationWarning)
+        result = add_indicators(df, min_rows=20)
+
+    assert 'RelStrength_BTC' in result.columns
+    assert result['RelStrength_BTC'].notna().all()
+    assert not w
