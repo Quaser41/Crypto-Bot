@@ -4,7 +4,7 @@ import os
 import json
 import argparse
 import sys
-from typing import Optional
+from typing import Optional, Iterable
 
 import numpy as np
 import pandas as pd
@@ -134,6 +134,7 @@ def prepare_training_data(
     oversampler: Optional[str] = None,
     min_unique_samples: int = 3,
     augment_target: int = 50,
+    quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
 ):
     """Prepare feature matrix and labels for a single symbol.
 
@@ -214,7 +215,7 @@ def prepare_training_data(
     df = df[df["Return"].abs() > 0.005]
     df = df.dropna()
 
-    thresholds = compute_return_thresholds(df["Return"])
+    thresholds = compute_return_thresholds(df["Return"], quantiles=quantiles)
     logger.info("📐 Thresholds for %s: %s", coin_id, thresholds)
     df["Target"] = df["Return"].apply(lambda r: return_bucket(r, thresholds))
 
@@ -249,6 +250,10 @@ def prepare_training_data(
         logger.warning("⚠️ Missing optional features in data: %s", optional_missing)
     X = df[[c for c in feature_cols if c in df.columns]]
     y = df["Target"]
+
+    # Drop rows with non-finite values before any resampling
+    X = X.dropna()
+    y = y.loc[X.index]
 
     # Optional oversampling with SMOTE variants
     class_counts = y.value_counts()
@@ -648,8 +653,16 @@ def main():
         action="store_true",
         help="Use a smaller hyperparameter grid for quicker runs",
     )
+    parser.add_argument(
+        "--quantiles",
+        type=str,
+        default="0.2,0.4,0.6,0.8",
+        help="Comma-separated quantiles for return buckets",
+    )
     args = parser.parse_args()
     min_volume = args.min_volume
+
+    quantiles = tuple(float(q) for q in args.quantiles.split(","))
 
     if args.oversampler in {"smote", "adasyn"} and SMOTE is None:
         logger.error(
@@ -687,6 +700,7 @@ def main():
             oversampler=None,
             min_unique_samples=args.min_unique_samples,
             augment_target=args.augment_target,
+            quantiles=quantiles,
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())

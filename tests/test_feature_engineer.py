@@ -90,8 +90,7 @@ def test_add_indicators_insufficient_4h_history(monkeypatch):
     result = add_indicators(df, min_rows=20)
     cols = {'SMA_4h', 'MACD_4h', 'Signal_4h', 'Hist_4h'}
     assert result.empty
-    assert cols.issubset(result.columns)
-    assert result[list(cols)].isna().all().all()
+    assert all(col not in result.columns for col in cols)
 
 
 def test_add_indicators_skips_when_insufficient_rows(monkeypatch, caplog):

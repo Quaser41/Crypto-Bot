@@ -23,6 +23,29 @@ logger = get_logger(__name__)
 # Minimum rows required after indicator calculations
 MIN_ROWS_AFTER_INDICATORS = 60
 
+
+def _validate_timestamp_alignment(df: pd.DataFrame, context: str) -> pd.DataFrame:
+    """Ensure timestamps are strictly increasing and aligned.
+
+    After some merges, ``pd.merge_asof`` may introduce out-of-order or
+    duplicated timestamps.  Downstream calculations assume chronological
+    order, so we sort and drop duplicates while emitting a warning.
+
+    Parameters
+    ----------
+    df: DataFrame containing a ``Timestamp`` column.
+    context: Description of the merge that produced ``df``.
+    """
+
+    if not df["Timestamp"].is_monotonic_increasing:
+        logger.warning(
+            "⚠️ Timestamp misalignment detected after %s merge; sorting and dropping duplicates",
+            context,
+        )
+        df = df.sort_values("Timestamp")
+        df = df.drop_duplicates(subset="Timestamp", keep="first")
+    return df
+
 def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     if df.empty or "Close" not in df.columns:
         logger.warning("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
@@ -147,6 +170,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
             df["RelStrength_BTC"] = df["Close"] / df["BTC_Close"]
             df.drop(columns=["BTC_Close"], inplace=True)
             df["RelStrength_BTC"] = df["RelStrength_BTC"].ffill().bfill()
+            df = _validate_timestamp_alignment(df, "BTC price")
         else:
             df["RelStrength_BTC"] = 1.0
     except Exception as e:
@@ -181,6 +205,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
                 tolerance=pd.Timedelta("4h"),
             )
             df[four_h_cols] = df[four_h_cols].ffill()
+            df = _validate_timestamp_alignment(df, "4h aggregates")
         else:
             logger.warning(
                 "⚠️ Not enough history for 4h aggregates: %d < %d", len(agg), required_points
@@ -192,11 +217,24 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         for col in four_h_cols:
             df[col] = np.nan
 
-    if set(four_h_cols).issubset(df.columns):
-        if df[four_h_cols].isna().all().any():
+    if set(four_h_cols).issubset(df.columns) and df[four_h_cols].isna().all().any():
+        if "agg" in locals() and not agg.empty and len(agg) >= required_points:
             logger.warning(
-                "⚠️ 4h aggregates contain NaNs after merge; verify timestamp alignment"
+                "⚠️ 4h aggregates contain NaNs after merge; retrying with 8h tolerance"
             )
+            df = df.drop(columns=four_h_cols)
+            df = pd.merge_asof(
+                df.sort_values("Timestamp"),
+                agg.sort_values("Timestamp"),
+                on="Timestamp",
+                direction="backward",
+                tolerance=pd.Timedelta("8h"),
+            )
+            df[four_h_cols] = df[four_h_cols].ffill()
+            df = _validate_timestamp_alignment(df, "4h aggregates (8h)")
+        if df[four_h_cols].isna().all().any():
+            logger.warning("⚠️ Dropping 4h aggregate columns due to persistent NaNs")
+            df.drop(columns=four_h_cols, inplace=True)
 
     # ==== Merge sentiment and on-chain metrics ====
     df = df.sort_values("Timestamp")
@@ -207,6 +245,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         sentiment["Timestamp"] = pd.to_datetime(sentiment["Timestamp"]).dt.tz_localize(None)
         sentiment = sentiment.sort_values("Timestamp")
         df = pd.merge_asof(df, sentiment, on="Timestamp", direction="backward")
+        df = _validate_timestamp_alignment(df, "sentiment")
         df["FearGreed"] = df["FearGreed"].ffill().bfill()
         std = df["FearGreed"].std()
         if std and std != 0:
@@ -228,6 +267,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
         onchain["Timestamp"] = pd.to_datetime(onchain["Timestamp"]).dt.tz_localize(None)
         onchain = onchain.sort_values("Timestamp")
         df = pd.merge_asof(df, onchain, on="Timestamp", direction="backward")
+        df = _validate_timestamp_alignment(df, "on-chain metrics")
         for col in ["TxVolume", "ActiveAddresses"]:
             if col in df.columns:
                 df[col] = df[col].ffill().bfill()
