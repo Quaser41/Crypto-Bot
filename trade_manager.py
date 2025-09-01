@@ -104,7 +104,11 @@ class TradeManager:
                  adaptive_stagnation=ADAPTIVE_STAGNATION,
                  stagnation_vol_mult=STAGNATION_VOL_MULT,
                  include_unrealized_pnl=INCLUDE_UNREALIZED_PNL,
+                 scale_out_pct=1.0,
+                 tp_tier_multipliers=(1.0, 2.0),
+                 trail_wider_mult=2.0):
                  symbol_pnl_threshold=SYMBOL_PNL_THRESHOLD):
+
 
         self.starting_balance = starting_balance
         self.balance = starting_balance
@@ -131,7 +135,12 @@ class TradeManager:
         self.stagnation_duration_sec = stagnation_duration_sec
         self.adaptive_stagnation = adaptive_stagnation
         self.stagnation_vol_mult = stagnation_vol_mult
+
+        self.scale_out_pct = scale_out_pct
+        self.tp_tier_multipliers = tp_tier_multipliers
+        self.trail_wider_mult = trail_wider_mult
         self.symbol_pnl_threshold = symbol_pnl_threshold
+
 
         # Holding period and reversal requirements
         # Add a small buffer to the minimum hold time to better absorb
@@ -585,25 +594,37 @@ class TradeManager:
 
         if atr_val and atr_val > 0:
             sl_offset = self.atr_mult_sl * atr_val + exec_price * self.slippage_pct
-            tp_offset = self.atr_mult_tp * atr_val
+            tp_levels = []
+            for mult in self.tp_tier_multipliers:
+                tp_offset = self.atr_mult_tp * atr_val * mult
+                if side == "SELL":
+                    price = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
+                else:
+                    price = (exec_price + tp_offset) * (1 + self.trade_fee_pct)
+                tp_levels.append(price)
             if side == "SELL":
                 stop_loss = (exec_price + sl_offset) * (1 + self.trade_fee_pct)
-                take_profit = (exec_price - tp_offset) * (1 - self.trade_fee_pct)
             else:
                 stop_loss = (exec_price - sl_offset) * (1 - self.trade_fee_pct)
-                take_profit = (exec_price + tp_offset) * (1 + self.trade_fee_pct)
         else:
 
             logger.warning(f"⚠️ ATR unavailable for {symbol}; falling back to percentage-based SL/TP.")
 
-            tp_pct = self.take_profit_pct
+            tp_levels = []
+            for mult in self.tp_tier_multipliers:
+                tp_pct = self.take_profit_pct * mult
+                if side == "SELL":
+                    price = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
+                else:
+                    price = exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+                tp_levels.append(price)
             sl_pct = self.stop_loss_pct + self.slippage_pct
             if side == "SELL":
                 stop_loss = exec_price * (1 + sl_pct) * (1 + self.trade_fee_pct)
-                take_profit = exec_price * (1 - tp_pct) * (1 - self.trade_fee_pct)
             else:
                 stop_loss = exec_price * (1 - sl_pct) * (1 - self.trade_fee_pct)
-                take_profit = exec_price * (1 + tp_pct) * (1 + self.trade_fee_pct)
+
+        take_profit = tp_levels[0]
 
         self.positions[symbol] = {
             "coin_id": coin_id or symbol.lower(),
@@ -611,6 +632,10 @@ class TradeManager:
             "qty": qty,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
+            "tp_levels": tp_levels,
+            "tp_index": 0,
+            "trail_pct": self.trail_pct,
+            "atr_mult_sl_pos": self.atr_mult_sl,
             "entry_fee": entry_fee,
             "highest_price": exec_price,
             "confidence": confidence,
@@ -844,6 +869,107 @@ class TradeManager:
         return True
 
 
+    def scale_out_trade(self, symbol, current_price, portion, reason="Partial Take-Profit"):
+        """Partially close a position to lock in gains while keeping the remainder open."""
+        if not self.has_position(symbol):
+            logger.warning(f"⚠️ No open position to scale out for {symbol}")
+            return False
+
+        pos = self.positions[symbol]
+        qty_total = pos.get("qty", 0)
+        if qty_total <= 0:
+            logger.warning(f"⚠️ Invalid position quantity for {symbol}")
+            return False
+
+        qty = qty_total * portion
+        side = pos.get("side", "BUY")
+
+        entry_price = pos["entry_price"]
+        entry_fee_total = pos.get("entry_fee", 0)
+        entry_fee_portion = entry_fee_total * (qty / qty_total)
+
+        exit_order = None
+        if self.exchange:
+            exit_side = "SELL" if side == "BUY" else "BUY"
+            try:
+                exit_order = self.exchange.place_market_order(
+                    symbol, exit_side, quantity=qty
+                )
+                exec_price = exit_order.get("price", current_price)
+                qty = exit_order.get("executed_qty", qty)
+            except Exception as e:
+                logger.error(f"❌ Scale-out order failed for {symbol}: {e}")
+                if side == "BUY":
+                    exec_price = current_price * (1 - self.slippage_pct)
+                else:
+                    exec_price = current_price * (1 + self.slippage_pct)
+        else:
+            if side == "BUY":
+                exec_price = current_price * (1 - self.slippage_pct)
+            else:
+                exec_price = current_price * (1 + self.slippage_pct)
+
+        slippage_pct = abs(exec_price - current_price) / current_price if current_price else 0
+
+        entry_val = entry_price * qty
+        exit_val = exec_price * qty
+        exit_fee = exit_val * self.trade_fee_pct
+        net_exit = exit_val - exit_fee
+        pnl = net_exit - (entry_val + entry_fee_portion)
+
+        self.balance += net_exit
+        self.total_fees += exit_fee
+
+        pos["qty"] -= qty
+        pos["entry_fee"] -= entry_fee_portion
+
+        duration = time.time() - pos.get("entry_time", time.time())
+
+        trade_record = {
+            "symbol": symbol,
+            "entry_price": entry_price,
+            "exit_price": exec_price,
+            "qty": qty,
+            "pnl": pnl,
+            "reason": reason,
+            "entry_fee": entry_fee_portion,
+            "exit_fee": exit_fee,
+            "confidence": pos.get("confidence"),
+            "label": pos.get("label"),
+            "trail_triggered": False,
+            "duration": round(duration, 2),
+            "partial": True,
+            "exit_slippage_pct": slippage_pct,
+        }
+
+        self.trade_history.append(trade_record)
+        self.closed_pnl_history.append(pnl)
+        if len(self.closed_pnl_history) > PNL_HISTORY_LIMIT:
+            self.closed_pnl_history.pop(0)
+
+        logger.info(
+            f"📤 SCALE OUT {symbol} | Exit ${self.fmt_price(exec_price)} | "
+            f"Qty {qty:.6f} | PnL ${pnl:.2f} | Fee ${exit_fee:.2f} | "
+            f"Slippage {slippage_pct * 100:.2f}% | Balance now ${self.balance:.2f}"
+        )
+
+        # Prepare remaining position for next tier
+        if pos["qty"] <= 0:
+            self.positions.pop(symbol, None)
+        else:
+            pos["tp_index"] += 1
+            if pos["tp_index"] < len(pos.get("tp_levels", [])):
+                pos["take_profit"] = pos["tp_levels"][pos["tp_index"]]
+            else:
+                pos["take_profit"] = None
+            pos["trail_pct"] = pos.get("trail_pct", self.trail_pct) * self.trail_wider_mult
+            pos["atr_mult_sl_pos"] = pos.get("atr_mult_sl_pos", self.atr_mult_sl) * self.trail_wider_mult
+
+        self.save_state()
+
+        return True
+
+
     def monitor_open_trades(self, check_interval=60, single_run=False):
         logger.info(f"🚦 Monitoring {len(self.positions)} open trade(s)...")
 
@@ -1046,16 +1172,18 @@ class TradeManager:
 
         trail_stop = None
         atr = pos.get("atr")
+        atr_mult_sl = pos.get("atr_mult_sl_pos", self.atr_mult_sl)
+        trail_pct = pos.get("trail_pct", self.trail_pct)
         if atr and atr > 0:
             if side == "BUY" and pos["highest_price"] > entry_price:
-                trail_stop = pos["highest_price"] - atr * self.atr_mult_sl
+                trail_stop = pos["highest_price"] - atr * atr_mult_sl
             elif side == "SELL" and pos["highest_price"] < entry_price:
-                trail_stop = pos["highest_price"] + atr * self.atr_mult_sl
+                trail_stop = pos["highest_price"] + atr * atr_mult_sl
         else:
             if side == "BUY" and pos["highest_price"] > entry_price:
-                trail_stop = pos["highest_price"] * (1 - self.trail_pct)
+                trail_stop = pos["highest_price"] * (1 - trail_pct)
             elif side == "SELL" and pos["highest_price"] < entry_price:
-                trail_stop = pos["highest_price"] * (1 + self.trail_pct)
+                trail_stop = pos["highest_price"] * (1 + trail_pct)
 
         atr_val = pos.get("atr")
         if atr_val and atr_val > 0:
@@ -1088,15 +1216,21 @@ class TradeManager:
                 self.close_trade(symbol, current_price, reason="Stop-Loss")
                 return
 
-        if side == "BUY":
-            if current_price >= pos["take_profit"]:
+        tp_price = pos.get("take_profit")
+        if tp_price is not None:
+            if side == "BUY" and current_price >= tp_price:
                 logger.info(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
-                self.close_trade(symbol, current_price, reason="Take-Profit")
+                if self.scale_out_pct < 1.0 and pos.get("tp_index", 0) == 0:
+                    self.scale_out_trade(symbol, current_price, self.scale_out_pct)
+                else:
+                    self.close_trade(symbol, current_price, reason="Take-Profit")
                 return
-        else:
-            if current_price <= pos["take_profit"]:
+            elif side == "SELL" and current_price <= tp_price:
                 logger.info(f"🎯 TAKE-PROFIT hit for {symbol} at price {current_price:.2f}")
-                self.close_trade(symbol, current_price, reason="Take-Profit")
+                if self.scale_out_pct < 1.0 and pos.get("tp_index", 0) == 0:
+                    self.scale_out_trade(symbol, current_price, self.scale_out_pct)
+                else:
+                    self.close_trade(symbol, current_price, reason="Take-Profit")
                 return
 
         if trail_stop:
