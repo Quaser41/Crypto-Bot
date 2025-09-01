@@ -231,3 +231,27 @@ def test_relstrength_btc_with_timestamp_index(monkeypatch):
     assert 'RelStrength_BTC' in result.columns
     assert result['RelStrength_BTC'].notna().all()
     assert not w
+
+
+def test_relstrength_btc_without_timestamp_column(monkeypatch):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 170, periods),
+        'High': np.linspace(101, 171, periods),
+        'Low': np.linspace(99, 169, periods),
+        'Volume': np.linspace(1000, 2000, periods),
+    })
+
+    # BTC frame with datetime index but no 'Timestamp' column
+    btc = pd.DataFrame({'Close': np.linspace(20000, 20100, periods)}, index=dates)
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *a, **k: btc)
+
+    result = add_indicators(df, min_rows=20)
+
+    assert 'RelStrength_BTC' in result.columns
+    assert result['RelStrength_BTC'].notna().all()

@@ -186,6 +186,10 @@ def add_indicators(
             # single-index DataFrames, so flatten any MultiIndex columns and
             # reset the indices on both frames before merging.
             btc.columns = [c[-1] if isinstance(c, tuple) else c for c in btc.columns]
+            if "Timestamp" not in btc.columns:
+                btc = btc.reset_index()
+                if "Timestamp" not in btc.columns:
+                    btc = btc.rename(columns={btc.columns[0]: "Timestamp"})
             btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
             btc = btc.sort_values("Timestamp").reset_index(drop=True)
             df = df.reset_index(drop=True)
