@@ -18,7 +18,7 @@ import symbol_resolver
 from config import MIN_24H_VOLUME
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV, RandomizedSearchCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.utils.class_weight import compute_sample_weight
@@ -467,10 +467,12 @@ def train_model(
     X,
     y,
     oversampler: Optional[str] = "random",
-    param_scale: str = "full",
+    param_scale: str = "medium",
     cv_splits: int = 3,
     verbose: int = 1,
     class_weight: str = "balanced",
+    random_search: bool = False,
+    random_iter: int = 10,
 ):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
@@ -774,7 +776,7 @@ def train_model(
             list(label_map.keys()),
         )
 
-    scale = (param_scale or "full").lower()
+    scale = (param_scale or "medium").lower()
     if scale == "small":
         param_grid = {
             "n_estimators": [100],
@@ -786,9 +788,9 @@ def train_model(
         }
     elif scale == "medium":
         param_grid = {
-            "n_estimators": [100, 200, 300],
-            "max_depth": [3, 4, 5],
-            "learning_rate": [0.03, 0.05, 0.1],
+            "n_estimators": [100, 200],
+            "max_depth": [3, 4],
+            "learning_rate": [0.03, 0.1],
             "subsample": [0.8, 1.0],
             "colsample_bytree": [0.8, 1.0],
             "min_child_weight": [1, 3],
@@ -805,23 +807,44 @@ def train_model(
 
     # Use a single worker process and single-threaded fits for Windows stability
 
-    grid = GridSearchCV(
-        XGBClassifier(
-            objective="multi:softprob",
-            num_class=len(le.classes_),
+    if random_search:
+        search = RandomizedSearchCV(
+            XGBClassifier(
+                objective="multi:softprob",
+                num_class=len(le.classes_),
+                random_state=42,
+                eval_metric="mlogloss",
+
+                n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+
+            ),
+            param_grid,
+            n_iter=random_iter,
+            scoring="f1_macro",
+            cv=TimeSeriesSplit(n_splits=cv_splits),
+            n_jobs=1,  # single process to avoid Windows multiprocessing issues
+            refit=True,
+            verbose=verbose,
             random_state=42,
-            eval_metric="mlogloss",
+        )
+    else:
+        search = GridSearchCV(
+            XGBClassifier(
+                objective="multi:softprob",
+                num_class=len(le.classes_),
+                random_state=42,
+                eval_metric="mlogloss",
 
-            n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
+                n_jobs=1,  # use a single thread per fit for Windows stability (nthread for older versions)
 
-        ),
-        param_grid,
-        scoring="f1_macro",
-        cv=TimeSeriesSplit(n_splits=cv_splits),
-        n_jobs=1,  # single process to avoid Windows multiprocessing issues
-        refit=True,
-        verbose=verbose,
-    )
+            ),
+            param_grid,
+            scoring="f1_macro",
+            cv=TimeSeriesSplit(n_splits=cv_splits),
+            n_jobs=1,  # single process to avoid Windows multiprocessing issues
+            refit=True,
+            verbose=verbose,
+        )
 
     class _LogStream(io.TextIOBase):
         def write(self, buf):
@@ -832,12 +855,12 @@ def train_model(
 
     with contextlib.redirect_stdout(_LogStream()):
         if sample_weights is not None:
-            grid.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
+            search.fit(X_train_bal, y_train_bal, sample_weight=sample_weights)
         else:
-            grid.fit(X_train_bal, y_train_bal)
-    model = grid.best_estimator_
+            search.fit(X_train_bal, y_train_bal)
+    model = search.best_estimator_
     logger.info(
-        "🔍 Best params: %s (macro-F1=%.3f)", grid.best_params_, grid.best_score_
+        "🔍 Best params: %s (macro-F1=%.3f)", search.best_params_, search.best_score_
     )
 
     preds = model.predict(X_test)
@@ -981,7 +1004,7 @@ def main():
     parser.add_argument(
         "--fast",
         action="store_true",
-        help="Use a smaller hyperparameter grid for quicker runs",
+        help="Use a small hyperparameter grid for quicker runs",
     )
 
     parser.add_argument(
@@ -1005,8 +1028,19 @@ def main():
     parser.add_argument(
         "--param-scale",
         choices=["small", "medium", "full"],
-        default="full",
+        default="medium",
         help="Size of hyperparameter grid search",
+    )
+    parser.add_argument(
+        "--random-search",
+        action="store_true",
+        help="Use RandomizedSearchCV instead of GridSearchCV",
+    )
+    parser.add_argument(
+        "--random-iter",
+        type=int,
+        default=20,
+        help="Number of parameter settings sampled in randomized search",
     )
     parser.add_argument(
         "--verbose",
@@ -1023,6 +1057,9 @@ def main():
     )
     args = parser.parse_args()
     min_volume = 0 if args.ignore_volume else args.min_volume
+
+    if args.fast:
+        args.param_scale = "small"
 
 
     if args.oversampler in {"smote", "adasyn", "borderline", "random"} and SMOTE is None:
@@ -1102,6 +1139,8 @@ def main():
         cv_splits=args.cv_splits,
         verbose=args.verbose,
         class_weight=args.class_weight,
+        random_search=args.random_search,
+        random_iter=args.random_iter,
     )
     feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
