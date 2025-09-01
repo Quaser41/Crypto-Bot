@@ -1,5 +1,7 @@
 import logging
 import types
+import threading
+import time
 
 import numpy as np
 import pandas as pd
@@ -75,3 +77,44 @@ def test_predict_signal_uses_label_mapping(monkeypatch):
     assert cls == 3  # maps index 2 -> original label 3
     assert signal == "BUY"
     assert abs(confidence - 0.4) < 1e-6
+
+
+def test_predict_signal_thread_safe_logging(monkeypatch, caplog):
+    class DummyModel:
+        def predict(self, dmatrix):
+            return np.array([[0.9, 0.05, 0.03, 0.01, 0.01]])
+
+    features = ["a", "b", "c", "d", "e"]
+
+    monkeypatch.setattr(
+        model_predictor,
+        "load_model",
+        lambda: (DummyModel(), features, [0, 1, 2, 3, 4]),
+    )
+    monkeypatch.setattr(model_predictor, "xgb", types.SimpleNamespace(DMatrix=lambda X: X))
+
+    model_predictor._prediction_counter = 0
+    model_predictor._last_logged_class = None
+
+    original_info = model_predictor.logger.info
+
+    def slow_info(*args, **kwargs):
+        time.sleep(0.01)
+        return original_info(*args, **kwargs)
+
+    monkeypatch.setattr(model_predictor.logger, "info", slow_info)
+
+    def call():
+        df = pd.DataFrame({f: [1.0] for f in features})
+        model_predictor.predict_signal(df, threshold=0.5, log_frequency=1000)
+
+    with caplog.at_level(logging.INFO, logger=model_predictor.logger.name):
+        threads = [threading.Thread(target=call) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert model_predictor._prediction_counter == 20
+    info_logs = [r for r in caplog.records if "Predicted class" in r.getMessage()]
+    assert len(info_logs) == 1

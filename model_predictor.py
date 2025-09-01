@@ -6,6 +6,7 @@ from functools import lru_cache
 import numpy as np
 import xgboost as xgb
 import asyncio
+import threading
 
 from utils.logging import get_logger
 from utils.prediction_class import PredictionClass
@@ -26,6 +27,7 @@ except ValueError:
 
 _prediction_counter = 0
 _last_logged_class = None
+_prediction_lock = threading.Lock()
 
 
 
@@ -266,29 +268,30 @@ def predict_signal(df, threshold, log_frequency=None):
             "🔍 Class probabilities: %s",
             {int(lbl): float(np.round(prob, 3)) for lbl, prob in zip(label_mapping, class_probs)},
         )
-        global _prediction_counter, _last_logged_class
-        _prediction_counter += 1
-
-        logger.debug(
-            "📊 Predicted class: %d with confidence %.2f",
-            predicted_class.value,
-            confidence,
-        )
-
         if log_frequency is None:
             log_frequency = DEFAULT_LOG_FREQUENCY
 
-        if log_frequency and log_frequency > 0:
-            if (
-                predicted_class != _last_logged_class
-                or _prediction_counter % log_frequency == 0
-            ):
-                logger.info(
-                    "📊 Predicted class: %d with confidence %.2f",
-                    predicted_class.value,
-                    confidence,
-                )
-                _last_logged_class = predicted_class
+        global _prediction_counter, _last_logged_class
+        with _prediction_lock:
+            _prediction_counter += 1
+
+            logger.debug(
+                "📊 Predicted class: %d with confidence %.2f",
+                predicted_class.value,
+                confidence,
+            )
+
+            if log_frequency and log_frequency > 0:
+                if (
+                    predicted_class != _last_logged_class
+                    or _prediction_counter % log_frequency == 0
+                ):
+                    logger.info(
+                        "📊 Predicted class: %d with confidence %.2f",
+                        predicted_class.value,
+                        confidence,
+                    )
+                    _last_logged_class = predicted_class
 
         # Logic overrides
         if predicted_class == PredictionClass.SMALL_LOSS and confidence < threshold:
