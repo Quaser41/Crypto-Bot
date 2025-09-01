@@ -46,7 +46,7 @@ def test_add_indicators_merges_sentiment_and_onchain(monkeypatch):
         assert result[col].notna().all()
 
 
-def test_add_indicators_handles_all_nan_onchain(monkeypatch):
+def test_add_indicators_handles_missing_onchain(monkeypatch):
     periods = 120
     dates = pd.date_range('2023-01-01', periods=periods, freq='D')
     df = pd.DataFrame({
@@ -60,17 +60,15 @@ def test_add_indicators_handles_all_nan_onchain(monkeypatch):
         'Timestamp': dates,
         'FearGreed': np.linspace(20, 80, periods)
     })
-    onchain = pd.DataFrame({
-        'Timestamp': dates,
-        'UnknownMetric': [np.nan] * periods
-    })
 
     monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: sentiment)
-    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: onchain)
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: None)
     monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *args, **kwargs: pd.DataFrame())
 
     result = add_indicators(df)
     assert len(result) >= 60
+    assert 'TxVolume_norm' not in result.columns
+    assert 'ActiveAddresses_norm' not in result.columns
 
 
 def test_add_indicators_insufficient_4h_history(monkeypatch, caplog):

@@ -63,8 +63,17 @@ def fetch_fear_greed_index(limit=30):
         return pd.DataFrame()
 
 
-def fetch_onchain_metrics(days=14):
-    """Fetch basic on-chain metrics like transaction volume and active addresses."""
+def fetch_onchain_metrics(days=14) -> pd.DataFrame | None:
+    """Fetch basic on-chain metrics like transaction volume and active addresses.
+
+    Returns ``None`` when the ``BLOCKCHAIN_API_KEY`` environment variable is
+    missing so callers can skip on-chain features.
+    """
+
+    api_key = os.getenv("BLOCKCHAIN_API_KEY")
+    if not api_key:
+        logger.info("🔐 BLOCKCHAIN_API_KEY missing – on-chain metrics disabled")
+        return None
 
     cache_key = f"onchain:{days}"
     placeholder_key = f"{cache_key}:placeholder"
@@ -84,17 +93,6 @@ def fetch_onchain_metrics(days=14):
         end = pd.Timestamp.utcnow().normalize().tz_localize(None)
         dates = pd.date_range(end - pd.Timedelta(days=days - 1), end, freq="D")
         return pd.DataFrame({"Timestamp": dates, col: [0] * len(dates)})
-
-    api_key = os.getenv("BLOCKCHAIN_API_KEY")
-    if not api_key:
-        logger.info(
-            "🔐 BLOCKCHAIN_API_KEY missing – returning placeholder on-chain metrics"
-        )
-        df = pd.merge(
-            _default_df("TxVolume"), _default_df("ActiveAddresses"), on="Timestamp"
-        )
-        update_cache(placeholder_key, df)
-        return df
 
     if not os.getenv("GLASSNODE_API_KEY"):
         logger.info("🔓 GLASSNODE_API_KEY missing – using public data sources")
