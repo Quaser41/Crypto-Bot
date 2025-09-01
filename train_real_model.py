@@ -19,7 +19,7 @@ from config import MIN_24H_VOLUME
 from feature_engineer import add_indicators
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
 from xgboost import XGBClassifier
@@ -434,6 +434,15 @@ def train_model(
     y_test_raw = test_df["Target"]
     y_test = le.transform(y_test_raw)
 
+    # === Feature scaling ===
+    scaler = StandardScaler()
+    X_train = pd.DataFrame(
+        scaler.fit_transform(X_train), columns=X_train.columns, index=X_train.index
+    )
+    X_test = pd.DataFrame(
+        scaler.transform(X_test), columns=X_test.columns, index=X_test.index
+    )
+
     # === Walk-forward cross-validation ===
     cv_splits = max(2, cv_splits)
     tscv = TimeSeriesSplit(n_splits=cv_splits)
@@ -471,11 +480,20 @@ def train_model(
                     logger.info(
                         "📈 Fold %d applied %s oversampling", fold, oversampler.upper()
                     )
+                    post_dist = pd.Series(y_tr).value_counts().sort_index()
                     logger.info(
                         "📊 Fold %d training distribution after resampling: %s",
                         fold,
-                        pd.Series(y_tr).value_counts().sort_index(),
+                        post_dist,
                     )
+                    if post_dist.nunique() == 1:
+                        logger.info("✅ Fold %d classes balanced", fold)
+                    else:
+                        logger.warning(
+                            "⚠️ Fold %d imbalance remains after resampling: %s",
+                            fold,
+                            post_dist,
+                        )
                 except Exception as e:
                     logger.warning(
                         "⚠️ Fold %d %s oversampling failed: %s", fold, oversampler, e
@@ -550,10 +568,14 @@ def train_model(
                     "📈 Applied %s oversampling to full training set",
                     oversampler.upper(),
                 )
-                logger.info(
-                    "📊 Post-oversampling class distribution: %s",
-                    pd.Series(y_train_bal).value_counts().sort_index(),
-                )
+                post_dist = pd.Series(y_train_bal).value_counts().sort_index()
+                logger.info("📊 Post-oversampling class distribution: %s", post_dist)
+                if post_dist.nunique() == 1:
+                    logger.info("✅ Training set balanced after resampling")
+                else:
+                    logger.warning(
+                        "⚠️ Imbalance remains after resampling: %s", post_dist
+                    )
             except Exception as e:
                 logger.warning("⚠️ %s oversampling failed: %s", oversampler, e)
 
@@ -574,6 +596,7 @@ def train_model(
             "learning_rate": [0.1],
             "subsample": [1.0],
             "colsample_bytree": [1.0],
+            "min_child_weight": [1],
         }
     elif scale == "medium":
         param_grid = {
@@ -582,6 +605,7 @@ def train_model(
             "learning_rate": [0.05, 0.1],
             "subsample": [0.8, 1.0],
             "colsample_bytree": [0.8, 1.0],
+            "min_child_weight": [1, 3],
         }
     else:
         param_grid = {
@@ -590,6 +614,7 @@ def train_model(
             "learning_rate": [0.01, 0.05, 0.1],
             "subsample": [0.8, 1.0],
             "colsample_bytree": [0.8, 1.0],
+            "min_child_weight": [1, 3],
         }
 
     # Use a single worker process and single-threaded fits for Windows stability
@@ -627,6 +652,7 @@ def train_model(
     )
 
     preds = model.predict(X_test)
+    proba = model.predict_proba(X_test)
 
     labels_sorted = sorted(np.unique(np.concatenate([y_test, preds])))
     target_names = [label_map[int(lbl)] for lbl in labels_sorted]
@@ -650,11 +676,16 @@ def train_model(
     )
     cm = confusion_matrix(y_test, preds, labels=labels_sorted)
 
+    mean_proba = dict(zip([label_map[i] for i in range(proba.shape[1])], proba.mean(axis=0)))
+    logger.info("🔍 Mean per-class predicted probabilities: %s", mean_proba)
+
     logger.info("\n📊 Classification Report:\n%s", report)
     logger.info("🔁 Confusion Matrix:\n%s", cm)
     logger.info(
         "📊 Prediction distribution: %s", pd.Series(preds).value_counts().sort_index()
     )
+    if len(np.unique(preds)) == 1:
+        logger.warning("⚠️ All predictions collapsed into a single class")
 
     metrics_summary = {
         "macro_f1": report_dict["macro avg"]["f1-score"],
@@ -668,10 +699,14 @@ def train_model(
     pd.DataFrame(cm, index=target_names, columns=target_names).to_csv(
         os.path.join("analytics", "confusion_matrix.csv"), index_label="actual"
     )
+    pd.DataFrame(proba, columns=[label_map[i] for i in range(proba.shape[1])]).to_csv(
+        os.path.join("analytics", "predicted_probabilities.csv"), index=False
+    )
     with open(os.path.join("analytics", "classification_report.txt"), "w") as f:
         f.write(report)
     with open(os.path.join("analytics", "metrics_summary.json"), "w") as f:
         json.dump(metrics_summary, f, indent=2)
+    joblib.dump(scaler, os.path.join("analytics", "scaler.pkl"))
     logger.info("📁 Saved diagnostics to analytics/")
 
     try:
