@@ -20,10 +20,19 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Minimum rows required after indicator calculations
-MIN_ROWS_AFTER_INDICATORS = 60
+DEFAULT_MIN_ROWS_AFTER_INDICATORS = 60
 
-def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
+def add_indicators(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
+    """Add technical and sentiment indicators to OHLCV data.
+
+    Parameters
+    ----------
+    df : :class:`pandas.DataFrame`
+        Raw OHLCV data.
+    min_rows : int, default ``DEFAULT_MIN_ROWS_AFTER_INDICATORS``
+        Minimum number of rows required after indicator computation. If fewer
+        rows remain, an empty DataFrame is returned.
+    """
     if df.empty or "Close" not in df.columns:
         logger.warning("⚠️ Cannot add indicators: DataFrame empty or missing 'Close'")
         return pd.DataFrame()
@@ -303,7 +312,7 @@ def add_indicators(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
     return df
 
 
-async def add_indicators_async(df, min_rows: int = MIN_ROWS_AFTER_INDICATORS):
+async def add_indicators_async(df, min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS):
     """Run :func:`add_indicators` in a background thread."""
     return await asyncio.to_thread(add_indicators, df, min_rows=min_rows)
 

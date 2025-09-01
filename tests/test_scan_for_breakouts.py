@@ -55,7 +55,7 @@ def test_scan_for_breakouts_opens_trade(monkeypatch):
         lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
     )
     monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: _mock_df())
-    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
     monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
 
@@ -134,7 +134,7 @@ def test_low_buy_override_threshold_allows_trade(monkeypatch):
         lambda limit=15: [("id1", "ABC", "ABC Coin", 10.0, 1_000_000)],
     )
     monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: _mock_df())
-    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "add_indicators", lambda d, **k: d)
 
     def fake_predict(df, threshold):
         return ("BUY" if 0.7 >= main.HIGH_CONF_BUY_OVERRIDE else "HOLD", 0.7, 3)
@@ -176,7 +176,7 @@ def test_low_volatility_threshold_allows_trade(monkeypatch):
         return df
 
     monkeypatch.setattr(main, "fetch_ohlcv_smart", lambda *a, **k: low_vol_df())
-    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
     monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
 
@@ -229,7 +229,7 @@ def test_scan_for_breakouts_blocks_correlated_entries(monkeypatch):
         return df
 
     monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch)
-    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "add_indicators", lambda d, **k: d)
     monkeypatch.setattr(main, "predict_signal", lambda df, threshold: ("BUY", 0.95, 4))
     monkeypatch.setattr(main, "get_dynamic_threshold", lambda vol, base: 0.5)
 
@@ -283,7 +283,7 @@ def test_scan_for_breakouts_selects_uncorrelated_candidate(monkeypatch):
         return df
 
     monkeypatch.setattr(main, "fetch_ohlcv_smart", fetch)
-    monkeypatch.setattr(main, "add_indicators", lambda d: d)
+    monkeypatch.setattr(main, "add_indicators", lambda d, **k: d)
 
     def pred(df, threshold):
         trend_up = df["Close"].iloc[-1] > df["Close"].iloc[0]
