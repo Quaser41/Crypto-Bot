@@ -226,3 +226,25 @@ def test_prepare_training_data_min_return_zero_keeps_rows(monkeypatch):
     assert X_all is not None and y_all is not None
     assert len(X_all) == len(X_def) + expected_diff
 
+
+def test_prepare_training_data_collapses_to_three_classes(monkeypatch):
+    returns = (
+        [-0.001] * 20
+        + [-0.0005] * 20
+        + [0.0005] * 20
+        + [0.001] * 20
+        + [0.0015] * 20
+    )
+    df = _make_df(returns)
+    monkeypatch.setattr(train_real_model, "fetch_ohlcv_smart", lambda *a, **k: df)
+    monkeypatch.setattr(train_real_model, "add_indicators", lambda d, **k: d)
+    monkeypatch.setattr(train_real_model, "load_feature_list", lambda: ["feat"])
+
+    X, y = train_real_model.prepare_training_data(
+        "SYM", "coin", min_unique_samples=3, min_return=0, augment_ratio=1.0
+    )
+    assert X is not None and y is not None
+    counts = y.value_counts().to_dict()
+    assert set(counts.keys()) == {0, 2, 4}
+    assert all(v == 40 for v in counts.values())
+
