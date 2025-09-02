@@ -21,6 +21,7 @@ from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV, RandomizedSearchCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.base import clone
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
 from xgboost import XGBClassifier
@@ -992,13 +993,16 @@ def train_model(
     logger.info("📁 Saved diagnostics to analytics/")
 
     try:
-        # Calibrate on the underlying model to avoid mutating read-only
-        # attributes on the pipeline wrapper. ``CalibratedClassifierCV`` is
-        # applied inside ``calibrate_and_analyze``.
-        scaler = model.named_steps.get("scaler")
-        base_estimator = model.named_steps.get("model", model)
-        X_calib = scaler.transform(X_test_raw) if scaler is not None else X_test_raw
-        _, thresholds = calibrate_and_analyze(base_estimator, X_calib, y_test, target_names)
+        unfit_model = clone(model)
+        _, thresholds = calibrate_and_analyze(
+            unfit_model,
+            X_train_bal,
+            y_train_bal,
+            X_test_raw,
+            y_test,
+            target_names,
+            method="isotonic",
+        )
         logger.info("📈 Recommended thresholds: %s", thresholds)
     except Exception as e:
         logger.warning("⚠️ Calibration/threshold analysis failed: %s", e)
