@@ -1038,6 +1038,14 @@ def main():
         ),
     )
     parser.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated list of symbols to train on (e.g., BTC,ETH)"
+        ),
+    )
+    parser.add_argument(
         "--min-volume",
         type=float,
         default=MIN_24H_VOLUME / 10,
@@ -1108,8 +1116,12 @@ def main():
             args.oversampler,
         )
         sys.exit(1)
-
-    candidates = get_volume_ranked_symbols(limit=args.candidate_limit)
+    if args.symbols:
+        symbol_list = [s.strip().lower() for s in args.symbols.split(",") if s.strip()]
+        args.candidate_limit = len(symbol_list)
+        candidates = [(s, float("inf")) for s in symbol_list]
+    else:
+        candidates = get_volume_ranked_symbols(limit=args.candidate_limit)
     X_list: list[pd.DataFrame] = []
     y_list: list[pd.Series] = []
 
