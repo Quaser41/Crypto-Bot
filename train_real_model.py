@@ -363,7 +363,7 @@ def prepare_training_data(
                 "❌ Future_Close misalignment for %s (horizon=%d)", coin_id, horizon
             )
             raise AssertionError("Future_Close shift misalignment")
-        logger.debug(
+        logger.info(
             "✅ Verified Future_Close alignment for %s (horizon=%d)", coin_id, horizon
         )
     if min_return > 0:
@@ -390,6 +390,32 @@ def prepare_training_data(
     if class_counts.get(0, 0) == 0 or class_counts.get(4, 0) == 0:
         logger.warning("⚠️ Missing extreme classes for %s; skipping", coin_id)
         return None, None
+
+    mean_returns = df.groupby("Target")["Return"].mean().sort_index()
+    logger.info("📈 Mean returns per class for %s: %s", coin_id, mean_returns.to_dict())
+
+    mean_diffs = mean_returns.diff().dropna()
+    min_gap = min_threshold_gap if min_threshold_gap is not None else 0.001
+    if (mean_diffs <= 0).any() or (mean_diffs < min_gap).sum() >= 2:
+        logger.warning(
+            "⚠️ Overlapping mean returns for %s (diffs=%s); collapsing to 3 classes",
+            coin_id,
+            mean_diffs.to_dict(),
+        )
+        df["Target"] = pd.cut(
+            df["Return"],
+            bins=[-np.inf, thresholds["loss"], thresholds["gain"], np.inf],
+            labels=[0, 2, 4],
+        ).astype(int)
+        thresholds = {"loss": thresholds["loss"], "gain": thresholds["gain"]}
+        mean_returns = df.groupby("Target")["Return"].mean().sort_index()
+        logger.info(
+            "📈 Mean returns per class after collapse for %s: %s",
+            coin_id,
+            mean_returns.to_dict(),
+        )
+        logger.info("📐 Thresholds after collapse for %s: %s", coin_id, thresholds)
+        class_counts = df["Target"].value_counts()
 
     # Adjust oversampling target based on distribution
     augment_target = min(augment_target, int(class_counts.max() * augment_ratio))
