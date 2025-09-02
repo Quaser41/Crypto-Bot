@@ -29,6 +29,7 @@ from analytics.calibration_utils import calibrate_and_analyze
 
 import joblib
 from joblib.externals.loky.process_executor import TerminatedWorkerError
+
 BackendError = getattr(joblib.parallel, "BackendError", Exception)
 
 from scipy.stats import ttest_rel
@@ -55,15 +56,33 @@ except ImportError:  # pragma: no cover - handled gracefully at runtime
 
 # === Feature configuration ===
 DEFAULT_FEATURES = [
-    "RSI", "MACD", "Signal", "Hist",
-    "SMA_20", "SMA_50",
-    "Return_1d", "Return_2d", "Return_3d", "Return_5d", "Return_7d",
-    "Price_vs_SMA20", "Price_vs_SMA50",
-    "Volatility_7d", "MACD_Hist_norm",
-    "MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h",
-    "BB_Upper", "BB_Middle", "BB_Lower",
-    "EMA_9", "EMA_26",
-    "OBV", "Volume_vs_SMA20", "RelStrength_BTC"
+    "RSI",
+    "MACD",
+    "Signal",
+    "Hist",
+    "SMA_20",
+    "SMA_50",
+    "Return_1d",
+    "Return_2d",
+    "Return_3d",
+    "Return_5d",
+    "Return_7d",
+    "Price_vs_SMA20",
+    "Price_vs_SMA50",
+    "Volatility_7d",
+    "MACD_Hist_norm",
+    "MACD_4h",
+    "Signal_4h",
+    "Hist_4h",
+    "SMA_4h",
+    "BB_Upper",
+    "BB_Middle",
+    "BB_Lower",
+    "EMA_9",
+    "EMA_26",
+    "OBV",
+    "Volume_vs_SMA20",
+    "RelStrength_BTC",
 ]
 
 # Optional columns that may not be present for all assets (e.g., higher timeframe
@@ -81,14 +100,18 @@ def load_feature_list():
     try:
         with open("features.json", "r") as f:
             features = json.load(f)
-        if not isinstance(features, list) or not all(isinstance(f, str) for f in features):
+        if not isinstance(features, list) or not all(
+            isinstance(f, str) for f in features
+        ):
             raise ValueError("features.json is not a list of strings")
         logger.info("📄 Loaded %d features from features.json", len(features))
         return features
     except FileNotFoundError:
         logger.warning("⚠️ features.json not found; using default feature set")
     except (json.JSONDecodeError, ValueError) as e:
-        logger.warning("⚠️ Could not parse features.json (%s); using default feature set", e)
+        logger.warning(
+            "⚠️ Could not parse features.json (%s); using default feature set", e
+        )
     return DEFAULT_FEATURES
 
 
@@ -116,6 +139,7 @@ def get_volume_ranked_symbols(limit: int | None = None):
 
     volumes.sort(key=lambda x: x[1], reverse=True)
     return volumes if limit is None else volumes[:limit]
+
 
 # === Label encoding function (tight, short-term focused) ===
 def return_bucket(r, thresholds):
@@ -152,9 +176,7 @@ def prepare_training_data(
     quantiles: Iterable[float] = (0.2, 0.4, 0.6, 0.8),
     min_threshold_gap: float | None = None,
     min_return: float = 0.005,
-
     horizon: int = 3,
-
     min_rows: int = 60,
     min_rows_ratio: float = 0.6,
 ):
@@ -225,9 +247,7 @@ def prepare_training_data(
 
     if len(df) < data_fetcher.MIN_HISTORY_BARS:
         if coin_id not in _SHORT_HISTORY_LOGGED:
-            logger.info(
-                "⏭️ Skipping %s (%d fetched rows)", coin_id, len(df)
-            )
+            logger.info("⏭️ Skipping %s (%d fetched rows)", coin_id, len(df))
             _SHORT_HISTORY_LOGGED.add(coin_id)
         return None, None
 
@@ -245,9 +265,7 @@ def prepare_training_data(
         if len(df) < required_rows(len(df)):
             original_sources = data_fetcher.DATA_SOURCES[:]
             for i in range(1, len(original_sources)):
-                data_fetcher.DATA_SOURCES = (
-                    original_sources[i:] + original_sources[:i]
-                )
+                data_fetcher.DATA_SOURCES = original_sources[i:] + original_sources[:i]
                 df_retry = fetch_ohlcv_smart(
                     symbol=symbol, coin_id=coin_id, days=1460, limit=20000
                 )
@@ -271,9 +289,7 @@ def prepare_training_data(
     if "Timestamp" in df.columns:
         try:
             df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True)
-            interval = (
-                df.sort_values("Timestamp")["Timestamp"].diff().median()
-            )
+            interval = df.sort_values("Timestamp")["Timestamp"].diff().median()
             if pd.isna(interval) or interval <= pd.Timedelta(0):
                 raise ValueError
             ratio = max(pd.Timedelta("4h") / interval, 1)
@@ -335,7 +351,6 @@ def prepare_training_data(
             )
             return None, None
 
-
     df.loc[:, "Future_Close"] = df["Close"].shift(-horizon)
     df.loc[:, "Return"] = (df["Future_Close"] - df["Close"]) / df["Close"]
     if len(df) > horizon:
@@ -354,7 +369,6 @@ def prepare_training_data(
     if min_return > 0:
         df = df[df["Return"].abs() > min_return]
     df = df.dropna()
-
 
     thresholds = compute_return_thresholds(
         df["Return"], quantiles=quantiles, min_gap=min_threshold_gap
@@ -426,9 +440,7 @@ def prepare_training_data(
                         oversampler,
                         class_counts,
                     )
-                    sampler = sampler_cls(
-                        random_state=42, sampling_strategy=strategy
-                    )
+                    sampler = sampler_cls(random_state=42, sampling_strategy=strategy)
                     X, y = sampler.fit_resample(X, y)
                     class_counts = y.value_counts().sort_index()
                     logger.info("📈 Applied %s oversampling", oversampler.upper())
@@ -452,7 +464,9 @@ def prepare_training_data(
             idx = y[y == cls].index
             if len(idx) == 0:
                 logger.warning(
-                    "⚠️ No data available to augment class %d for %s; skipping", cls, coin_id
+                    "⚠️ No data available to augment class %d for %s; skipping",
+                    cls,
+                    coin_id,
                 )
                 return None, None
             subset = pd.concat([X.loc[idx], y.loc[idx]], axis=1)
@@ -475,26 +489,30 @@ def prepare_training_data(
                 "📊 Class distribution after augmenting class %d: %s", cls, class_counts
             )
 
-    df_aug = pd.concat([X, y], axis=1).sample(frac=1, random_state=42).reset_index(drop=True)
+    df_aug = (
+        pd.concat([X, y], axis=1).sample(frac=1, random_state=42).reset_index(drop=True)
+    )
     logger.info(
-        "📊 Class distribution after augmentation: %s", df_aug["Target"].value_counts().sort_index()
+        "📊 Class distribution after augmentation: %s",
+        df_aug["Target"].value_counts().sort_index(),
     )
 
     X = df_aug.drop(columns=["Target"])
     y = df_aug["Target"]
     return X, y
 
+
 def train_model(
     X,
     y,
     oversampler: Optional[str] = "random",
-    search_scale: str = "medium",
+    search_mode: str = "full",
     cv_splits: int = 3,
     verbose: int = 1,
     n_jobs: int = 1,
     class_weight: str = "balanced",
-    random_search: bool = False,
     random_iter: int = 10,
+    search_scale: str | None = None,
 ):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
@@ -655,14 +673,10 @@ def train_model(
         present_classes = set(y_tr_raw.unique())
         missing_classes = set(le.classes_) - present_classes
         if missing_classes:
-            logger.warning(
-                "⚠️ Fold %d missing classes: %s", fold, list(missing_classes)
-            )
+            logger.warning("⚠️ Fold %d missing classes: %s", fold, list(missing_classes))
 
         if len(fold_le.classes_) < 2 or len(np.unique(y_val)) < 2:
-            logger.warning(
-                "⚠️ Fold %d skipped due to insufficient class variety", fold
-            )
+            logger.warning("⚠️ Fold %d skipped due to insufficient class variety", fold)
             continue
 
         fold_weights = (
@@ -692,7 +706,9 @@ def train_model(
                     y_val_raw,
                     cv_preds,
                     labels=sorted(fold_le.classes_),
-                    target_names=[fold_label_map[cls] for cls in sorted(fold_le.classes_)],
+                    target_names=[
+                        fold_label_map[cls] for cls in sorted(fold_le.classes_)
+                    ],
                     digits=3,
                     zero_division=0,
                 ),
@@ -780,7 +796,9 @@ def train_model(
                 }
                 sampler_cls = sampler_map[oversampler]
                 sampler = sampler_cls(random_state=42)
-                X_train_bal, y_train_bal = sampler.fit_resample(X_train_bal, y_train_bal)
+                X_train_bal, y_train_bal = sampler.fit_resample(
+                    X_train_bal, y_train_bal
+                )
                 logger.info(
                     "📈 Applied %s oversampling to full training set",
                     oversampler.upper(),
@@ -853,8 +871,11 @@ def train_model(
         ]
     )
 
-    scale = (search_scale or "medium").lower()
-    if scale == "small":
+    if search_scale is not None:
+        search_mode = search_scale
+
+    mode = (search_mode or "full").lower()
+    if mode == "small":
         param_grid = {
             "model__n_estimators": [100, 200],
             "model__max_depth": [3],
@@ -862,15 +883,6 @@ def train_model(
             "model__subsample": [1.0],
             "model__colsample_bytree": [1.0],
             "model__min_child_weight": [1],
-        }
-    elif scale == "medium":
-        param_grid = {
-            "model__n_estimators": [100, 200],
-            "model__max_depth": [3, 4],
-            "model__learning_rate": [0.05, 0.1],
-            "model__subsample": [0.8, 1.0],
-            "model__colsample_bytree": [0.8, 1.0],
-            "model__min_child_weight": [1, 3],
         }
     else:
         param_grid = {
@@ -885,7 +897,7 @@ def train_model(
     # Use user-specified parallelism for cross-validation. The estimator itself
     # remains single-threaded to avoid nested parallelism.
 
-    if random_search:
+    if mode == "random":
         search = RandomizedSearchCV(
             final_pipeline,
             param_grid,
@@ -912,6 +924,7 @@ def train_model(
         def write(self, buf):
             for line in buf.rstrip().splitlines():
                 logger.info(line)
+
         def flush(self):
             pass
 
@@ -959,7 +972,9 @@ def train_model(
     )
     cm = confusion_matrix(y_test, preds, labels=labels_sorted)
 
-    mean_proba = dict(zip([label_map[i] for i in range(proba.shape[1])], proba.mean(axis=0)))
+    mean_proba = dict(
+        zip([label_map[i] for i in range(proba.shape[1])], proba.mean(axis=0))
+    )
     logger.info("🔍 Mean per-class predicted probabilities: %s", mean_proba)
 
     logger.info("\n📊 Classification Report:\n%s", report)
@@ -973,8 +988,7 @@ def train_model(
     metrics_summary = {
         "macro_f1": report_dict["macro avg"]["f1-score"],
         "per_class_recall": {
-            name: report_dict.get(name, {}).get("recall", 0.0)
-            for name in target_names
+            name: report_dict.get(name, {}).get("recall", 0.0) for name in target_names
         },
     }
 
@@ -1008,6 +1022,7 @@ def train_model(
         logger.warning("⚠️ Calibration/threshold analysis failed: %s", e)
 
     return model, le.classes_
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -1068,18 +1083,12 @@ def main():
         type=float,
         default=0.005,
         help="Minimum absolute return required to keep a row; 0 disables filtering",
-
     )
     parser.add_argument(
         "--horizon",
         type=int,
         default=3,
         help="Number of future 15m bars to look ahead when computing the target",
-    )
-    parser.add_argument(
-        "--fast",
-        action="store_true",
-        help="Use a small hyperparameter grid for quicker runs",
     )
 
     parser.add_argument(
@@ -1100,9 +1109,7 @@ def main():
         "--symbols",
         type=str,
         default=None,
-        help=(
-            "Comma-separated list of symbols to train on (e.g., BTC,ETH)"
-        ),
+        help=("Comma-separated list of symbols to train on (e.g., BTC,ETH)"),
     )
     parser.add_argument(
         "--min-volume",
@@ -1115,19 +1122,15 @@ def main():
         action="store_true",
         help="Include symbols regardless of their 24h volume",
     )
-    
+
     parser.add_argument(
-        "--search-scale",
-        "--param-scale",
-        choices=["small", "medium", "full"],
-        default="medium",
-        dest="search_scale",
-        help="Size of hyperparameter grid search",
-    )
-    parser.add_argument(
-        "--random-search",
-        action="store_true",
-        help="Use RandomizedSearchCV instead of GridSearchCV",
+        "--search-mode",
+        choices=["full", "small", "random"],
+        default="full",
+        help=(
+            "Hyperparameter search strategy: 'full' uses the complete grid, "
+            "'small' uses a reduced grid, 'random' applies RandomizedSearchCV"
+        ),
     )
     parser.add_argument(
         "--random-iter",
@@ -1142,7 +1145,6 @@ def main():
         type=int,
         default=1,
         help="Grid search verbosity level",
-
     )
     parser.add_argument(
         "--n-jobs",
@@ -1165,11 +1167,10 @@ def main():
         logger.warning("n_jobs != 1 is not supported on Windows; using 1")
     n_jobs = 1 if sys.platform.startswith("win") else args.n_jobs
 
-    if args.fast:
-        args.search_scale = "small"
-
-
-    if args.oversampler in {"smote", "adasyn", "borderline", "random"} and SMOTE is None:
+    if (
+        args.oversampler in {"smote", "adasyn", "borderline", "random"}
+        and SMOTE is None
+    ):
         logger.error(
             "imbalanced-learn is required for %s oversampling. Run 'pip install -r requirements.txt' to install it.",
             args.oversampler,
@@ -1189,7 +1190,10 @@ def main():
         attempts += 1
         if volume < min_volume:
             logger.info(
-                "⏭️ Skipping %s: volume %.0f below %s", symbol.upper(), volume, min_volume
+                "⏭️ Skipping %s: volume %.0f below %s",
+                symbol.upper(),
+                volume,
+                min_volume,
             )
             continue
 
@@ -1200,9 +1204,7 @@ def main():
 
         df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=730)
         if len(df) < 416:
-            logger.info(
-                "⏭️ Skipping %s: only %d rows of data", symbol.upper(), len(df)
-            )
+            logger.info("⏭️ Skipping %s: only %d rows of data", symbol.upper(), len(df))
             continue
 
         X, y = prepare_training_data(
@@ -1216,7 +1218,6 @@ def main():
             min_threshold_gap=args.min_threshold_gap,
             min_return=args.min_return,
             horizon=args.horizon,
-
         )
         if X is not None and y is not None:
             logger.info("✅ Selected %s for training", symbol.upper())
@@ -1239,12 +1240,11 @@ def main():
         X_all,
         y_all,
         oversampler=None if args.oversampler == "none" else args.oversampler,
-        search_scale=args.search_scale,
+        search_mode=args.search_mode,
         cv_splits=args.cv_splits,
         verbose=args.gs_verbose,
         n_jobs=n_jobs,
         class_weight=args.class_weight,
-        random_search=args.random_search,
         random_iter=args.random_iter,
     )
     feature_list = X_all.columns.tolist()
@@ -1254,6 +1254,7 @@ def main():
     with open("labels.json", "w") as f:
         json.dump([int(lbl) for lbl in labels], f)
     logger.info("💾 Saved multi-class model, feature list, and labels")
+
 
 if __name__ == "__main__":
     main()
