@@ -1128,16 +1128,7 @@ def main():
             continue
 
         df = fetch_ohlcv_smart(symbol, coin_id=coin_id, days=730)
-        if len(df) < 60:
-            logger.info(
-                "🔄 %s: %d rows fetched; retrying with extended history",
-                symbol.upper(),
-                len(df),
-            )
-            df = fetch_ohlcv_smart(
-                symbol, coin_id=coin_id, days=1460, limit=20000
-            )
-        if len(df) < 60:
+        if len(df) < 416:
             logger.info(
                 "⏭️ Skipping %s: only %d rows of data", symbol.upper(), len(df)
             )
