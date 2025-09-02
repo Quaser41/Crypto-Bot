@@ -943,7 +943,13 @@ def train_model(
     logger.info("📁 Saved diagnostics to analytics/")
 
     try:
-        _, thresholds = calibrate_and_analyze(model, X_test_raw, y_test, target_names)
+        # Calibrate on the underlying model to avoid mutating read-only
+        # attributes on the pipeline wrapper. ``CalibratedClassifierCV`` is
+        # applied inside ``calibrate_and_analyze``.
+        scaler = model.named_steps.get("scaler")
+        base_estimator = model.named_steps.get("model", model)
+        X_calib = scaler.transform(X_test_raw) if scaler is not None else X_test_raw
+        _, thresholds = calibrate_and_analyze(base_estimator, X_calib, y_test, target_names)
         logger.info("📈 Recommended thresholds: %s", thresholds)
     except Exception as e:
         logger.warning("⚠️ Calibration/threshold analysis failed: %s", e)
