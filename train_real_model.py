@@ -17,7 +17,7 @@ from data_fetcher import fetch_ohlcv_smart
 import symbol_resolver
 from config import MIN_24H_VOLUME
 from feature_engineer import add_indicators
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV, RandomizedSearchCV
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
@@ -29,6 +29,8 @@ from analytics.calibration_utils import calibrate_and_analyze
 import joblib
 from joblib.externals.loky.process_executor import TerminatedWorkerError
 BackendError = getattr(joblib.parallel, "BackendError", Exception)
+
+from scipy.stats import ttest_rel
 
 from utils.logging import get_logger
 from threshold_utils import compute_return_thresholds
@@ -551,6 +553,8 @@ def train_model(
     # === Walk-forward cross-validation ===
     cv_splits = max(2, cv_splits)
     tscv = TimeSeriesSplit(n_splits=cv_splits)
+    model_f1s: list[float] = []
+    baseline_f1s: list[float] = []
     for fold, (tr_idx, val_idx) in enumerate(tscv.split(X_train_raw), start=1):
         X_tr_raw, X_val_raw = X_train_raw.iloc[tr_idx], X_train_raw.iloc[val_idx]
         y_tr_raw, y_val_raw = y_train_raw.iloc[tr_idx], y_train_raw.iloc[val_idx]
@@ -692,6 +696,33 @@ def train_model(
                     zero_division=0,
                 ),
             )
+            model_f1 = f1_score(
+                y_val_raw,
+                cv_preds,
+                labels=sorted(fold_le.classes_),
+                average="macro",
+                zero_division=0,
+            )
+            rng = np.random.default_rng(42 + fold)
+            baseline_preds_enc = rng.integers(
+                0, len(fold_le.classes_), size=len(y_val_raw)
+            )
+            baseline_preds = fold_le.inverse_transform(baseline_preds_enc)
+            baseline_f1 = f1_score(
+                y_val_raw,
+                baseline_preds,
+                labels=sorted(fold_le.classes_),
+                average="macro",
+                zero_division=0,
+            )
+            logger.info(
+                "🎯 Fold %d macro F1: model=%.3f, random=%.3f",
+                fold,
+                model_f1,
+                baseline_f1,
+            )
+            model_f1s.append(model_f1)
+            baseline_f1s.append(baseline_f1)
             cm = confusion_matrix(
                 y_val_raw,
                 cv_preds,
@@ -705,6 +736,24 @@ def train_model(
             logger.info("🧮 CV Fold %d confusion matrix:\n%s", fold, cm_df)
         except Exception as e:
             logger.warning("⚠️ CV fold %d failed: %s", fold, e)
+
+    if model_f1s:
+        mean_model = float(np.mean(model_f1s))
+        mean_baseline = float(np.mean(baseline_f1s))
+        logger.info(
+            "📈 Mean CV macro F1: model=%.3f, random=%.3f",
+            mean_model,
+            mean_baseline,
+        )
+        try:
+            t_stat, p_val = ttest_rel(model_f1s, baseline_f1s)
+            logger.info(
+                "🔬 Paired t-test vs random baseline: t=%.3f, p=%.3f",
+                float(t_stat),
+                float(p_val),
+            )
+        except Exception as e:
+            logger.warning("⚠️ Failed to compute t-test: %s", e)
 
     # === Final model training with class weights & hyperparameter search ===
     X_train_bal, y_train_bal = X_train_raw.copy(), y_train
