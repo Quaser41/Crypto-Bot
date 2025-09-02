@@ -1030,6 +1030,14 @@ def main():
         help="Target number of symbols to include in training",
     )
     parser.add_argument(
+        "--candidate-limit",
+        type=int,
+        default=None,
+        help=(
+            "Maximum number of volume-ranked symbols to scan for training candidates"
+        ),
+    )
+    parser.add_argument(
         "--min-volume",
         type=float,
         default=MIN_24H_VOLUME / 10,
@@ -1082,6 +1090,8 @@ def main():
         help="Number of cross-validation splits",
     )
     args = parser.parse_args()
+    if args.candidate_limit is None:
+        args.candidate_limit = args.max_assets * 3
     min_volume = 0 if args.ignore_volume else args.min_volume
 
     if sys.platform.startswith("win") and args.n_jobs != 1:
@@ -1099,11 +1109,13 @@ def main():
         )
         sys.exit(1)
 
-    candidates = get_volume_ranked_symbols()
+    candidates = get_volume_ranked_symbols(limit=args.candidate_limit)
     X_list: list[pd.DataFrame] = []
     y_list: list[pd.Series] = []
 
+    attempts = 0
     for symbol, volume in candidates:
+        attempts += 1
         if volume < min_volume:
             logger.info(
                 "⏭️ Skipping %s: volume %.0f below %s", symbol.upper(), volume, min_volume
@@ -1148,7 +1160,7 @@ def main():
             logger.info("✅ Selected %s for training", symbol.upper())
             X_list.append(X)
             y_list.append(y)
-        if len(X_list) >= args.max_assets:
+        if len(X_list) >= args.max_assets or attempts >= args.candidate_limit:
             break
 
     X_list = [x for x in X_list if x is not None and not x.empty]
