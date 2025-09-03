@@ -24,6 +24,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.base import clone
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
+from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 from analytics.calibration_utils import calibrate_and_analyze
 
@@ -539,6 +540,7 @@ def train_model(
     class_weight: str = "balanced",
     random_iter: int = 10,
     search_scale: str | None = None,
+    model_type: str = "xgb",
 ):
     logger.info("\n🚀 Training multi-class classifier...")
     original_label_names = {
@@ -616,23 +618,25 @@ def train_model(
             val_dist,
         )
 
+        if model_type == "logit":
+            fold_model = LogisticRegression(max_iter=200)
+        else:
+            fold_model = XGBClassifier(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                subsample=0.8,
+                colsample_bytree=0.8,
+                objective="multi:softprob",
+                num_class=len(fold_le.classes_),
+                random_state=42,
+                eval_metric="mlogloss",
+            )
+
         fold_pipeline = Pipeline(
             [
                 ("scaler", StandardScaler()),
-                (
-                    "model",
-                    XGBClassifier(
-                        n_estimators=200,
-                        max_depth=4,
-                        learning_rate=0.05,
-                        subsample=0.8,
-                        colsample_bytree=0.8,
-                        objective="multi:softprob",
-                        num_class=len(fold_le.classes_),
-                        random_state=42,
-                        eval_metric="mlogloss",
-                    ),
-                ),
+                ("model", fold_model),
             ]
         )
 
@@ -881,92 +885,120 @@ def train_model(
             list(label_map.keys()),
         )
 
-    final_pipeline = Pipeline(
-        [
-            ("scaler", StandardScaler()),
-            (
-                "model",
-                XGBClassifier(
-                    objective="multi:softprob",
-                    num_class=len(le.classes_),
-                    random_state=42,
-                    eval_metric="mlogloss",
-                    n_jobs=1,
+    if model_type == "logit":
+        final_pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", LogisticRegression(max_iter=200)),
+            ]
+        )
+        class _LogStream(io.TextIOBase):
+            def write(self, buf):
+                for line in buf.rstrip().splitlines():
+                    logger.info(line)
+
+            def flush(self):
+                pass
+
+        with contextlib.redirect_stdout(_LogStream()):
+            if sample_weights is not None:
+                final_pipeline.fit(
+                    X_train_bal,
+                    y_train_bal,
+                    model__sample_weight=sample_weights,
+                )
+            else:
+                final_pipeline.fit(X_train_bal, y_train_bal)
+        model = final_pipeline
+    else:
+        final_pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                (
+                    "model",
+                    XGBClassifier(
+                        objective="multi:softprob",
+                        num_class=len(le.classes_),
+                        random_state=42,
+                        eval_metric="mlogloss",
+                        n_jobs=1,
+                    ),
                 ),
-            ),
-        ]
-    )
-
-    if search_scale is not None:
-        search_mode = search_scale
-
-    mode = (search_mode or "full").lower()
-    if mode == "small":
-        param_grid = {
-            "model__n_estimators": [100, 200],
-            "model__max_depth": [3],
-            "model__learning_rate": [0.1],
-            "model__subsample": [1.0],
-            "model__colsample_bytree": [1.0],
-            "model__min_child_weight": [1],
-        }
-    else:
-        param_grid = {
-            "model__n_estimators": [100, 200, 300],
-            "model__max_depth": [3, 4, 5, 6],
-            "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
-            "model__subsample": [0.6, 0.8, 1.0],
-            "model__colsample_bytree": [0.6, 0.8, 1.0],
-            "model__min_child_weight": [1, 3, 5],
-        }
-
-    # Use user-specified parallelism for cross-validation. The estimator itself
-    # remains single-threaded to avoid nested parallelism.
-
-    if mode == "random":
-        search = RandomizedSearchCV(
-            final_pipeline,
-            param_grid,
-            n_iter=random_iter,
-            scoring="f1_macro",
-            cv=TimeSeriesSplit(n_splits=cv_splits),
-            n_jobs=n_jobs,
-            refit=True,
-            verbose=verbose,
-            random_state=42,
-        )
-    else:
-        search = GridSearchCV(
-            final_pipeline,
-            param_grid,
-            scoring="f1_macro",
-            cv=TimeSeriesSplit(n_splits=cv_splits),
-            n_jobs=n_jobs,
-            refit=True,
-            verbose=verbose,
+            ]
         )
 
-    class _LogStream(io.TextIOBase):
-        def write(self, buf):
-            for line in buf.rstrip().splitlines():
-                logger.info(line)
+        if search_scale is not None:
+            search_mode = search_scale
 
-        def flush(self):
-            pass
+        mode = (search_mode or "full").lower()
+        if mode == "small":
+            param_grid = {
+                "model__n_estimators": [100, 200],
+                "model__max_depth": [3],
+                "model__learning_rate": [0.1],
+                "model__subsample": [1.0],
+                "model__colsample_bytree": [1.0],
+                "model__min_child_weight": [1],
+            }
+        else:
+            param_grid = {
+                "model__n_estimators": [100, 200, 300],
+                "model__max_depth": [3, 4, 5, 6],
+                "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
+                "model__subsample": [0.6, 0.8, 1.0],
+                "model__colsample_bytree": [0.6, 0.8, 1.0],
+                "model__min_child_weight": [1, 3, 5],
+            }
 
-    with contextlib.redirect_stdout(_LogStream()):
-        if sample_weights is not None:
-            search.fit(
-                X_train_bal,
-                y_train_bal,
-                model__sample_weight=sample_weights,
+        # Use user-specified parallelism for cross-validation. The estimator itself
+        # remains single-threaded to avoid nested parallelism.
+
+        if mode == "random":
+            search = RandomizedSearchCV(
+                final_pipeline,
+                param_grid,
+                n_iter=random_iter,
+                scoring="f1_macro",
+                cv=TimeSeriesSplit(n_splits=cv_splits),
+                n_jobs=n_jobs,
+                refit=True,
+                verbose=verbose,
+                random_state=42,
             )
         else:
-            search.fit(X_train_bal, y_train_bal)
-    model = search.best_estimator_
-    logger.info(
-        "🔍 Best params: %s (macro-F1=%.3f)", search.best_params_, search.best_score_
-    )
+            search = GridSearchCV(
+                final_pipeline,
+                param_grid,
+                scoring="f1_macro",
+                cv=TimeSeriesSplit(n_splits=cv_splits),
+                n_jobs=n_jobs,
+                refit=True,
+                verbose=verbose,
+            )
+
+        class _LogStream(io.TextIOBase):
+            def write(self, buf):
+                for line in buf.rstrip().splitlines():
+                    logger.info(line)
+
+            def flush(self):
+                pass
+
+        with contextlib.redirect_stdout(_LogStream()):
+            if sample_weights is not None:
+                search.fit(
+                    X_train_bal,
+                    y_train_bal,
+                    model__sample_weight=sample_weights,
+                )
+            else:
+                search.fit(X_train_bal, y_train_bal)
+        model = search.best_estimator_
+        logger.info(
+            "🔍 Best params: %s (macro-F1=%.3f)",
+            search.best_params_,
+            search.best_score_,
+        )
 
     preds = model.predict(X_test_raw)
     if len(np.unique(preds)) < 2:
@@ -1056,6 +1088,12 @@ def main():
             "Train crypto classifier and overwrite features.json with the "
             "feature names used during training"
         )
+    )
+    parser.add_argument(
+        "--model-type",
+        choices=["xgb", "logit"],
+        default="xgb",
+        help="Model type to train: 'xgb' for XGBoost or 'logit' for logistic regression",
     )
     parser.add_argument(
         "--oversampler",
@@ -1272,11 +1310,15 @@ def main():
         n_jobs=n_jobs,
         class_weight=args.class_weight,
         random_iter=args.random_iter,
+        model_type=args.model_type,
     )
     feature_list = X_all.columns.tolist()
     with open("features.json", "w") as f:
         json.dump(feature_list, f, indent=2)
-    model.named_steps["model"].save_model("ml_model.json")
+    if args.model_type == "xgb":
+        model.named_steps["model"].save_model("ml_model.json")
+    else:
+        joblib.dump(model, "ml_model.pkl")
     with open("labels.json", "w") as f:
         json.dump([int(lbl) for lbl in labels], f)
     logger.info("💾 Saved multi-class model, feature list, and labels")
