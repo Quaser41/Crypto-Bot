@@ -738,10 +738,21 @@ def train_model(
         try:
             if fold_weights is not None:
                 fold_pipeline.named_steps["model"].fit(
-                    X_tr, y_tr, sample_weight=fold_weights
+                    X_tr,
+                    y_tr,
+                    sample_weight=fold_weights,
+                    eval_set=[(X_val, y_val)],
+                    early_stopping_rounds=20,
+                    verbose=False,
                 )
             else:
-                fold_pipeline.named_steps["model"].fit(X_tr, y_tr)
+                fold_pipeline.named_steps["model"].fit(
+                    X_tr,
+                    y_tr,
+                    eval_set=[(X_val, y_val)],
+                    early_stopping_rounds=20,
+                    verbose=False,
+                )
             cv_preds_enc = fold_pipeline.named_steps["model"].predict(X_val)
             cv_preds = fold_le.inverse_transform(cv_preds_enc)
             if len(np.unique(cv_preds)) < 2:
@@ -928,7 +939,7 @@ def train_model(
     mode = (search_mode or "full").lower()
     if mode == "small":
         param_distributions = {
-            "model__n_estimators": [100, 200],
+            "model__n_estimators": [50, 100],
             "model__max_depth": [3, 4],
             "model__learning_rate": [0.05, 0.1],
             "model__subsample": [0.8, 1.0],
@@ -948,7 +959,7 @@ def train_model(
         )
     elif mode == "medium":
         param_distributions = {
-            "model__n_estimators": [100, 200, 300],
+            "model__n_estimators": [100, 200],
             "model__max_depth": [3, 4, 5],
             "model__learning_rate": [0.03, 0.05, 0.1],
             "model__subsample": [0.6, 0.8, 1.0],
@@ -968,7 +979,7 @@ def train_model(
         )
     else:
         param_grid = {
-            "model__n_estimators": [100, 200, 300, 400],
+            "model__n_estimators": [100, 200, 300],
             "model__max_depth": [3, 4, 5, 6],
             "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
             "model__subsample": [0.6, 0.8, 1.0],
