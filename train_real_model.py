@@ -902,31 +902,37 @@ def train_model(
 
     mode = (search_mode or "full").lower()
     if mode == "small":
-        param_grid = {
+        param_distributions = {
             "model__n_estimators": [100, 200],
-            "model__max_depth": [3],
-            "model__learning_rate": [0.1],
-            "model__subsample": [1.0],
-            "model__colsample_bytree": [1.0],
-            "model__min_child_weight": [1],
+            "model__max_depth": [3, 4],
+            "model__learning_rate": [0.05, 0.1],
+            "model__subsample": [0.8, 1.0],
+            "model__colsample_bytree": [0.8, 1.0],
+            "model__min_child_weight": [1, 3],
         }
-    else:
-        param_grid = {
+        search = RandomizedSearchCV(
+            final_pipeline,
+            param_distributions,
+            n_iter=random_iter,
+            scoring="f1_macro",
+            cv=TimeSeriesSplit(n_splits=cv_splits),
+            n_jobs=n_jobs,
+            refit=True,
+            verbose=verbose,
+            random_state=42,
+        )
+    elif mode == "medium":
+        param_distributions = {
             "model__n_estimators": [100, 200, 300],
-            "model__max_depth": [3, 4, 5, 6],
-            "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
+            "model__max_depth": [3, 4, 5],
+            "model__learning_rate": [0.03, 0.05, 0.1],
             "model__subsample": [0.6, 0.8, 1.0],
             "model__colsample_bytree": [0.6, 0.8, 1.0],
             "model__min_child_weight": [1, 3, 5],
         }
-
-    # Use user-specified parallelism for cross-validation. The estimator itself
-    # remains single-threaded to avoid nested parallelism.
-
-    if mode == "random":
         search = RandomizedSearchCV(
             final_pipeline,
-            param_grid,
+            param_distributions,
             n_iter=random_iter,
             scoring="f1_macro",
             cv=TimeSeriesSplit(n_splits=cv_splits),
@@ -936,6 +942,14 @@ def train_model(
             random_state=42,
         )
     else:
+        param_grid = {
+            "model__n_estimators": [100, 200, 300, 400],
+            "model__max_depth": [3, 4, 5, 6],
+            "model__learning_rate": [0.01, 0.03, 0.05, 0.1],
+            "model__subsample": [0.6, 0.8, 1.0],
+            "model__colsample_bytree": [0.6, 0.8, 1.0],
+            "model__min_child_weight": [1, 3, 5],
+        }
         search = GridSearchCV(
             final_pipeline,
             param_grid,
@@ -945,6 +959,9 @@ def train_model(
             refit=True,
             verbose=verbose,
         )
+
+    # Use user-specified parallelism for cross-validation. The estimator itself
+    # remains single-threaded to avoid nested parallelism.
 
     class _LogStream(io.TextIOBase):
         def write(self, buf):
@@ -1151,18 +1168,19 @@ def main():
 
     parser.add_argument(
         "--search-mode",
-        choices=["full", "small", "random"],
+        choices=["small", "medium", "full"],
         default="full",
         help=(
-            "Hyperparameter search strategy: 'full' uses the complete grid, "
-            "'small' uses a reduced grid, 'random' applies RandomizedSearchCV"
+            "Size of hyperparameter search: 'small' and 'medium' sample from "
+            "progressively larger grids using RandomizedSearchCV, 'full' "
+            "exhaustively evaluates the largest grid"
         ),
     )
     parser.add_argument(
         "--random-iter",
         type=int,
         default=20,
-        help="Number of parameter settings sampled in randomized search",
+        help="Parameter settings sampled when using randomized search",
     )
     parser.add_argument(
         "--gs-verbose",
@@ -1170,13 +1188,13 @@ def main():
         dest="gs_verbose",
         type=int,
         default=1,
-        help="Grid search verbosity level",
+        help="Verbosity level for hyperparameter search",
     )
     parser.add_argument(
         "--n-jobs",
         type=int,
         default=1,
-        help="Parallel jobs for grid search (use -1 for all cores; non-Windows only)",
+        help="Parallel jobs for hyperparameter search (use -1 for all cores; non-Windows only)",
     )
     parser.add_argument(
         "--cv-splits",
