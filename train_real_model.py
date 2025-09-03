@@ -24,6 +24,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.base import clone
 from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.utils import resample
+from sklearn.feature_selection import mutual_info_classif
 from xgboost import XGBClassifier
 from analytics.calibration_utils import calibrate_and_analyze
 
@@ -113,6 +114,30 @@ def load_feature_list():
             "⚠️ Could not parse features.json (%s); using default feature set", e
         )
     return DEFAULT_FEATURES
+
+
+def select_top_features(X: pd.DataFrame, y: pd.Series, top_n: int) -> pd.DataFrame:
+    """Retain the ``top_n`` most informative features using mutual information.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        Feature matrix.
+    y : pd.Series
+        Target labels.
+    top_n : int
+        Number of top features to keep. If ``top_n`` is non-positive or not
+        smaller than the number of columns, ``X`` is returned unchanged.
+    """
+
+    if top_n is None or top_n <= 0 or top_n >= X.shape[1]:
+        return X
+
+    mi = mutual_info_classif(X, y, discrete_features=False, random_state=42)
+    top_indices = np.argsort(mi)[::-1][:top_n]
+    selected = X.columns[top_indices]
+    logger.info("🔍 Selected top %d features: %s", top_n, ", ".join(selected))
+    return X[selected]
 
 
 def get_volume_ranked_symbols(limit: int | None = None):
@@ -1135,6 +1160,15 @@ def main():
     )
 
     parser.add_argument(
+        "--top-features",
+        type=int,
+        default=None,
+        help=(
+            "If set, retain only the N most predictive features based on mutual information"
+        ),
+    )
+
+    parser.add_argument(
         "--max-assets",
         type=int,
         default=10,
@@ -1279,6 +1313,9 @@ def main():
 
     X_all = pd.concat(X_list)
     y_all = pd.concat(y_list)
+
+    if args.top_features:
+        X_all = select_top_features(X_all, y_all, args.top_features)
 
     model, labels = train_model(
         X_all,
