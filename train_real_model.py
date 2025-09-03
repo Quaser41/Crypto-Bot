@@ -87,7 +87,7 @@ DEFAULT_FEATURES = [
 
 # Optional columns that may not be present for all assets (e.g., higher timeframe
 # metrics). Missing these will be tolerated.
-OPTIONAL_FEATURES = {"MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h"}
+OPTIONAL_FEATURES = {"MACD_4h", "Signal_4h", "Hist_4h", "SMA_4h", "RelStrength_BTC"}
 
 
 def load_feature_list():
