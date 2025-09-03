@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+import feature_engineer
 from feature_engineer import add_indicators
 
 
@@ -287,3 +288,43 @@ def test_relstrength_btc_with_multiindex_columns(monkeypatch):
     assert 'RelStrength_BTC' in result.columns
     assert result['RelStrength_BTC'].notna().all()
     assert not w
+
+
+def test_compute_relative_strength_duplicate_keys(monkeypatch, caplog):
+    df = pd.DataFrame({
+        'Timestamp': pd.date_range('2023-01-01', periods=5, freq='D'),
+        'Close': np.linspace(100, 104, 5)
+    })
+    btc = pd.DataFrame({
+        'Timestamp': pd.date_range('2023-01-01', periods=5, freq='D'),
+        'Close': np.linspace(20000, 20004, 5)
+    })
+    monkeypatch.setattr('feature_engineer.fetch_ohlcv_smart', lambda *a, **k: btc)
+
+    def _raise(*a, **k):
+        raise ValueError('cannot assemble with duplicate keys')
+
+    monkeypatch.setattr(feature_engineer.pd, 'merge_asof', _raise)
+    with caplog.at_level('WARNING', logger=feature_engineer.logger.name):
+        rs = feature_engineer.compute_relative_strength(df)
+    assert rs is None
+    assert any('duplicate keys' in r.getMessage() for r in caplog.records)
+
+
+def test_add_indicators_skips_relstrength_when_none(monkeypatch):
+    periods = 70
+    dates = pd.date_range('2023-01-01', periods=periods, freq='D')
+    df = pd.DataFrame({
+        'Timestamp': dates,
+        'Close': np.linspace(100, 170, periods),
+        'High': np.linspace(101, 171, periods),
+        'Low': np.linspace(99, 169, periods),
+        'Volume': np.linspace(1000, 2000, periods),
+    })
+
+    monkeypatch.setattr('feature_engineer.fetch_fear_greed_index', lambda limit=365: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.fetch_onchain_metrics', lambda: pd.DataFrame())
+    monkeypatch.setattr('feature_engineer.compute_relative_strength', lambda d: None)
+
+    result = add_indicators(df, min_rows=20)
+    assert 'RelStrength_BTC' not in result.columns

@@ -24,6 +24,45 @@ DEFAULT_MIN_ROWS_AFTER_INDICATORS = 60
 DEFAULT_MIN_ROWS_RATIO = 0.6
 
 
+def compute_relative_strength(df: pd.DataFrame) -> pd.Series | None:
+    """Return BTC relative strength series or ``None`` on duplicate-key errors."""
+    try:
+        earliest = df["Timestamp"].min().to_pydatetime().replace(tzinfo=None)
+        span_days = (datetime.utcnow() - earliest).days + 1
+        span_days = max(span_days, 60)
+        btc = fetch_ohlcv_smart(
+            "BTC", interval="1d", coin_id="bitcoin", days=span_days
+        )
+        if btc.empty:
+            return pd.Series(1.0, index=df.index)
+        btc.columns = [c[0] if isinstance(c, tuple) else c for c in btc.columns]
+        if "Timestamp" not in btc.columns:
+            btc = btc.reset_index()
+            if "Timestamp" not in btc.columns:
+                btc = btc.rename(columns={btc.columns[0]: "Timestamp"})
+        if {"Timestamp", "Close"}.issubset(btc.columns):
+            btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
+            btc = btc.sort_values("Timestamp").reset_index(drop=True)
+            base = df.reset_index(drop=True)
+            merged = pd.merge_asof(
+                base.sort_values("Timestamp"),
+                btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
+                on="Timestamp",
+                direction="backward",
+            )
+            rel = merged["Close"] / merged["BTC_Close"]
+            return rel.ffill().bfill()
+        return pd.Series(1.0, index=df.index)
+    except ValueError as e:
+        if "cannot assemble with duplicate keys" in str(e):
+            logger.warning("⚠️ Skipping RelStrength_BTC: %s", e)
+            return None
+        raise
+    except Exception as e:  # pragma: no cover - best effort logging
+        logger.warning("⚠️ Failed to compute relative strength vs BTC: %s", e)
+        return pd.Series(1.0, index=df.index)
+
+
 def add_indicators(
     df,
     min_rows: int = DEFAULT_MIN_ROWS_AFTER_INDICATORS,
@@ -171,49 +210,9 @@ def add_indicators(
     # Normalized MACD histogram
     df.loc[:, "MACD_Hist_norm"] = df["Hist"] / df["Close"]
 
-    # Relative Strength vs BTC
-    try:
-        # Determine how many days of BTC history are needed based on the
-        # earliest timestamp in ``df``.  This anchors the start date relative
-        # to ``datetime.utcnow()`` instead of defaulting to the Unix epoch.
-        earliest = df["Timestamp"].min().to_pydatetime().replace(tzinfo=None)
-        span_days = (datetime.utcnow() - earliest).days + 1
-        span_days = max(span_days, 60)
-        btc = fetch_ohlcv_smart("BTC", interval="1d", coin_id="bitcoin", days=span_days)
-        if not btc.empty:
-            # ``fetch_ohlcv_smart`` may return cached data with a MultiIndex on
-            # either the rows or columns.  ``pd.merge_asof`` requires
-            # single-index DataFrames, so flatten any MultiIndex columns and
-            # reset the indices on both frames before merging.  Preserve the
-            # original OHLCV names when flattening.
-            btc.columns = [c[0] if isinstance(c, tuple) else c for c in btc.columns]
-
-            if "Timestamp" not in btc.columns:
-                btc = btc.reset_index()
-                if "Timestamp" not in btc.columns:
-                    btc = btc.rename(columns={btc.columns[0]: "Timestamp"})
-
-            if {"Timestamp", "Close"}.issubset(btc.columns):
-                btc["Timestamp"] = pd.to_datetime(btc["Timestamp"], utc=True)
-                btc = btc.sort_values("Timestamp").reset_index(drop=True)
-                df = df.reset_index(drop=True)
-
-                df = pd.merge_asof(
-                    df.sort_values("Timestamp"),
-                    btc[["Timestamp", "Close"]].rename(columns={"Close": "BTC_Close"}),
-                    on="Timestamp",
-                    direction="backward",
-                )
-                df["RelStrength_BTC"] = df["Close"] / df["BTC_Close"]
-                df.drop(columns=["BTC_Close"], inplace=True)
-                df["RelStrength_BTC"] = df["RelStrength_BTC"].ffill().bfill()
-            else:
-                df["RelStrength_BTC"] = 1.0
-        else:
-            df["RelStrength_BTC"] = 1.0
-    except Exception as e:
-        logger.warning("⚠️ Failed to compute relative strength vs BTC: %s", e)
-        df["RelStrength_BTC"] = 1.0
+    rs = compute_relative_strength(df)
+    if rs is not None:
+        df["RelStrength_BTC"] = rs
 
     # ==== Higher timeframe aggregates (e.g., 4-hour candles) ====
     four_h_cols = ["SMA_4h", "MACD_4h", "Signal_4h", "Hist_4h"]
